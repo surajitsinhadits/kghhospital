@@ -1,0 +1,283 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Dashboard</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-md-8 py-2 px-3">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <div class="card-title card_hearder_mimi_text">Charges Catagory List</div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="example1" class="table table-borderless text-nowrap key-buttons dataTable no-footer" role="grid" aria-describedby="example1_info">
+                            <thead>
+                                <tr role="row">
+                                    <th>Sl. No</th>
+                                    <th>Catagory Name</th>
+                                    <th>Description</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr role="row" class="odd">
+                                    <td class="sorting_1">1</td>
+                                    <td>OPD FEES</td>
+                                    <td></td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/1"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/1"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="even">
+                                    <td class="sorting_1">2</td>
+                                    <td>PATHOLOGY</td>
+                                    <td></td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/10"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/10"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="odd">
+                                    <td class="sorting_1">3</td>
+                                    <td>RADIOLOGY</td>
+                                    <td></td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/11"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/11"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="even">
+                                    <td class="sorting_1">4</td>
+                                    <td>NON PATHOLOGY</td>
+                                    <td></td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/12"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/12"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="odd">
+                                    <td class="sorting_1">5</td>
+                                    <td>WARD AND ICU</td>
+                                    <td></td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/13"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/13"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="even">
+                                    <td class="sorting_1">6</td>
+                                    <td>Consultant Charges</td>
+                                    <td></td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/14"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/14"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="odd">
+                                    <td class="sorting_1">7</td>
+                                    <td>OTHERS</td>
+                                    <td></td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/15"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/15"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="even">
+                                    <td class="sorting_1">8</td>
+                                    <td>BED CHARGES</td>
+                                    <td>BED CHARGES</td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/16"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/16"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="odd">
+                                    <td class="sorting_1">9</td>
+                                    <td>OXYGEN</td>
+                                    <td>OXYGEN</td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/17"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/17"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr role="row" class="even">
+                                    <td class="sorting_1">10</td>
+                                    <td>MEDICINE</td>
+                                    <td>MEDICINE</td>
+                                    <td>
+                                        <div class="card-options">
+                                            <a href="#" class="btn btn-primary btn-sm"
+                                                data-toggle="dropdown" aria-haspopup="true"
+                                                aria-expanded="false">Action <i
+                                                    class="fa fa-caret-down"></i></a>
+                                            <div class="dropdown-menu dropdown-menu-right">
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/edit-charges-catagory-details/18"><i
+                                                        class="fa fa-edit"></i> Edit</a>
+
+                                                <a class="dropdown-item"
+                                                    href="http://localhost/rainbow/delete-charges-catagory-details/18"><i
+                                                        class="fa fa-trash"></i> Delete</a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 py-2 px-3">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <h4 class="card-title card_hearder_mimi_text">Add Charges Catagory</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="http://localhost/rainbow/save-charges-catagory-details">
+                        <input type="hidden" name="_token" value="tOK953T0rkCQCbOJcWxDjwABCOkZ7Wc41VByqB33">
+                        <div class="">
+                            <div class="form-group">
+                                <label for="charges_catagories_name" class="medicinelabel">Enter Charges Catagory name
+                                    <span class="text-danger">*</span></label>
+                                <input type="text" id="charges_catagories_name" name="charges_catagories_name"
+                                    placeholder="Enter Charges Caragory Name" value="" required="">
+                            </div>
+                            <div class="form-group ">
+                                <div class="descriptionadd">
+                                    <label for="description" class="descriptiononelabel">Description</label>
+                                    <input type="text" id="description" name="description" value="  ">
+                                    <small class="text-danger"></small>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-4 mb-0">Add Catagory</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+@endpush

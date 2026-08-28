@@ -1,0 +1,360 @@
+<?php
+
+namespace App\Http\Controllers\Store;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Yajra\Datatables\DataTables;
+use App\Models\StVendor;
+use App\Models\StItem;
+use App\Models\StPurchaseOrder;
+use App\Models\StPurchaseOrderItem;
+use Illuminate\Http\Request;
+use Exception;
+use DB;
+use App\Models\StVendorPrice;
+use App\Models\StVendorItemsPrice;
+
+class POController extends Controller
+{
+    public function listing_purchase_order(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = StPurchaseOrder::select(
+                'st_purchase_orders.*',
+                'v.vendor_name as vendor',
+                'u.name as created_by'
+            )
+            ->leftjoin('st_vendors  as v', 'v.id', '=', 'st_purchase_orders.vendor_id')
+            ->join('users as u', 'u.id', '=', 'st_purchase_orders.generated_by')
+            ->where('st_purchase_orders.is_delete', 0)
+            ->orderBy('st_purchase_orders.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="' . route('store.purchase-order-details', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    if(!$row->status){
+                        $actionBtn .= '<a href="'.route('store.edit-purchase-order', ed($row->id, true)).'" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('store.delete-purchase-order', ed($row->id, true)) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    }
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+            }
+       return view('store.purchase-order-list');
+    }
+    public function add_purchase_order()
+    {
+        $title = "Add";
+        $vendor = StVendor::where('is_active','1')->orderBy('id', 'desc')->get();
+        $item_list = StItem::where('is_active','1')->where('is_delete','0')->orderBy('id', 'desc')->get();
+        $data = compact('item_list','vendor','title');
+        // dd($data);
+        return view('store.add-purchase-order')->with($data);
+    }
+    public function edit_purchase_order($id)
+    {
+        $id = ed($id, false);
+        $title = "Edit";
+        $vendor = StVendor::where('is_active','1')->orderBy('id', 'desc')->get();
+        $item_list = StItem::where('is_active','1')->where('is_delete','0')->orderBy('id', 'desc')->get();
+        $response = StPurchaseOrder::where('id',$id)->first();
+        $item_details = StPurchaseOrderItem::select('st_purchase_order_items.*','st_items.sub_unit_no')
+            ->join('st_items','st_items.id','=','st_purchase_order_items.item_id')
+            ->where('st_purchase_order_items.po_id',$id)
+            ->where('st_purchase_order_items.is_delete',0)
+            ->get();
+        $data = compact('response','vendor','item_list','item_details','title');
+        // dd($data);
+        return view('store.add-purchase-order')->with($data);
+    }
+    public function purchase_order_details($id)
+    {
+        $id = ed($id, false);
+        $purchaseOrder = StPurchaseOrder::select(
+                'st_purchase_orders.*',
+                'v.vendor_name as vendor',
+                'u.name as created_by'
+            )
+            ->leftJoin('st_vendors  as v', 'v.id', '=', 'st_purchase_orders.vendor_id')
+            ->join('users as u', 'u.id', '=', 'st_purchase_orders.generated_by')
+            ->where('st_purchase_orders.id', $id)
+            ->where('st_purchase_orders.is_delete', 0)
+            ->where('st_purchase_orders.status', 0)
+            ->where('u.is_active', 1)
+            ->where('u.is_delete', 0)
+            ->first();
+
+        $item_list = StPurchaseOrderItem::select(
+                'st_purchase_order_items.*',
+                'st_items.item_name'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_purchase_order_items.item_id')
+            ->where('st_purchase_order_items.po_id', $id)
+            ->where('st_purchase_order_items.is_delete',0)
+            ->get();
+
+        $vendorPrice = StVendorPrice::select(
+                'st_vendor_price.id',
+                'st_vendor_price.po_id',
+                'st_vendor_price.vendor_id',
+                'st_vendors.vendor_name',
+                'st_vendor_price.total_price',
+            )
+            ->join('st_vendors', 'st_vendors.id', '=', 'st_vendor_price.vendor_id')
+            ->where('st_vendor_price.po_id', $id)
+            ->where('st_vendor_price.status', 0)
+            ->get() ?? null;
+
+        return view('store.purchase-order-info', compact('purchaseOrder', 'vendorPrice', 'item_list'));
+
+    }
+    public function update_purchase_order(Request $request, $id = 0)
+    {
+        $request->validate([
+            'po_date' => 'required',
+            // 'vendor_id' => 'required',
+        ]);
+        try {
+            DB::beginTransaction();
+
+            $po = $id ? StPurchaseOrder::find($id) : new StPurchaseOrder();
+            $po->po_date = date('Y-m-d H:i:s', strtotime($request->po_date));
+            $po->vendor_id = ($request->vendor_id) ? $request->vendor_id : 0;
+            $po->note = $request->note;
+            if($id){
+                $po->edit_by = Auth::user()->id;
+                $po->edit_at = date('Y-m-d h:i:s');
+            }else{
+                $po->generated_by = Auth::user()->id;
+            }
+            $po->save();
+            $po_id = $po->id;
+
+            $existingItemIds = StPurchaseOrderItem::where('po_id', $po_id)->pluck('id')->toArray();
+            $submittedItemIds = $request->item_detail_id ?? [];
+            $toDelete = array_diff($existingItemIds, $submittedItemIds);
+
+            if (!empty($toDelete)) {
+                StPurchaseOrderItem::whereIn('id', $toDelete)->update(['is_delete' => 1]);
+            }
+            foreach ($request->item_id as $key => $item_id) {
+                if($request->unit_qty[$key] == 0 && $request->sub_unit_qty[$key] == 0){
+                    DB::rollback();
+                    return back()->with('error', 'Unit & Subunit both are not zero');
+                }
+                $item_detail_id = $request->item_detail_id[$key]?? '';
+
+                $item = $item_detail_id
+                    ? StPurchaseOrderItem::find($item_detail_id)
+                    : new StPurchaseOrderItem();
+
+                $item->po_id           = $po_id;
+                $item->item_id         = $item_id;
+                $item->unit_qty        = $request->unit_qty[$key];
+                $item->unit_id         = $request->unit_id[$key];
+                $item->unit_name       = $request->unit_name[$key];
+                $item->sub_unit_qty    = $request->sub_unit_qty[$key];
+                $item->sub_unit_id     = $request->sub_unit_id[$key];
+                $item->sub_unit_name   = $request->sub_unit_name[$key];
+                $item->save();
+            }
+
+            DB::commit();
+            return redirect()->route('store.listing-purchase-order')->with('success', 'Purchase Order Saved Successfully!');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->with('error', 'Something went wrong. Try again!');
+        }
+    }
+    public function delete_purchase_order($id)
+    {
+        $id = ed($id, false);
+        $data = StPurchaseOrder::where('id',$id)->first();
+        if ($data) {
+            $data->update([
+                'is_delete' => 1
+            ]);
+            return redirect()->route('store.listing-purchase-order')->with('success', 'The Purchase Order Deleted Successfully');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+    public function get_po_details(Request $request)
+    {
+        $po_id = $request->po_id;
+        $po = StPurchaseOrder::find($po_id);
+        if ($po) {
+            $items = StPurchaseOrderItem::select('st_purchase_order_items.*', 'st_items.item_name', 'st_items.sub_unit_no')
+                ->join('st_items', 'st_items.id', '=', 'st_purchase_order_items.item_id')
+                ->where('st_purchase_order_items.po_id', $po_id)
+                ->where('st_purchase_order_items.is_delete', 0)
+                ->get();
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'po_date' => date('Y-m-d', strtotime($po->po_date)),
+                    'vendor_id' => $po->vendor_id,
+                    'note' => $po->note,
+                    'items' => $items
+                ]
+            ]);
+        } else {
+            return response()->json(['status' => false, 'message' => 'PO not found']);
+        }
+    }
+
+    public function vendorDashboard(){
+
+        $purchaseOrdersWithVendorId = StPurchaseOrder::select('st_purchase_orders.id', 'vp.id AS vendor_price_id', 'vp.total_price', 'st_purchase_orders.po_date')
+                          ->leftJoin('st_vendor_price AS vp', 'vp.po_id', '=', 'st_purchase_orders.id')
+                          ->where('vp.vendor_id', session('vendor_id'))
+                          ->where('st_purchase_orders.status', 0)
+                          ->get();
+
+        // print_r($purchaseOrders);die;
+        // if($purchaseOrders->count() == 0){
+
+        $purchaseOrdersWithOutVendorId = StPurchaseOrder::select('st_purchase_orders.id')
+                ->where('st_purchase_orders.vendor_id', 0)
+                ->where('st_purchase_orders.status', 0)
+                ->get();
+        // }
+
+        $purchaseOrders = $purchaseOrdersWithOutVendorId->merge($purchaseOrdersWithVendorId)->unique('id')->values();
+        // print_r($merged);die;
+
+        foreach( $purchaseOrders as $key => $purchaseOrder ){
+            $purchaseOrderItems[$key] = StPurchaseOrderItem::where('po_id', $purchaseOrder->id)->count();
+        }
+        // print_r($purchaseOrders);die;
+        return view('vendor-dashboard', compact('purchaseOrders', 'purchaseOrderItems'));
+
+    }
+
+    public function vendorPurchasedOrderItems($po_id){
+
+        $po_id = ed($po_id, false);
+        $purchaseOrder = StPurchaseOrder::select('id', 'po_date')->where('id', $po_id)->where('is_delete', 0)->where('status', 0)->firstOrFail();
+        $purchase_order_items = StPurchaseOrderItem::select(
+                'st_purchase_order_items.id',
+                'it.item_name',
+                'st_purchase_order_items.unit_qty',
+                'st_purchase_order_items.unit_name',
+                'st_purchase_order_items.sub_unit_qty',
+                'st_purchase_order_items.sub_unit_name',
+            )
+            ->join('st_items as it', 'it.id', '=', 'st_purchase_order_items.item_id')
+            ->join('st_purchase_orders as po', 'po.id', '=', 'st_purchase_order_items.po_id')
+            ->where('st_purchase_order_items.is_delete', 0)
+            ->where('st_purchase_order_items.po_id', $po_id)
+            ->orderBy('st_purchase_order_items.id', 'DESC')
+            ->get();
+
+        $edit = null;
+
+        return view('vendor-purchased-order-items', compact('purchase_order_items', 'purchaseOrder', 'edit'));
+
+    }
+
+    public function vendorPurchasedOrderItemsSave( Request $request, $id = 0 ){
+
+        $request->validate([
+            'item_price.*' => 'required|numeric|min:0',
+        ]);
+
+        $purchase_order_items = StPurchaseOrderItem::where('po_id', $request->po_id)->where('is_delete', 0)->get();
+        // print_r($purchase_order_items);die;
+        if( $purchase_order_items->count() > 0 ){
+
+            $id ? $vendorPrice = StVendorPrice::find($id) : $vendorPrice = new StVendorPrice();
+            $vendorPrice->po_id         = $request->po_id;
+            $vendorPrice->total_price   = $request->total_price;
+            $vendorPrice->vendor_id     = session('vendor_id');
+            $vendorPrice->save();
+
+            if( $id ){
+                StVendorItemsPrice::where('vendor_price_id', $vendorPrice->id)->delete();
+            }
+
+            foreach( $purchase_order_items as $item ){
+
+                $vendorItemsPrice = new StVendorItemsPrice();
+                $vendorItemsPrice->item_id           = $item->item_id;
+                $vendorItemsPrice->vendor_price_id   = $vendorPrice->id;
+                $vendorItemsPrice->unit_price        = $request->input('item_price')[$item->id];
+                $vendorItemsPrice->save();
+
+            }
+
+            return redirect()->route('vendor-dashboard')->with('success', 'Items saved successfully!');
+        } else {
+            return redirect()->route('vendor-purchased-order-items')->with('error', 'Someting wrong.');
+        }
+
+    }
+
+    public function vendorPurchasedOrderItemsEdit( $vp_id ){
+
+        $vp_id = ed($vp_id, false);
+        $edit = StVendorPrice::where('id', $vp_id)->where('status', 0)->first();
+        $edit_items = StVendorItemsPrice::where('vendor_price_id', $vp_id)->where('status', 0)->get();
+
+        $purchaseOrder = StPurchaseOrder::select('id', 'po_date')->where('id', $edit->po_id)->where('is_delete', 0)->where('status', 0)->firstOrFail();
+        $purchase_order_items = StPurchaseOrderItem::select(
+                'st_purchase_order_items.id',
+                'st_purchase_order_items.item_id',
+                'it.item_name',
+                'st_purchase_order_items.unit_qty',
+                'st_purchase_order_items.unit_name',
+                'st_purchase_order_items.sub_unit_qty',
+                'st_purchase_order_items.sub_unit_name',
+            )
+            ->join('st_items as it', 'it.id', '=', 'st_purchase_order_items.item_id')
+            ->join('st_purchase_orders as po', 'po.id', '=', 'st_purchase_order_items.po_id')
+            ->where('st_purchase_order_items.is_delete', 0)
+            ->where('st_purchase_order_items.po_id', $edit->po_id)
+            ->orderBy('st_purchase_order_items.id', 'DESC')
+            ->get();
+
+        return view('vendor-purchased-order-items', compact('purchase_order_items', 'edit', 'edit_items', 'purchaseOrder'));
+
+    }
+
+    public function purchase_order_items_price($id){
+
+        $id = ed($id, false);
+        $purchaseOrder = StPurchaseOrder::select('st_purchase_orders.id', 'st_purchase_orders.po_date')
+        ->join('st_vendor_price', 'st_vendor_price.po_id', '=', 'st_purchase_orders.id')
+        ->where('st_vendor_price.status', 0)->where('st_vendor_price.id', $id)->where('st_purchase_orders.is_delete', 0)->where('st_purchase_orders.status', 0)->firstOrFail();
+        // print_r($purchaseOrder);die;
+        $purchase_order_items = StVendorItemsPrice::select(
+                'it.item_name',
+                'st_vendor_items_price.unit_price'
+            )
+            ->join('st_items as it', 'it.id', '=', 'st_vendor_items_price.item_id')
+            ->join('st_vendor_price', 'st_vendor_price.id', '=', 'st_vendor_items_price.vendor_price_id')
+            ->where('st_vendor_items_price.status', 0)
+            ->where('st_vendor_price.id', $id)
+            ->orderBy('st_vendor_items_price.id', 'DESC')
+            ->get();
+        // print_r($purchase_order_items);die;
+        return view('store.purchase-order-items-price', compact('purchaseOrder', 'purchase_order_items'));
+
+    }
+
+    public function purchase_order_approved($id, $vendor_id){
+
+        $id = ed($id, false);
+        $vendor_id = ed($vendor_id, false);
+        $purchaseOrder = StPurchaseOrder::find($id);
+        $purchaseOrder->vendor_id = $vendor_id;
+        $purchaseOrder->save();
+
+        return redirect()->route('store.purchase-order-details', ['id' => ed($id, true)])->with('success', 'Purchase order approved successfully.');
+
+    }
+
+}

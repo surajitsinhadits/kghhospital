@@ -1,0 +1,190 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{$title}}</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <h4 class="card-title card_hearder_mimi_text">{{$title}}</h4>
+                </div>
+                <div class="card-body">
+                    <form class="form-horizontal" enctype="multipart/form-data" method="POST" action="{{Route('hr.update-doctor', @$edit->id)}}">
+                        @csrf
+                        <div class="col-md-12">
+                            <div class="row">
+                                <div class="card-body hospital_allcardbodydesign">
+                                    <div class="main-profile-bio mb-0">
+                                        <div class="row">
+                                            <div class="col-md-2 useradddone">
+                                                <label for="registation_id">Registration ID <small class="text-danger">*</small></label>
+                                                <input type="text" id="registation_id" name="registation_id" value="{{ old('registation_id', $edit->empId ?? '') }}">
+                                                @error('registation_id') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 useradddone">
+                                                <label class="form-label">Department <small class="text-danger">*</small></label>
+                                                <select class="form-control select2-show-search" name="department" id="department">
+                                                    <option value="">Select Department</option>
+                                                    @foreach ($departments as $dept)
+                                                    <option value="{{$dept->id}}" {{ old('department', $edit->department_id ?? '') == $dept->id ? 'selected' : '' }}>{{$dept->department_name}}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('department') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 useradddone">
+                                                <label>Salutation </label>
+                                                <select name="salutation" class="form-control" id="salutation">
+                                                    <option value="Dr." {{ old('salutation', $edit->salutation ?? '') == 'Dr.' ? 'selected' : '' }}>Dr.</option>
+                                                </select>
+                                                @error('salutation') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 useradddone">
+                                                <label for="name"> Name <small class="text-danger">*</small></label>
+                                                <input type="text" name="name" id="name" value="{{ old('name', $edit->name ?? '') }}">
+                                                @error('name') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 useradddone">
+                                                <label>Gender <small class="text-danger">*</small></label>
+                                                <select name="gender" class="form-control" id="gender">
+                                                    <option value="">Select Gender</option>
+                                                    <option value="Male" {{ old('gender', $edit->gender ?? '') == 'Male' ? 'selected' : '' }}>Male</option>
+                                                    <option value="Female" {{ old('gender', $edit->gender ?? '') == 'Female' ? 'selected' : '' }}>Female</option>
+                                                    <option value="Others" {{ old('gender', $edit->gender ?? '') == 'Others' ? 'selected' : '' }}>Others</option>
+                                                </select>
+                                                @error('gender') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 useradddone">
+                                                <label for="phone_no"> Phone <small class="text-danger">*</small></label>
+                                                <input type="text" maxlength="10" name="phone_no" id="phone_no" value="{{ old('phone_no', $edit->phone_no ?? '') }}">
+                                                @error('phone_no') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="address">Address </label>
+                                                <input type="text" name="address" id="address" value="{{ old('address', $edit->current_address ?? '') }}">
+                                                @error('address') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="qualification">Qualification</label>
+                                                <input type="text" name="qualification" id="qualification" value="{{ old('qualification', $edit->qualification ?? '') }}">
+                                                @error('qualification') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="experience">Work Experience</label>
+                                                <input type="text" name="experience" id="experience" value="{{ old('experience', $edit->experience ?? '') }}">
+                                                @error('experience') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="specialization">Specialization</label>
+                                                <input type="text" name="specialization" id="specialization" value="{{ old('specialization', $edit->specialization ?? '') }}">
+                                                @error('specialization') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label>Doctor Type <small class="text-danger">*</small></label>
+                                                <select name="doctor_type" class="form-control">
+                                                    <option value="Hospital-Doctor" {{ old('doctor_type', $edit->doctor_type ?? '') == 'Hospital-Doctor' ? 'selected' : '' }}>Hospital Doctor</option>
+                                                    <option value="Outside-Doctor" {{ old('doctor_type', $edit->doctor_type ?? '') == 'Outside-Doctor' ? 'selected' : '' }}>Outside Doctor</option>
+                                                    <option value="Out-Doctor" {{ old('doctor_type', $edit->doctor_type ?? '') == 'Out-Doctor' ? 'selected' : '' }}>Out Doctor</option>
+                                                </select>
+                                                @error('doctor_type') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="signature" class="form-label">Signature </label>
+                                                <input type="file" id="signature" name="signature">
+                                                <input type="hidden" id="old_signature" name="old_signature" value="{{$edit->signature ?? ''}}">
+                                                @error('signature') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-md-3 addchargedesign">
+                                                <label for="charges_catagory">Charge Category <small class="text-danger">*</small></label>
+                                                <select id="charges_catagory" class="form-control select2-show-search" name="charges_catagory" onchange="get_sub_category(this.value)">
+                                                    <option value="">Select Category</option>
+                                                    @foreach ($categories as $cat)
+                                                    <option value="{{$cat->id}}" {{ old('charges_catagory', $edit->category_id ?? '') == $cat->id ? 'selected' : '' }}>{{$cat->charges_catagories_name}}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('charges_catagory') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-3 addchargedesign">
+                                                <label for="charges_sub_catagory">Charges Sub-Category <small class="text-danger">*</small></label>
+                                                <select id="charges_sub_catagory" class="form-control select2-show-search" name="charges_sub_catagory">
+                                                    <option value="">Select Sub-Category</option>
+                                                    @foreach ($subCategories as $list)
+                                                    <option value="{{ $list->id }}"
+                                                        {{ @$edit->sub_category_id == $list->id ? 'selected' : '' }}>
+                                                        {{ $list->charges_catagories_name }}
+                                                    </option>
+                                                @endforeach
+                                                </select>
+                                                @error('charges_sub_catagory') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 addchargedesign">
+                                                <label for="doctor_fees">Doctor Fees</label>
+                                                <input type="text" name="doctor_fees" class="form-control" id="doctor_fees" value="{{ old('doctor_fees', $edit->doctor_fees ?? 0) }}">
+                                                @error('doctor_fees') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="row">
+                                            <div class="col-md-2 newuserchange">
+                                                <label>Doctor Charge Type</label>
+                                                <select name="commission_type" class="form-control">
+                                                    <option value="">Select Charge Type</option>
+                                                    <option value="rs" {{ old('commission_type', $edit->commission_type ?? '') == 'rs' ? 'selected' : '' }}>Rs</option>
+                                                    <option value="percentage" {{ old('commission_type', $edit->commission_type ?? '') == 'percentage' ? 'selected' : '' }}>%</option>
+                                                </select>
+                                                @error('commission_type') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="commission_amount">Doctor Charge Amount</label>
+                                                <input type="text" name="commission_amount" id="commission_amount" value="{{ old('commission_amount', $edit->commission_amount ?? '') }}">
+                                                @error('commission_amount') <span class="text-danger">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="card-body hospital_allcardbodydesign">
+                                    <button type="submit" class="btn btn-primary"><i class="fa fa-paper-plane mr-2"></i>{{$btn}}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+    <script>
+        const cat = @json(@$edit->category_id ?? old('charges_catagory'));
+        const subCat = @json(@$edit->sub_category_id ?? old('charges_sub_catagory'));
+        const docfee = @json(@$edit->doctor_fees ?? old('doctor_fees'));
+        if(subCat){
+            get_sub_category(cat, subCat);
+        }
+        function get_sub_category(cate_id, sub_cate_id = 0) {
+            var div_data = '';
+            $('#doctor_fees').val(docfee);
+            $('#charges_sub_catagory').html(`<option value="">Select Sub-Category</option>`);
+            $.ajax({
+                url: "{{Route('hr.sub-categories-res')}}/"+cate_id,
+                type: "GET",
+                success: function(response) {
+                    $.each(response, function(key, value) {
+                        div_data += `<option value="${value.id}" ${sub_cate_id == value.id ? 'selected' : ''}>${value.charges_catagories_name}</option>`
+                    });
+                    $('#charges_sub_catagory').append(div_data);
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+    </script>
+@endpush

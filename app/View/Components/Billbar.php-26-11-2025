@@ -1,0 +1,233 @@
+<?php
+
+namespace App\View\Components;
+
+use Illuminate\View\Component;
+
+use App\Models\Patient;
+use App\Models\Billing;
+use App\Models\IpdRegister;
+use App\Models\Referral;
+use App\Models\DialysisRegister;
+use App\Models\EmrMaster;
+use App\Models\OtPreparation;
+use App\Models\OtProgress;
+use App\Models\OtRegistration;
+use App\Models\OtScheduleDetail;
+use App\Models\OtSurgicalRequest;
+use App\Models\PatientCraditAmount;
+use App\Models\Payment;
+use App\Models\User;
+use App\Models\OpRecord;
+use App\Models\OpRegister;
+use DB;
+
+class Billbar extends Component
+{
+    public $section;
+    public $patient;
+    public $doctor;
+    public $due = 0;
+    public $credit = 0;
+    public $edit_status;
+    public $billid;
+    public $secid;
+    public $ipdinfo;
+    public $emr_info;
+    public $ipd_emr_info;
+    public $advance_details;
+    public $overall_advance_amount;
+    public $ot_info;
+    public $ot_request;
+    public $ot_preparation;
+    public $ot_schedule_confirmation;
+    public $ot_progress;
+    public $is_eye_power;
+    public $is_enquiry;
+
+
+    public function __construct($section, $id, $type)
+    {
+        $this->section = $section;
+        switch ($type) {
+            case 'bill':
+                // if (strtolower($this->section) == 'ot') {
+                //     $this->secid = $id;
+                //     break;
+                // }
+                $bill = Billing::find($id);
+                $this->patient = Patient::find($bill->patient_id);
+                if ($this->section != 'ot' && $this->section != 'op') {
+                    // $this->doctor = User::find(@$bill->doctor_id)->name ?? Referral::find(@$bill->referred_by)->referral_name;
+                    $this->doctor = optional(User::find($bill->doctor_id))->name ?? optional(Referral::find($bill->referred_by))->referral_name;
+                }
+
+                $this->billid = $id;
+                $this->secid = $bill->section_id;
+                $this->due = $bill->due_amount;
+                $this->credit = $bill->cradit_amount;
+                $this->edit_status = $bill->edit_status;
+                break;
+
+            case 'sec':
+                // if (strtolower($this->section) == 'ot') {
+                //     $this->secid = $id;
+                //     break;
+                // }
+                if ($this->section == 'ot') {
+                    $db = 'ot_registrations';
+                } else {
+                    $db = strtolower($this->section) . '_registers';
+                }
+                $ipd = DB::table($db)->where('id', $id)->first();
+                if( !empty($ipd->patient_id) ){
+                    $this->patient = Patient::find($ipd->patient_id);
+                }else{
+                    $this->patient = 0;
+                }
+
+                if ($this->section == 'ot') {
+                    $this->doctor == null;
+                } else {
+                    $this->doctor = optional(User::find(@$ipd->doctor_id))->name;
+                }
+                if($this->section == 'ipd'){
+                    $sep = strtolower(IpdRegister::find($id)->admission_type);
+                }else{
+                    $sep = $this->section;
+                }
+                $bill = Billing::where('section_id', $id)->where('section', $sep)->orderBY('id', 'DESC')->first();
+                $this->secid = $id;
+                if ($bill) {
+                    $this->billid = $bill->id;
+                    $this->due = $bill->due_amount;
+                    $this->credit = $bill->cradit_amount;
+                    $this->edit_status = $bill->edit_status;
+                } else {
+                    $this->billid = $this->due = $this->credit =  $this->edit_status = 0;
+                }
+                break;
+        }
+
+        if ($this->section == 'op'){
+
+            $this->is_eye_power = false;
+            $OpRecord = OpRecord::where('op_register_id', $this->secid)->first();
+            if($OpRecord){
+                $this->is_eye_power = true;
+            }
+
+            $this->is_enquiry = false;
+            $OpRegister = OpRegister::where('id', $this->secid)->first();
+            if( !empty($OpRegister->enquiry_id) ){
+                $this->is_enquiry = true;
+            }
+
+        }
+
+        if ($this->section == 'ipd') {
+            $this->ipdinfo = IpdRegister::select(
+                'b.bed_name',
+                'ipd_registers.admission_type',
+                'ipd_registers.admission_date',
+                'ipd_registers.discharge_status',
+                'ipd_registers.package_name',
+                'bi.uid',
+                'dr.discharge_date',
+                'dr.discharge_type'
+            )
+                ->leftJoinSub(
+                    DB::table('billings')
+                        ->selectRaw('MAX(uid) as uid, section_id')
+                        ->where('section', 'IPD')
+                        ->groupBy('section_id'),
+                    'bi',
+                    function ($join) {
+                        $join->on('bi.section_id', '=', 'ipd_registers.id');
+                    }
+                )
+                ->leftJoin('discharge_reports as dr', function ($join) {
+                    $join->on('dr.section_id', '=', 'ipd_registers.id')
+                        ->where('dr.section', '=', 'IPD');
+                })
+                ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+                ->where('ipd_registers.id', $this->secid)
+                ->first();
+            $emr_details = EmrMaster::where('section', $this->section)
+                ->where('section_id', $this->secid)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $payments = Payment::select('id', 'payment_date', 'payment_amount')
+                ->where('section_id', $this->secid)
+                ->where('section', 'ipd')
+                ->get();
+
+            $creditUsages = PatientCraditAmount::select('from_payment_id', DB::raw('SUM(amount) as used_amount'))
+                ->where('use_bill_id', $this->billid)
+                ->groupBy('from_payment_id')
+                ->get()
+                ->keyBy('from_payment_id');
+
+
+
+            $advance_amount_details = $payments->map(function ($payment) use ($creditUsages) {
+                $usedAmount = $creditUsages[$payment->id]->used_amount ?? 0;
+                $payment->remaining_amount = $payment->payment_amount - $usedAmount;
+                return $payment;
+            })->filter(function ($payment) {
+                return $payment->remaining_amount > 0;
+            });
+
+            // ✅ Add this block to compute overall remaining advance amount
+            $overall_advance_amount = $advance_amount_details->sum('remaining_amount');
+
+            $this->ipd_emr_info = $emr_details;
+            // $this->advance_details = $advance_amount_details;
+            $this->overall_advance_amount = $overall_advance_amount;
+        } elseif ($this->section == 'dialysis') {
+            $this->ipdinfo = DialysisRegister::select(
+                'b.bed_name',
+                'dialysis_registers.admission_date',
+                'bi.uid'
+            )
+                ->leftJoinSub(
+                    DB::table('billings')
+                        ->selectRaw('MAX(uid) as uid, section_id')
+                        ->where('section', 'DIALYSIS')
+                        ->groupBy('section_id'),
+                    'bi',
+                    function ($join) {
+                        $join->on('bi.section_id', '=', 'dialysis_registers.id');
+                    }
+                )
+                ->join('beds as b', 'b.id', '=', 'dialysis_registers.bed_id')
+                ->where('dialysis_registers.id', $this->secid)
+                ->first();
+        } elseif ($this->section == 'opd' || $this->section == 'emg') {
+            $emr_details = EmrMaster::where('section', $this->section)
+                ->where('section_id', $this->secid)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $this->emr_info = $emr_details;
+        } elseif (strtolower($this->section) == 'ot') {
+            $ot_info   = OtRegistration::where('id', $this->secid)->first();
+            $this->patient = Patient::find($ot_info->patient_id);
+            $this->ot_info = $ot_info;
+            $this->ot_request = OtSurgicalRequest::where('ot_reg_id', $ot_info->id)->first();
+            $this->ot_preparation = OtPreparation::where('ot_reg_id', $ot_info->id)->first();
+            $this->ot_schedule_confirmation = OtScheduleDetail::where('ot_reg_id', $ot_info->id)->first();
+            $this->ot_progress = OtProgress::where('ot_reg_id', $ot_info->id)->first();
+            $doctorIds = explode(',', $ot_info->cons_doc);
+
+
+            $this->doctor = User::whereIn('id', $doctorIds)->pluck('name')->implode(', ');
+        }
+    }
+
+    public function render()
+    {
+        return view('components.billbar');
+    }
+}

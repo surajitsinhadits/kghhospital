@@ -1,0 +1,426 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Add Enquiry</title>
+@endpush
+@push('css')
+<style>
+    .enquiry {
+        background-image: url('{{url("public/assets/images/enpqery.jpg")}}');
+        background-size: cover;
+        background-repeat: no-repeat; width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+    .enquiry-card {
+        width: 70%;
+        margin: auto;
+        margin-top: 12%;
+        box-shadow: 1px 3px 17px 9px rgb(83 84 7);
+    }
+    .newuserlisttchange, .newdesignadd {
+        margin: 10px 0px 0px 0px;
+    }
+</style>
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-md-12 enquiry">
+            <div class="enquiry-card">
+                <div class="card-header d-block card_hearder_mimi">
+                    <div class="row">
+                        <div class="col-md-6 card-title card_hearder_mimi_text"> NEW ENQUIRY </div>
+                        <div class="col-md-6 text-right">
+                            <div class="d-block">
+                                <a href="{{Route('opd.appointments')}}" class="btn btn-danger btn-sm">
+                                    <i class="fa fa-times"></i> Close
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0" style="background-color:#f7ffd0">
+                    <div class="opdneedit">
+                        <div class="row no-gutters">
+                            <div class="row no-gutters">
+                                <div class="col-lg-12 col-xl-12">
+                                    <form method="POST" id="yourFormId" action="{{Route('opd.save-enquiry')}}">
+                                        @csrf
+                                        <input type="hidden" name="slot_id" id="slot_id" value="{{ old('slot_id', @$slot['id']) }}">
+                                        <div class="options px-5 pt-1 pb-3">
+                                            <div class="row">
+                                                <div class="form-group col-md-3">
+                                                    <label for="department">Department</label>
+                                                    <select name="department" class="form-control select2-show-search" onchange="getDoctor(this.value)" id="department">
+                                                        <option value="all">All</option>
+                                                        @foreach ($department as $dept)
+                                                        <option value="{{$dept->id}}" {{ old('department', $user ? $user->department_id : '') == $dept->id ? 'selected' : '' }}>
+                                                            {{$dept->department_name}}
+                                                        </option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('department')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <label for="doctor">Doctor <span class="text-danger">*</span></label>
+                                                    <select name="doctor" onchange="getSchedule(this.value)" class="form-control select2-show-search" id="doctor">
+                                                        <option value="">Select Doctor</option>
+                                                        @foreach ($doctor as $doc)
+                                                        <option value="{{$doc->id}}" {{ old('doctor', $user ? $user->id : '') == $doc->id ? 'selected' : '' }}>
+                                                            Dr. {{$doc->name}}
+                                                        </option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('doctor')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <label class="date-format">Appointment Date <span class="text-danger">*</span></label>
+                                                    <input type="text" class="datePickr" name="appointment_date" id="appointment_date" value="{{ old('appointment_date', @$slot['date']) }}">
+                                                    @error('appointment_date')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <label class="date-format">Slot Time <span class="text-danger">*</span></label>
+                                                    <input type="text" class="timePickr" name="appointment_time" id="appointment_time" value="{{ old('appointment_time', @$slot['time']) }}">
+                                                    @error('appointment_time')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3 newaddappon">
+                                                    <label for="uhid">UHID</label>
+                                                    <input type="number" id="uhid" onkeyup="getPatient(this.value,'id')" value="{{ old('uhid') }}" name="uhid" class="form-control">
+                                                    @error('uhid')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3 newaddappon">
+                                                    <label for="phone1">Mobile No.</label>
+                                                    <input type="text" id="patient_ph_no" onkeyup="getPatient(this.value,'phone')" maxlength="10" name="phone" class="form-control" value="{{ old('phone') }}">
+                                                    @error('phone')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-6 custom-field" style="margin-top: 10px;">
+                                                    <label for="name">Name <span class="text-danger">*</span></label>
+                                                    <input type="text" id="name" class="text-capitalize" value="{{ old('name') }}" name="name" onkeyup="getPatient(this.value,'name')" autofocus>
+                                                    @error('name')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="col-md-12">
+                                                    <div class="card-body hospital_allcardbodydesign" style="display:none" id="search_result">
+                                                        <div class="">
+                                                            <div class="table-responsive">
+                                                                <table class="table table-hover card-table table-vcenter text-nowrap border" style="background-color:#d9d9d9;border:1px solid black !important">
+                                                                    <thead class="text-white" style="background-color:#5e6545">
+                                                                        <tr class="border-left">
+                                                                            <th class="text-white">UHID</th>
+                                                                            <th class="text-white">Patient Name</th>
+                                                                            <th class="text-white">Age</th>
+                                                                            <th class="text-white">Phone</th>
+                                                                            <th class="text-white">Address</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="search_result_row"></tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-group col-md-3 newuserlisttchange">
+                                                    <label for="gender">Gender <span class="text-danger">*</span></label>
+                                                    <select name="gender" class="form-control" id="gender">
+                                                        <option value="">Select Gender</option>
+                                                        <option value="Male" {{ old('gender') == 'Male' ? 'selected' : '' }}> Male</option>
+                                                        <option value="Female" {{ old('gender') == 'Female' ? 'selected' : '' }}> Female</option>
+                                                        <option value="Others" {{ old('gender') == 'Others' ? 'selected' : '' }}> Others</option>
+                                                    </select>
+                                                    @error('gender')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <div class="row">
+                                                        <div class="col-lg-4 newdesignadd">
+                                                            <label for="date_of_birth_year"> Year</label>
+                                                            <input type="text" id="date_of_birth_year" name="date_of_birth_year" value="{{ old('date_of_birth_year') }}">
+                                                            @error('date_of_birth_year')<small class="text-danger">{{$message}}</small>@enderror
+                                                        </div>
+                                                        <div class="col-lg-4 newdesignadd">
+                                                            <label for="date_of_birth_month"> Month</label>
+                                                            <input type="text" id="date_of_birth_month" name="date_of_birth_month" value="{{ old('date_of_birth_month') }}">
+                                                            @error('date_of_birth_month')<small class="text-danger">{{$message}}</small>@enderror
+                                                        </div>
+                                                        <div class="col-lg-4 newdesignadd">
+                                                            <label for="date_of_birth_day"> Day</label>
+                                                            <input type="text" id="date_of_birth_day" name="date_of_birth_day" value="{{ old('date_of_birth_day') }}">
+                                                            @error('date_of_birth_day')<small class="text-danger">{{$message}}</small>@enderror
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-6 newdesignadd">
+                                                    <label for="address"> Address</label>
+                                                    <input type="text" id="address" name="address" value="{{ old('address') }}">
+                                                    @error('address')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="text-center mt-2 mb-3">
+                                            <button class="btn btn-primary submitBtn" type="submit" name="save" value="new">
+                                                <i class="fa fa-file text-success"></i> Save &amp; New
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal" id="allslotwhenenq">
+        <div class="modal-dialog allslotwhenenq" role="document">
+            <div class="modal-content modal-content-demo">
+                <div class="modal-header">
+                    <h6 class="modal-title">Select Slot</h6>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="modelDelete()">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-md-flex">
+                        <div class="border" style="width: 25%;">
+                            <div class="panel panel-primary tabs-style-4">
+                                <div class="">
+                                    <div class="tabs-menu ">
+                                        <ul class="nav panel-tabs mt-2 ml-5 " id="all_slot"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tabs-style-4" style="width: 80%;">
+                            <div class="panel-body tabs-menu-body">
+                                <div class="tab-content">
+                                    <div class="row">
+                                        <span id="jhfhf" style="margin: 0px 0px 0px 290px;font-size: 20px;">No data found</span>
+                                    </div>
+                                    <div class="row" id="allvilable_unavi_slot"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+<script>
+	function getPatient(val,col) {
+		var div_data = '';
+		$('#search_result').attr('style', 'display:none', true);
+		$('#search_result_row').html('');
+		if (val && col) {
+			$.ajax({
+				url: "{{ route('opd.get-patients') }}",
+				type: "POST",
+				data: {
+					_token: '{{ csrf_token() }}',
+					field: col,
+					value: val,
+				},
+				success: function(response) {
+					if (response.success && (response.patients.length > 0)) {
+						$('#search_result').removeAttr('style', true);
+						$.each(response.patients, function(key, value) {
+                            let patientData = JSON.stringify(value).replace(/"/g, '&quot;');
+							div_data += `<tr class="color_hover_charnge" onclick="selectPatient('${patientData}')" style="cursor: pointer !important;">
+                                <td>${value.id}</td>
+                                <td>${value.name}</td>
+                                <td>${value.dob_year || 0}Y ${value.dob_month || 0}M ${value.dob_day || 0}D</td>
+                                <td>${value.phone}</td>
+                                <td>${value.address}</td>
+                            </tr>`;
+						});
+						$('#search_result_row').html(div_data);
+					}
+				},
+				error: function(error) {
+					console.log(error);
+				}
+			});
+		}
+	}
+
+    function selectPatient(data) {
+        let patient = JSON.parse(data);
+        $('#uhid').val(patient.id);
+        $('#name').val(patient.name);
+        $('#patient_ph_no').val(patient.phone);
+        $('#gender').val(patient.gender).trigger('change');
+        $('#date_of_birth_month').val(patient.dob_month);
+        $('#date_of_birth_day').val(patient.dob_day);
+        $('#date_of_birth_year').val(patient.dob_year);
+        $('#address').val(patient.address);
+        $('#search_result_row').html('');
+        $('#search_result').attr('style', 'display:none', true);
+    }
+
+    function getDoctor(department_id) {
+        if (department_id) {
+            $('#doctor').html('<option vaule="">Select Doctor</option>');
+            $.ajax({
+                url: "{{Route('opd.get-doctors')}}",
+                type: "POST",
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    dept_id: department_id,
+                },
+                success: function(response) {
+                    if (response.success && (response.doctors.length > 0)) {
+                        $.each(response.doctors, function(key, value) {
+                            $('#doctor').append(`<option value="${value.id}">${value.salutation} ${value.name}</option>`);
+                        });
+                    }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+    }
+
+    function getSchedule(doctor_id) {
+        if (doctor_id) {
+            $('#all_slot').html('');
+			$('#jhfhf').html('');
+			var div_data = '';
+			$.ajax({
+				url: "{{Route('opd.get-schedule')}}",
+				type: "POST",
+				data: {
+					_token: '{{ csrf_token() }}',
+					doctorId: doctor_id,
+				},
+				success: function(response) {
+                    if (response.success && (response.uniqueDates.length > 0)) {
+                        $.each(response.uniqueDates, function(key, value) {
+                            div_data += `<button onclick="getTimeSlot(${response.doctor_id},'${value}')" type="button" class="btn btn-primary" style="margin-bottom: 10px; padding:4px 14px; margin-right:7px;font-size:14px;">
+                                <i class="fa fa-calendar"></i> ${formatDate(value)}
+                            </button> `;
+                        });
+                    }
+					$('#all_slot').append(div_data);
+                    $('#department').val(response.department_id);
+				},
+				error: function(error) {
+					console.log(error);
+				}
+			});
+			$('#allslotwhenenq').modal('show');
+        }
+        function formatDate(inputDate) {
+
+			var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+			var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+			var parts = inputDate.split('-'); // Split the input date into year, month, and day parts
+			var day = parseInt(parts[2]);
+			var monthIndex = parseInt(parts[1]) - 1; // Months in JavaScript are 0-based
+			var year = parseInt(parts[0]);
+
+			// Create a Date object to get the day of the week
+			var formattedDate = new Date(year, monthIndex, day);
+			var dayOfWeek = days[formattedDate.getDay()];
+
+			// Format the date as desired (e.g., '15 Jan 2022 (Sat)')
+			var formattedDateString = day + ' ' + months[monthIndex] + ' ' + year + ' <br>' + dayOfWeek;
+			return formattedDateString;
+		}
+    }
+
+    function getTimeSlot(doctor, dat) {
+        if(doctor && dat){
+            $('#allvilable_unavi_slot').html('');
+            $('#jhfhf').html('');
+            var div_data = '';
+            $.ajax({
+                type: 'POST',
+                url: "{{ Route('opd.get-timeslot') }}",
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    doctor_id: doctor,
+                    date: dat,
+                },
+                success: function(response) {
+                    if (response.success && (response.uniqueDates_withtiming.length > 0)) {
+                        $('#jhfhf').html(response.p_date + ' ( ' + response.p_day + ' ) ');
+                        $.each(response.uniqueDates_withtiming, function(key, value) {
+                            div_data += `<div class="col-xl-3 col-lg-3 col-md-12">
+                                ${parseInt(value.booked) < parseInt(value.patient_per_slot) ? `<a href="#" onclick="selectedSlot('${response.a_date}','${value.from_time}',${value.id})">
+                                        <div class="card3 mt-2">
+                                            <div class="card-body1">
+                                                <i class="mdi mdi-clock card-custom-icon icon-dropshadow-warning text-secondary fs-20"></i>
+                                                <h2 class="mb-1 font-weight-bold">${formatTime(value.from_time)} - ${formatTime(value.to_time)}</h2>
+                                                <span class="text-success" style="margin-left: 43%;">
+                                                    <b>${value.booked}</b>
+                                                </span> /
+                                                <span class="text-success">
+                                                    <b>${value.patient_per_slot}</b>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </a>` : `<div class="card4 mt-2" style="background-color: aquamarine !important;">
+                                    <div class="card-body1">
+                                        <i class="mdi mdi-clock card-custom-icon icon-dropshadow-warning text-secondary fs-20"></i>
+                                        <h2 class="mb-1 font-weight-bold">${formatTime(value.from_time)} - ${formatTime(value.to_time)}</h2>
+                                        <span class="text-success" style="margin-left: 43%;">
+                                            <b>${value.booked}</b>
+                                        </span> /
+                                        <span class="text-success">
+                                            <b>${value.patient_per_slot}</b>
+                                        </span>
+                                    </div>
+                                </div>`}
+                            </div>`;
+                        });
+                        $('#allvilable_unavi_slot').append(div_data);
+                    }
+                },
+                error: function(error) {
+                    console.error(error);
+                }
+            });
+        }
+
+		function formatTime(time) {
+			var formattedTime = '';  // Convert the time string to a Date object
+			var dateObj = new Date('1970-01-01T' + time + ':00');  // Get hours and minutes from the Date object
+			var hours = dateObj.getHours();
+			var minutes = dateObj.getMinutes();
+			var amOrPm = hours >= 12 ? 'PM' : 'AM';  // Determine if it's AM or PM
+			hours = hours % 12;  // Convert to 12-hour format
+			hours = hours ? hours : 12; // Handle 0 hours (midnight)
+			var formattedHours = hours < 10 ? '0' + hours : hours;  // Format hours and minutes as two digits (e.g., 08 instead of 8)
+			var formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
+			formattedTime = formattedHours + ':' + formattedMinutes + ' ' + amOrPm;  // Construct the formatted time string
+			return formattedTime;
+		}
+	}
+
+    function selectedSlot(date, time, slot_id) {
+        $('#allslotwhenenq').modal('hide');
+        $('#appointment_date').val(date);
+        let [h, m] = time.split(':');
+        $('#appointment_time').val(`${(h % 12) || 12}:${m} ${h < 12 ? 'AM' : 'PM'}`);
+        $('#slot_id').val(slot_id);
+    }
+
+    function modelDelete() {
+		$('#allvilable_unavi_slot').html('');
+		$('#jhfhf').html('');
+		$('#all_slot').html('');
+		$('#allslotwhenenq').modal('hide');
+	}
+</script>
+@endpush

@@ -1,0 +1,318 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{ $title }}</title>
+@endpush
+
+@push('css')
+    <style>
+        tfoot th {
+            background: #f8fafc !important;
+            font-weight: 800;
+        }
+    </style>
+@endpush
+
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <h4 class="card-title card_hearder_mimi_text">DUE REPORTS</h4>
+                </div>
+
+                <div class="card-body">
+                    <div class="col-md-12 border-right">
+                        <form method="GET" action="{{ $action }}">
+                            @php
+                                $exportQuery = http_build_query(
+                                    array_filter(
+                                        [
+                                            'section' => $request_data['section'] ?? null,
+                                            'insurance_type' => $request_data['insurance_type'] ?? null,
+                                            'from_date' => $request_data['from_date'] ?? null,
+                                            'to_date' => $request_data['to_date'] ?? null,
+                                        ],
+                                        fn($value) => $value !== null && $value !== '',
+                                    ),
+                                );
+                            @endphp
+
+                            <div class="whitebackground">
+                                <div class="row">
+                                    <div class="col-sm-2">
+                                        <div class="form-group">
+                                            <select name="section" id="section" class="form-control">
+                                                <option value="">Select Section</option>
+                                                @foreach (['OPD', 'EMG', 'IPD', 'DAYCARE', 'INVESTIGATION', 'OT', 'OP'] as $sec)
+                                                    <option value="{{ $sec }}"
+                                                        {{ @$request_data['section'] == $sec ? 'selected' : '' }}>
+                                                        {{ $sec == 'OP' ? 'OPTICAL' : $sec }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @error('section')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="col-sm-2">
+                                        <select id="insurance_type" name="insurance_type" class="form-group select2-show-search">
+                                            <option value="">Select TPA Type</option>
+                                            @foreach ($tpa as $type)
+                                            <option value="{{ $type->id }}" {{ @$request_data['insurance_type'] == $type->id ? 'selected' : '' }}>{{ $type->tpa_name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('insurance_type')
+                                        <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-sm-2">
+                                        <div class="form-group">
+                                            <input type="text" class="form-control datePickr"
+                                                value="{{ dateFor(@$request_data['from_date']) }}" id="fromDate"
+                                                name="from_date" placeholder="Choose From Date">
+                                            @error('from_date')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="col-sm-2">
+                                        <div class="form-group">
+                                            <input type="text" class="form-control datePickr"
+                                                value="{{ dateFor(@$request_data['to_date']) }}" id="toDate"
+                                                name="to_date" placeholder="Choose To Date">
+                                            @error('to_date')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="col-sm-4">
+                                        <div class="form-group d-flex">
+                                            <button type="submit" class="btn btn-primary px-3 mr-2">
+                                                <i class="fas fa-search"></i> Search
+                                            </button>
+
+                                            <a href="{{ $action }}" class="btn btn-warning px-3 mr-2">
+                                                <i class="fas fa-history"></i> Reset
+                                            </a>
+
+                                            <a href="{{ route('reports.due-reports.export', ['format' => 'excel']) }}@if ($exportQuery)?{{ $exportQuery }}@endif"
+                                                class="btn btn-success px-3">
+                                                <i class="fas fa-file-excel"></i> Excel
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="whitebackground">
+                        <table class="table table-bordered table-striped" id="myTable">
+                            <thead>
+                                <tr>
+                                    <th>SL</th>
+                                    <th>Bill ID</th>
+                                    <th>Bill Date</th>
+                                    <th>Patient Name</th>
+                                    <th class="text-right">Net Amount</th>
+                                    <th class="text-right">Paid Amount</th>
+                                    <th class="text-right">Due Amount</th>
+                                    <th class="text-right">Insurance Type</th>
+                                    <th>Created By</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach ($result as $key => $item)
+                                    <tr>
+                                        <td>{{ $key + 1 }}</td>
+                                        <td>
+                                            <a href="{{ route('bill.billing-details', [$item->section == 'DAYCARE' ? 'ipd' : strtolower($item->section), ed($item->id, true)]) }}">
+                                                {{ $item->uid }}
+                                                <span class="badge badge-gradient-primary mx-2">{{ $item->section }}</span>
+                                            </a>
+                                        </td>
+                                        <td>{{ dateFor($item->bill_date, true) }}</td>
+                                        <td>{{ strtoupper($item->patient_name) }} ({{ $item->patient_uhid ?? $item->patient_id }})</td>
+                                        <td class="text-right">₹{{ number_format($item->grand_total, 2) }}</td>
+                                        <td class="text-right">₹{{ number_format($item->total_payment, 2) }}</td>
+                                        <td class="text-right">₹{{ number_format($item->due_amount, 2) }}</td>
+                                        <td class="text-right">{{ $item->tpa_name }}</td>
+                                        <td>{{ $item->created_by_name }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+
+                            {{-- ✅ TOTALS IN TABLE FORMAT (BOTTOM) --}}
+                            <tfoot>
+                                <tr>
+                                    <th style="font-weight: bold;" colspan="4" class="text-right" >TOTAL</th>
+                                    {{-- default total from backend (after GET filter) --}}
+                                    <th class="text-right" id="sumNetCell" style="font-weight: bold;">₹{{ number_format($sumNet ?? 0, 2) }}</th>
+                                    <th class="text-right" id="sumPaidCell" style="font-weight: bold;">₹{{ number_format($sumPaid ?? 0, 2) }}</th>
+                                    <th class="text-right" id="sumDueCell" style="font-weight: bold;">₹{{ number_format($sumDue ?? 0, 2) }}</th>
+                                    <th colspan="2"></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('js')
+    <script>
+        $(function() {
+
+            function ts() {
+                const d = new Date();
+                return d.toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            }
+
+            // ✅ read value from cell html/text safely
+            function toNumber(val) {
+                if (val == null) return 0;
+
+                // if val is html, convert to text
+                const text = $('<div>').html(val).text();
+
+                const n = String(text).replace(/[^\d.-]/g, '');
+                const f = parseFloat(n);
+                return isNaN(f) ? 0 : f;
+            }
+
+            function formatINR(amount) {
+                try {
+                    return amount.toLocaleString('en-IN', {
+                        style: 'currency',
+                        currency: 'INR',
+                        minimumFractionDigits: 2
+                    });
+                } catch (e) {
+                    return '₹' + (amount || 0).toFixed(2);
+                }
+            }
+
+            const reportTitle = @json($title ?? 'Due Reports');
+            const generatedAt = new Date().toLocaleString();
+
+            const table = $('#myTable').DataTable({
+                pageLength: 50,
+                dom: "<'row mb-2'<'col-sm-6'B><'col-sm-6'f>>" +
+                    "tr" +
+                    "<'row mt-2'<'col-sm-5'i><'col-sm-7'p>>",
+                buttons: [{
+                        extend: 'excelHtml5',
+                        text: 'Download Excel',
+                        title: 'Due Reports',
+                        filename: 'due-reports_' + ts(),
+                        exportOptions: {
+                            columns: ':visible:not(.no-export)'
+                        },
+                        customizeData: function(data) {
+                            for (let i = 0; i < data.body.length; i++) {
+                                [4, 5, 6].forEach(idx => {
+                                    if (data.body[i][idx] != null) {
+                                        data.body[i][idx] = String(data.body[i][idx]).replace(/[^\d.-]/g, '');
+                                    }
+                                });
+                            }
+                        }
+                    },
+                    {
+                        extend: 'pdfHtml5',
+                        text: 'Download PDF',
+                        title: 'Due Reports',
+                        filename: 'due-reports_' + ts(),
+                        orientation: 'landscape',
+                        pageSize: 'A4',
+                        exportOptions: {
+                            columns: ':visible:not(.no-export)'
+                        },
+                        customize: function(doc) {
+                            doc.defaultStyle.fontSize = 10;
+                            doc.styles.tableHeader.fontSize = 12;
+
+                            doc.footer = function() {
+                                return {
+                                    margin: [40, 0, 40, 20],
+                                    columns: [{
+                                            text: 'Generated: ' + generatedAt,
+                                            alignment: 'left',
+                                            fontSize: 9,
+                                            color: '#666'
+                                        },
+                                        {
+                                            text: '',
+                                            alignment: 'center'
+                                        },
+                                        {
+                                            text: '',
+                                            alignment: 'right'
+                                        }
+                                    ]
+                                };
+                            };
+
+                            // make widths auto
+                            if (doc.content && doc.content[1] && doc.content[1].table) {
+                                doc.content[1].table.widths =
+                                    Array(doc.content[1].table.body[0].length).fill('*');
+                            }
+                        }
+                    },
+                    {
+                        extend: 'print',
+                        text: 'Print',
+                        exportOptions: {
+                            columns: ':visible:not(.no-export)'
+                        }
+                    },
+                    {
+                        extend: 'colvis',
+                        text: 'Columns'
+                    }
+                ],
+                initComplete: function() {
+                    updateFooterSums(); // ✅ initial
+                }
+            });
+
+            // ✅ sum using DataTables columns (works best)
+            function updateFooterSums() {
+                const net = table.column(4, {
+                    search: 'applied'
+                }).data().reduce((a, b) => a + toNumber(b), 0);
+
+                const paid = table.column(5, {
+                    search: 'applied'
+                }).data().reduce((a, b) => a + toNumber(b), 0);
+
+                const due = table.column(6, {
+                    search: 'applied'
+                }).data().reduce((a, b) => a + toNumber(b), 0);
+
+                $('#sumNetCell').text(formatINR(net));
+                $('#sumPaidCell').text(formatINR(paid));
+                $('#sumDueCell').text(formatINR(due));
+            }
+
+            // ✅ update totals on every draw (search, paginate, order)
+            table.on('draw.dt', function() {
+                updateFooterSums();
+            });
+
+            table.on('column-visibility.dt', function() {
+                updateFooterSums();
+            });
+        });
+    </script>
+@endpush

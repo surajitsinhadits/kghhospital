@@ -1,0 +1,593 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Requisition</title>
+@endpush
+@push('css')
+@endpush
+
+@section('main-content')
+<div class="row">
+    <div class="card">
+        <div class="card-header d-block card_hearder_mimi">
+            <div class="row">
+                <div class="col-md-6 card-title card_hearder_mimi_text">
+                    {{$title}} Requisition
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <form method="POST" action="{{route('store.update-requisition', ['id' => @$response->id ?? 0, 'type' => $type ?? ''])}}"
+                id="yourFormId"
+                data-require-items="@php echo ((!empty($type) && $type == 'default') || empty($type)) ? '1' : '0'; @endphp">
+                @csrf
+
+                <div class="card-body" style="margin:-6px;">
+                    <div class="col-md-12">
+                        <div class="row">
+                            <div class="col-md-2 mt-3">
+                                <label class="date-format">Date <span class="text-danger">*</span></label>
+                                <input type="text" class="dateTimePickr"
+                                    name="requisition_date" id="requisition_date"
+                                    value="{{ old('po_date', @($response->requisition_date) ? \Carbon\Carbon::parse($response->requisition_date)->format('d-m-Y h:i A') : date('d-m-Y h:i A')) }}" required />
+                                @error('requisition_date')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-5 mt-3">
+                                <label class="form-label ">Department <span class="text-danger">*</span></label>
+                                <select name="department_id" id="department_id" class="form-control select2-show-search" required>
+                                    <option value="">Select One.....</option>
+                                    @foreach ($department as $value)
+                                        <option value="{{ @$value->id }}" {{ @$response->department_id == $value->id ? 'selected' : '' }}>{{ @$value->department_name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('department_id')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-3 mt-3">
+                                <label class="form-label">Stored <span class="text-danger">*</span></label>
+                                <select name="store_id" class="form-control select2-show-search" required>
+                                    <option value="">Select One</option>
+                                    @if(isset($store))
+                                        @foreach($store as $value)
+                                            <option value="{{$value->id}}" {{ old('store_id',@$response->store_id) == $value->id ? 'selected' : '' }}>{{$value->store_name}}</option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                                @error('store_id')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="table-responsive">
+                            <table class="table card-table table-vcenter text-nowrap border" id="data-table">
+                                <thead class="bg-primary text-white">
+                                    <tr>
+                                        <th class="text-white" style="width: 30%">Item Name <span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Unit<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Sub Unit<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Unit Price<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Department QTY<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Total QTY<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Total Price<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 2%"></th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="chargeTable">
+                                    @if( (!empty($type) && $type == 'default') || empty($type) )
+                                    <tr>
+                                        <td>
+                                            <select class="form-control select2-show-search item_id" name="item_id" onchange="getItemDetails(this.value, this)">
+                                                <option value="">Select One.....</option>
+                                                @foreach ($item_list as $value)
+                                                    <option data-price="{{ $value->item_unit_price }}" data-sub-unit-no="{{ $value->sub_unit_no }}" value="{{ $value->id }}">{{ $value->item_name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+
+                                        <td>
+                                            <div class="input-group mt-1">
+                                                <input style="padding-left: 0.50rem;" onkeyup="priceCalculations(this);" class="form-control col-7 unit_qty" type="number" min="0" name="unit_qty" value="0" step="0.1" placeholder="Qty" />
+                                                <input class="form-control col-5 unit" style="padding-left: 0.50rem;" readonly type="text" name="unit_name" value="" placeholder="Unit" />
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <div class="input-group mt-1" style="width: 100%;">
+                                                <input class="form-control col-7 sub_unit_qty" onkeyup="priceCalculations(this);" type="number" min="0" style="padding-left: 0.50rem;" name="sub_unit_qty" value="0" step="0.1" placeholder="Sub Qty" />
+                                                <input class="form-control col-5 sub_unit" readonly type="text" name="sub_unit_name" value="" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <input class="form-control item_price" readonly type="text" name="item_price" value="0" />
+                                        </td>
+
+                                        <td>
+                                            <input class="form-control dept_qty" readonly type="text" name="dept_qty" value="0" />
+                                        </td>
+
+                                        <td>
+                                            <input class="form-control tot_qty" readonly type="text" name="tot_qty" value="0" />
+                                        </td>
+
+                                        <td>
+                                            <input class="form-control total_price" readonly type="text" name="total_price" value="0" />
+                                        </td>
+
+                                        <td>
+                                            <button class="btn btn-success btn-sm" type="button" onclick="validation(this)">+</button>
+                                        </td>
+
+                                        <input type="hidden" class="unit_id" name="unit_id" />
+                                        <input type="hidden" class="sub_unit_id" name="sub_unit_id" />
+                                    </tr>
+                                    @endif
+
+                                    @foreach(@$item_details ?? [] as $key => $item)
+                                        <tr>
+                                            <td>
+                                                <select class="form-control select2-show-search item_id" name="item_id[]">
+                                                    <option value="">Select One.....</option>
+                                                    @foreach ($item_list as $value)
+                                                        <option data-price="{{ $value->item_unit_price }}"
+                                                                data-sub-unit-no="{{ $value->sub_unit_no }}"
+                                                                value="{{ $value->id }}"
+                                                                {{ @$item->item_id == $value->id ? 'selected' : '' }}>
+                                                            {{ @$value->item_name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+
+                                            <td>
+                                                <div class="input-group mt-1">
+                                                    <input style="padding-left: 0.50rem;" class="form-control col-7"
+                                                           onkeyup="valueCalculations(this); updateGrandTotal();"
+                                                           type="number" step="0.1" min="0"
+                                                           name="unit_qty[]" value="{{ @$item->unit_qty }}" placeholder="Qty" />
+                                                    <input class="form-control col-5" style="padding-left: 0.50rem;" readonly
+                                                           type="text" name="unit_name[]" value="{{ @$item->unit_name }}" placeholder="Unit" />
+                                                </div>
+                                            </td>
+
+                                            <td>
+                                                <div class="input-group mt-1" style="width: 100%;">
+                                                    <input class="form-control col-7" type="number" step="0.1" min="0"
+                                                           style="padding-left: 0.50rem;"
+                                                           onkeyup="valueCalculations(this); updateGrandTotal();"
+                                                           name="sub_unit_qty[]" value="{{ @$item->sub_unit_qty }}" placeholder="Sub Qty" />
+                                                    <input class="form-control col-5" readonly type="text"
+                                                           name="sub_unit_name[]" value="{{ @$item->sub_unit_name }}"
+                                                           style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                                </div>
+                                            </td>
+
+                                            <td>
+                                                <input type="text" name="item_price[]" class="form-control item_price_row" readonly value="{{ @$item->item_unit_price }}">
+                                            </td>
+
+                                            <td>
+                                                <input type="text" name="dept_qty[]" class="form-control" readonly value="0">
+                                            </td>
+
+                                            <td>
+                                                <input type="text" name="tot_qty[]" class="form-control" readonly value="0">
+                                            </td>
+
+                                            <td>
+                                                <input type="text" name="total_price[]" class="form-control total_price_row" readonly value="{{ @$item->total_price }}">
+                                            </td>
+
+                                            @php if( (!empty($type) && $type == 'default') || empty($type) ): @endphp
+                                            <td>
+                                                <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+                                            </td>
+                                            @php endif @endphp
+
+                                            <input type="hidden" name="unit_id[]" value="{{ @$item->unit_id }}">
+                                            <input type="hidden" name="sub_unit_id[]" value="{{ @$item->sub_unit_id }}">
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6" class="text-right fw-bold">Grand Total</td>
+                                        <td>
+                                            <input type="text" id="grand_total" class="form-control fw-bold" readonly value="0.00">
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-5">
+                        <div class="col-md-6 mt-3">
+                            <label class="form-label" style="margin: 3px 0px 0px 0px">Note</label>
+                            <textarea class="form-control" name="note">{{ @$response->note }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="save_action" id="saveAction">
+
+                @if( in_array(@$response->is_given, [1,2]) || @$response->is_given === null )
+                <div class="text-center mb-4">
+                        @if( !empty($type) && $type == 'approve' )
+                            @if(auth()->id() == 596)
+                                <button
+                                    type="submit"
+                                    onclick="setAction(0)"
+                                    class="btn btn-primary px-5"
+                                    data-form-submit="true"
+                                    name="action_button"
+                                    value="approved"
+                                >Approved</button>
+                            @endif
+                            <a href="{{ route('store.listing-requisition-approved') }}" class="btn btn-link px-5">Back To List</a>
+                        @elseif( !empty($type) && $type == 'verify' )
+                            <button
+                                type="submit"
+                                onclick="setAction(2)"
+                                class="btn btn-primary px-5"
+                                data-form-submit="true"
+                                name="action_button"
+                                value="verify"
+                            >Save & Verify</button>
+                            <button
+                                type="submit"
+                                onclick="setAction(3)"
+                                class="btn btn-danger px-5"
+                                data-form-submit="true"
+                                name="action_button"
+                                value="reject"
+                            >Reject</button>
+                        @else
+                            <button
+                                type="submit"
+                                onclick="setAction(1)"
+                                class="btn btn-primary px-5"
+                                data-form-submit="true"
+                                name="action_button"
+                                value="save"
+                            >Save</button>
+                        @endif
+                    </div>
+                @endif
+
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+
+@push('js')
+<script type="text/javascript">
+
+    function setAction(value) {
+        document.getElementById('saveAction').value = value;
+    }
+
+    function getItemDetails(item_id, element) {
+
+        var dept = document.getElementById('department_id');
+        if( !dept || !dept.value ) {
+            alert('Please select a department first and again select item.');
+            element.value = '';
+            return;
+        }
+        var department_id = dept.value;
+
+        if (item_id !== '' && department_id !== '') {
+            $.ajax({
+                url: "{{ route('store.get-item-unit-and-sub-unit') }}",
+                type: "POST",
+                data: {
+                    itemId: item_id,
+                    departmentId: department_id,
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(res) {
+                    let row = $(element).closest('tr');
+
+                    let selectedOption = element.options[element.selectedIndex];
+                    let price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+
+                    row.find('.unit').val(res.unit || '');
+                    row.find('.sub_unit').val(res.sub_unit || '');
+                    row.find('.unit_id').val(res.unit_id || '');
+                    row.find('.sub_unit_id').val(res.sub_unit_id || '');
+                    row.find('.sub_unit_qty').attr('max', (res.sub_unit_no || 0) - 1);
+
+                    row.find('.unit_qty').val(1);
+                    row.find('input[name="item_price"]').val(price.toFixed(2));
+                    row.find('input[name="total_price"]').val(price.toFixed(2));
+
+                    row.find('input[name="dept_qty"]').val(res.dept_unit || 0);
+                    row.find('input[name="tot_qty"]').val(res.total_unit || 0);
+
+                    updateGrandTotal();
+                },
+                error: function() {
+                    let row = $(element).closest('tr');
+                    row.find('.unit').val('');
+                    row.find('.sub_unit').val('');
+                    updateGrandTotal();
+                }
+            });
+        }
+    }
+
+    // ✅ First row total calculation
+    function priceCalculations(input) {
+        let row = input.closest('tr');
+        let select = row.querySelector('.item_id');
+        if(!select) return;
+
+        let selectedOption = select.options[select.selectedIndex];
+        let unitQty = parseFloat(row.querySelector('[name="unit_qty"]').value) || 0;
+        let subUnitQty = parseFloat(row.querySelector('[name="sub_unit_qty"]').value) || 0;
+
+        let unitPrice = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        let subUnitNo = parseFloat(selectedOption.getAttribute('data-sub-unit-no')) || 0;
+
+        let totalPrice = (unitQty * unitPrice) + (subUnitNo > 0 ? (subUnitQty * (unitPrice / subUnitNo)) : 0);
+
+        $(row).find('input[name="total_price"]').val(totalPrice.toFixed(2));
+        $(row).find('input[name="item_price"]').val(unitPrice.toFixed(2));
+
+        updateGrandTotal();
+    }
+
+    // ✅ Existing rows calculation (EDIT PAGE FIX)
+    function valueCalculations(input) {
+        let row = input.closest('tr');
+
+        // ✅ read price from item_price[] input (works on edit page)
+        let unitPrice = parseFloat(row.querySelector('[name="item_price[]"]')?.value) || 0;
+
+        // sub unit no from selected option if present
+        let select = row.querySelector('[name="item_id[]"]');
+        let subUnitNo = 0;
+        if(select && select.options.length){
+            let opt = select.options[select.selectedIndex];
+            subUnitNo = parseFloat(opt.getAttribute('data-sub-unit-no')) || 0;
+        }
+
+        let unitQty = parseFloat(row.querySelector('[name="unit_qty[]"]')?.value) || 0;
+        let subUnitQty = parseFloat(row.querySelector('[name="sub_unit_qty[]"]')?.value) || 0;
+
+        let totalPrice = (unitQty * unitPrice) + (subUnitNo > 0 ? (subUnitQty * (unitPrice / subUnitNo)) : 0);
+
+        row.querySelector('[name="total_price[]"]').value = totalPrice.toFixed(2);
+
+        updateGrandTotal();
+    }
+
+    function validation(input) {
+
+        var row = $('#chargeTable').find('tr:first');
+        var itemSelect = row.find('.item_id').val();
+        var unitQtyInput = row.find('.unit_qty');
+        var subUnitQtyInput = row.find('.sub_unit_qty');
+        var unitQty = parseFloat(unitQtyInput.val());
+        var subUnitQty = parseFloat(subUnitQtyInput.val());
+        var maxSubUnitQty = parseFloat(subUnitQtyInput.attr('max'));
+
+        if (itemSelect === '') {
+            alert('Please Select an Item & Unit!');
+        } else if (unitQty <= 0 && subUnitQty <= 0) {
+            alert('Please Select Unit or Subunit!');
+        } else if (!isNaN(maxSubUnitQty) && subUnitQty > maxSubUnitQty) {
+            alert('Sub Unit Qty cannot exceed the maximum allowed value (' + maxSubUnitQty + ')!');
+        } else {
+            addNewrow(input);
+        }
+    }
+
+    function addNewrow(input) {
+
+        let row = input.closest('tr');
+        let select = row.querySelector('[name="item_id"]');
+        let selectedOption = select.options[select.selectedIndex];
+
+        let unitPrice = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        let subUnitNo = parseFloat(selectedOption.getAttribute('data-sub-unit-no')) || 0;
+
+        let firstRow = $('#chargeTable').find('tr:first');
+        let item_id = firstRow.find('.item_id').val();
+        let item_text = firstRow.find('.item_id option:selected').text();
+        let unit_qty = firstRow.find('.unit_qty').val();
+        let unit = firstRow.find('.unit').val();
+        let sub_unit_qty = firstRow.find('.sub_unit_qty').val();
+        let sub_unit = firstRow.find('.sub_unit').val();
+        let unit_id = firstRow.find('.unit_id').val();
+        let sub_unit_id = firstRow.find('.sub_unit_id').val();
+        let item_price = firstRow.find('input[name="item_price"]').val();
+        let total_price = firstRow.find('input[name="total_price"]').val();
+        let dept_qty = firstRow.find('input[name="dept_qty"]').val();
+        let tot_qty = firstRow.find('input[name="tot_qty"]').val();
+
+        let newRow = `
+            <tr>
+                <td>
+                    <select class="form-control" name="item_id[]">
+                        <option data-price="${unitPrice}" data-sub-unit-no="${subUnitNo}" value="${item_id}" selected>${item_text}</option>
+                    </select>
+                </td>
+                <td>
+                    <div class="input-group mt-1">
+                        <input style="padding-left: 0.50rem;" onkeyup="valueCalculations(this);" class="form-control col-7" type="number" step="0.1" min="0" name="unit_qty[]" value="${unit_qty}" placeholder="Qty" />
+                        <input class="form-control col-5" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="${unit}" placeholder="Unit" />
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group mt-1" style="width: 100%;">
+                        <input class="form-control col-7" type="number" step="0.1" min="0" style="padding-left: 0.50rem;" onkeyup="valueCalculations(this);" name="sub_unit_qty[]" value="${sub_unit_qty}" placeholder="Sub Qty" />
+                        <input class="form-control col-5" readonly type="text" name="sub_unit_name[]" value="${sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                    </div>
+                </td>
+                <td>
+                    <input type="text" name="item_price[]" class="form-control" readonly value="${item_price}">
+                </td>
+                <td>
+                    <input type="text" name="dept_qty[]" class="form-control" readonly value="${dept_qty}">
+                </td>
+                <td>
+                    <input type="text" name="tot_qty[]" class="form-control" readonly value="${tot_qty}">
+                </td>
+                <td>
+                    <input type="text" name="total_price[]" class="form-control total_price_row" readonly value="${total_price}">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+                </td>
+                <input type="hidden" name="unit_id[]" value="${unit_id}">
+                <input type="hidden" name="sub_unit_id[]" value="${sub_unit_id}">
+            </tr>
+        `;
+        $('#chargeTable').append(newRow);
+
+        // Reset first row
+        firstRow.find('.item_id').val('').trigger('change');
+        firstRow.find('.unit_qty').val('0');
+        firstRow.find('.unit').val('');
+        firstRow.find('.sub_unit_qty').val('0');
+        firstRow.find('.sub_unit').val('');
+        firstRow.find('.unit_id').val('');
+        firstRow.find('.sub_unit_id').val('');
+        firstRow.find('input[name="item_price"]').val(0);
+        firstRow.find('input[name="total_price"]').val(0);
+        firstRow.find('input[name="dept_qty"]').val(0);
+        firstRow.find('input[name="tot_qty"]').val(0);
+
+        updateGrandTotal();
+    }
+
+    function removeRow(button) {
+        let row = button.closest('tr');
+        row.remove();
+        updateGrandTotal();
+    }
+
+    // ✅ GRAND TOTAL CALCULATION (ALWAYS WORKS FOR EDIT PAGE)
+    function updateGrandTotal() {
+        let grandTotal = 0;
+
+        // sum existing rows total_price[]
+        document.querySelectorAll('#chargeTable input[name="total_price[]"]').forEach((el) => {
+            grandTotal += parseFloat(el.value) || 0;
+        });
+
+        // include first add row total_price (only when item selected)
+        const firstRow = document.querySelector('#chargeTable tr:first-child');
+        if (firstRow) {
+            const itemSelect = firstRow.querySelector('select[name="item_id"]');
+            const firstTotalInput = firstRow.querySelector('input[name="total_price"]');
+            if (itemSelect && itemSelect.value && firstTotalInput) {
+                grandTotal += parseFloat(firstTotalInput.value) || 0;
+            }
+        }
+
+        document.getElementById('grand_total').value = grandTotal.toFixed(2);
+    }
+
+    // ✅ IMPORTANT: calculate grand total on load for ALL PAGES (edit/verify/approve/default)
+    $(document).ready(function () {
+        updateGrandTotal();
+
+        // sometimes select2/layout loads late, re-calc once
+        setTimeout(function(){
+            updateGrandTotal();
+        }, 300);
+    });
+
+</script>
+
+<script>
+    // NOTE: kept your extra functions but your table id is "data-table", not "itemTable".
+    // If you are not using addBlankRow(), you can ignore this block.
+    function addBlankRow() {
+        const table = document.getElementById('itemTable');
+        if(!table) return;
+
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>
+                <select class="form-control" name="item_id[]">
+                    <option value="">Select One.....</option>
+                    @foreach ($item_list as $value)
+                        <option value="{{ $value->id }}">{{ $value->item_name }}</option>
+                    @endforeach
+                </select>
+            </td>
+            <td><input class="form-control" name="unit_qty[]" type="text" value="0" /></td>
+            <td><input class="form-control" name="unit_name[]" type="text" readonly value="0" /></td>
+            <td><input class="form-control" name="sub_unit_qty[]" type="text" value="0" /></td>
+            <td><input class="form-control" name="sub_unit_name[]" type="text" readonly value="0" /></td>
+            <td>
+                <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+            </td>
+            <input type="hidden" name="unit_id[]" value="" />
+            <input type="hidden" name="sub_unit_id[]" value="" />
+            <input type="hidden" name="item_detail_id[]" value="" />
+        `;
+        table.appendChild(newRow);
+        updateGrandTotal();
+    }
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('yourFormId');
+        if (!form) {
+            return;
+        }
+
+        const requireItems = form.dataset.requireItems === '1';
+        let isProcessing = false;
+        let clickedButton = null;
+
+        form.addEventListener('click', function (event) {
+            const button = event.target.closest('button[type="submit"]');
+            if (button) {
+                clickedButton = button;
+            }
+        });
+
+        form.addEventListener('submit', function (event) {
+            const rows = form.querySelectorAll('#chargeTable tr');
+            if (requireItems && rows.length <= 1) {
+                event.preventDefault();
+                alert('Please add at least one item.');
+                return;
+            }
+            if (isProcessing) {
+                event.preventDefault();
+                return;
+            }
+
+            isProcessing = true;
+            const button = clickedButton || form.querySelector('button[type="submit"][data-form-submit]');
+            if (button) {
+                button.disabled = true;
+                const spinner = '<i class="fa fa-spinner fa-spin mr-2"></i>';
+                button.dataset.originalText = button.dataset.originalText || button.innerHTML;
+                button.innerHTML = spinner + 'Processing...';
+            }
+        });
+    });
+</script>
+@endpush

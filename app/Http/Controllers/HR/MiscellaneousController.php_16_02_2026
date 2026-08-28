@@ -1,0 +1,100 @@
+<?php
+
+namespace App\Http\Controllers\HR;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Miscellaneous;
+use App\Models\MiscellaneousPayment;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+
+class MiscellaneousController extends Controller
+{
+    public function index()
+    {
+        $title = 'Miscellaneous Bills';
+        $miscellaneous = Miscellaneous::with('payments')->latest()->get();
+        $miscellaneous->each->updatePaymentStatus();
+
+        return view('hr.miscellaneous', compact('title', 'miscellaneous'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'invoice_upload' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'bill_purpose' => 'required|string|max:255',
+            'service_provider' => 'required|string|max:255',
+            'bill_amount' => 'required|numeric|min:0',
+            'pay_amount' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+        ]);
+
+        $data = $request->only([
+            'bill_purpose',
+            'service_provider',
+            'bill_amount',
+            'pay_amount',
+            'discount',
+        ]);
+
+        if ($request->hasFile('invoice_upload')) {
+            $file = $request->file('invoice_upload');
+            $targetDir = public_path('miscellaneous/invoices');
+            if (!File::isDirectory($targetDir)) {
+                File::makeDirectory($targetDir, 0755, true);
+            }
+            $filename = time() . '_' . Str::random(6) . '.' . $file->getClientOriginalExtension();
+            $file->move($targetDir, $filename);
+            $data['invoice_upload'] = 'public/miscellaneous/invoices/' . $filename;
+        }
+
+        $miscellaneous = Miscellaneous::create($data);
+        if ($data['pay_amount'] > 0) {
+            $miscellaneous->payments()->create([
+                'amount_paid' => $data['pay_amount'],
+                'discount' => 0,
+                'details' => 'Initial payment',
+            ]);
+        }
+        $miscellaneous->updatePaymentStatus();
+
+        return redirect()->route('hr.miscellaneous')->with('success', 'Miscellaneous bill added.');
+    }
+
+    public function storePayment(Request $request, $id)
+    {
+        $miscellaneous = Miscellaneous::findOrFail($id);
+
+        $request->validate([
+            'amount_paid' => 'required|numeric|min:0.01',
+            'discount' => 'nullable|numeric|min:0',
+            'details' => 'nullable|string|max:500',
+        ]);
+
+        $due = $miscellaneous->net_due;
+        if ($due <= 0) {
+            return redirect()->route('hr.miscellaneous')->with('error', 'Bill already marked as paid.');
+        }
+
+        $discount = $request->discount ?? 0;
+        $totalPayment = $request->amount_paid + $discount;
+
+        if ($totalPayment > $due) {
+            return redirect()->route('hr.miscellaneous')->with('error', 'Payment exceeds remaining due amount.');
+        }
+
+        $miscellaneous->payments()->create([
+            'amount_paid' => $request->amount_paid,
+            'discount' => $request->discount ?? 0,
+            'details' => $request->details,
+        ]);
+
+        $miscellaneous->increment('pay_amount', $request->amount_paid);
+
+        $miscellaneous->updatePaymentStatus();
+
+        return redirect()->route('hr.miscellaneous')->with('success', 'Payment recorded.');
+    }
+}

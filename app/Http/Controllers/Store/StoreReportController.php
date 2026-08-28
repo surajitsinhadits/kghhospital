@@ -1,0 +1,595 @@
+<?php
+
+namespace App\Http\Controllers\Store;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Yajra\Datatables\DataTables;
+use App\Models\StItem;
+use App\Models\StIssue;
+use App\Models\StStock;
+use App\Models\StRequisitionItem;
+use App\Models\StPurchaseOrderItem;
+use App\Models\StPurchaseDetail;
+use App\Models\StDepartment;
+use Illuminate\Support\Facades\DB;
+
+class StoreReportController extends Controller
+{
+    /*public function present_stock_report(Request $request){
+
+        $itemIds = StStock::select('item_id')->distinct('item_id')->pluck('item_id');
+
+        // $items = StItem::select('st_items.*','u1.unit','u2.unit as sub_unit')
+        //     ->join('st_units as u1','u1.id','=','st_items.unit_id')
+        //     ->join('st_units as u2','u2.id','=','st_items.sub_unit_id')
+        //     ->whereIn('st_items.id', $itemIds)
+        //     ->get();
+
+        $items = StItem::select('st_items.*', 'u1.unit', 'u2.unit as sub_unit')
+                ->join('st_units as u1', 'u1.id', '=', 'st_items.unit_id')
+                ->join('st_units as u2', 'u2.id', '=', 'st_items.sub_unit_id')
+                ->whereIn('st_items.id', $itemIds)
+                ->when(!empty($request->item_name), function ($query) use ($request) {
+                    $query->where('st_items.item_name', 'like', '%' . $request->item_name . '%');
+                })
+                ->when(!empty($request->from_date) && !empty($request->to_date), function ($query) use ($request) {
+                    $query->whereBetween('st_items.created_at', [
+                        date('Y-m-d', strtotime($request->from_date)),
+                        date('Y-m-d', strtotime($request->to_date))
+                    ]);
+                })
+                ->get();
+
+
+
+        $stocks = StStock::get();
+        // $issues = StIssue::get();
+        $pasent_stock = [];
+        foreach($items as $item){
+            $unit_sub_no = $item->sub_unit_no;
+
+            $stock_unit = $stocks->where('item_id', $item->id)->sum('unit_qty') ?? 0;
+            $stock_sub  = $stocks->where('item_id', $item->id)->sum('sub_unit_qty') ?? 0;
+            // $issue_unit = $issues->where('item_id', $item->id)->sum('unit_qty') ?? 0;
+            // $issue_sub  = $issues->where('item_id', $item->id)->sum('sub_unit_qty') ?? 0;
+            $stock_total = $stocks->where('item_id', $item->id)->sum('total') ?? 0;
+            // $issue_total = $issues->where('item_id', $item->id)->sum('total') ?? 0;
+            $return_qty = $stocks->where('item_id', $item->id)->sum('return_qty') ?? 0;
+
+            // // Convert to total sub-units
+            $stock_total_sub = ($stock_unit * $unit_sub_no) + $stock_sub;
+            // $issue_total_sub = ($issue_unit * $unit_sub_no) + $issue_sub;
+
+            // // Calculate remaining sub-units
+            // $remaining_sub = max($stock_total_sub - $issue_total_sub, 0);
+            $remaining_sub = $stocks->where('item_id', $item->id)->sum('present_qty') ?? 0;
+
+            // Convert back to unit + sub-unit format
+            $remaining_unit = intdiv($remaining_sub, $unit_sub_no);
+            $remaining_sub_unit = $remaining_sub % $unit_sub_no;
+            $qty = $remaining_unit.' '.$item->unit.' '.$remaining_sub_unit.' '.$item->sub_unit;
+            // $total_amount = $stock_total - $issue_total;
+            $total_amount = ($stock_total / $stock_total_sub) * $remaining_sub;
+
+            $pasent_stock[] = [
+                'id' => $item->id,
+                'item' => $item->item_name,
+                'low_level' => $item->low_level,
+                'unit_qty' => $remaining_unit,
+                'unit_sub_qty' => $remaining_sub_unit,
+                'qty' => $qty,
+                'total_qty' => $remaining_sub.' '.$item->sub_unit,
+                'relation' => '1 '.$item->unit.' = '.$unit_sub_no.' '.$item->sub_unit,
+                'amount' => $total_amount,
+                'return_qty' => $return_qty.' '.$item->sub_unit,
+                'check_qty' => $remaining_sub,
+            ];
+        }
+        usort($pasent_stock, function($a, $b) {
+            return $b['check_qty'] <=> $a['check_qty'];
+        });
+        $data = compact('pasent_stock', 'request');
+        // dd($data);
+        return view('store.reports.present-stock')->with($data);
+    }*/
+
+    public function present_stock_report(Request $request){
+
+        $perPage = (int) $request->get('per_page', 10);
+        if ($perPage <= 0) $perPage = 10;
+
+        // 1) Group stocks by item_id (FAST)
+        $query = DB::table('st_stocks as s')
+            ->join('st_items as i', 'i.id', '=', 's.item_id')
+            ->join('st_units as u1', 'u1.id', '=', 'i.unit_id')
+            ->join('st_units as u2', 'u2.id', '=', 'i.sub_unit_id')
+            ->select(
+                'i.id',
+                'i.item_name',
+                'i.low_level',
+                'i.sub_unit_no',
+                'u1.unit as unit',
+                'u2.unit as sub_unit',
+                DB::raw('SUM(s.unit_qty) as stock_unit'),
+                DB::raw('SUM(s.sub_unit_qty) as stock_sub'),
+                DB::raw('SUM(s.total) as stock_total'),
+                DB::raw('SUM(s.return_qty) as return_qty'),
+                DB::raw('SUM(s.present_qty) as present_qty')
+            )
+            ->groupBy('i.id', 'i.item_name', 'i.low_level', 'i.sub_unit_no', 'u1.unit', 'u2.unit')
+            ->orderByDesc(DB::raw('SUM(s.present_qty)')); // same as your check_qty sorting
+
+        if ($request->filled('item_name')) {
+            $query->where('i.item_name', 'like', '%' . trim($request->item_name) . '%');
+        }
+
+        // 2) Optional status filter (DB level)
+        if ($request->filled('status')) {
+            $status = $request->status;
+
+            if ($status === 'Out Of Stock') {
+                $query->havingRaw('SUM(s.present_qty) <= 0');
+            } elseif ($status === 'Available') {
+                // available: present_qty > 0 AND low_level < unit_qty (unit_qty derived from present_qty/sub_unit_no)
+                $query->havingRaw('SUM(s.present_qty) > 0 AND i.low_level < FLOOR(SUM(s.present_qty) / NULLIF(i.sub_unit_no,0))');
+            } elseif ($status === 'Low Stock') {
+                $query->havingRaw('SUM(s.present_qty) > 0 AND i.low_level >= FLOOR(SUM(s.present_qty) / NULLIF(i.sub_unit_no,0))');
+            }
+        }
+
+        // 3) Real pagination from DB
+        $pasent_stock = $query->paginate($perPage)->withQueryString();
+
+        // 4) Build display fields for ONLY current page items
+        $pasent_stock->getCollection()->transform(function ($row) {
+
+            $unitSubNo = (int) $row->sub_unit_no;
+
+            $remainingSub = (int) $row->present_qty;
+
+            $remainingUnit = ($unitSubNo > 0) ? intdiv($remainingSub, $unitSubNo) : 0;
+            $remainingSubUnit = ($unitSubNo > 0) ? ($remainingSub % $unitSubNo) : 0;
+
+            $qty = $remainingUnit.' '.$row->unit.' '.$remainingSubUnit.' '.$row->sub_unit;
+
+            $stockTotalSub = ((int)$row->stock_unit * $unitSubNo) + (int)$row->stock_sub;
+
+            $amount = 0;
+            if ($stockTotalSub > 0) {
+                $amount = ((float)$row->stock_total / $stockTotalSub) * $remainingSub;
+            }
+
+            $status = 'Out Of Stock';
+            if ($remainingSub > 0) {
+                $status = ((int)$row->low_level < $remainingUnit) ? 'Available' : 'Low Stock';
+            }
+
+            return [
+                'id'        => $row->id,
+                'item'      => $row->item_name,
+                'relation'  => '1 '.$row->unit.' = '.$unitSubNo.' '.$row->sub_unit,
+                'qty'       => $qty,
+                'total_qty' => $remainingSub.' '.$row->sub_unit,
+                'return_qty'=> ((int)$row->return_qty).' '.$row->sub_unit,
+                'amount'    => (float)$amount,
+                'check_qty' => $remainingSub,
+                'status'    => $status,
+            ];
+        });
+
+        // ✅ Per-page total only
+        $pageTotal = $pasent_stock->getCollection()->sum('amount');
+
+        return view('store.reports.present-stock', compact('pasent_stock', 'pageTotal'));
+    }
+
+    public function present_stock_report_export(Request $request, string $format)
+    {
+        $format = strtolower($format);
+        if ($format !== 'excel') {
+            abort(404);
+        }
+
+        $pasent_stock = $this->presentStockExportQuery($request)
+            ->get()
+            ->map(function ($row) {
+                return $this->formatPresentStockExportRow($row);
+            });
+
+        $totalAmount = $pasent_stock->sum('amount');
+        $content = view('store.reports.present-stock-export', compact('pasent_stock', 'totalAmount', 'request'))->render();
+        $filename = 'general-stock-report-'.now()->format('Y-m-d-H-i-s').'.xls';
+
+        return response("\xEF\xBB\xBF".$content, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    private function presentStockExportQuery(Request $request)
+    {
+        $query = DB::table('st_stocks as s')
+            ->join('st_items as i', 'i.id', '=', 's.item_id')
+            ->join('st_units as u1', 'u1.id', '=', 'i.unit_id')
+            ->join('st_units as u2', 'u2.id', '=', 'i.sub_unit_id')
+            ->select(
+                'i.id',
+                'i.item_name',
+                'i.low_level',
+                'i.sub_unit_no',
+                'u1.unit as unit',
+                'u2.unit as sub_unit',
+                DB::raw('SUM(s.unit_qty) as stock_unit'),
+                DB::raw('SUM(s.sub_unit_qty) as stock_sub'),
+                DB::raw('SUM(s.total) as stock_total'),
+                DB::raw('SUM(s.return_qty) as return_qty'),
+                DB::raw('SUM(s.present_qty) as present_qty')
+            )
+            ->groupBy('i.id', 'i.item_name', 'i.low_level', 'i.sub_unit_no', 'u1.unit', 'u2.unit')
+            ->orderByDesc(DB::raw('SUM(s.present_qty)'));
+
+        if ($request->filled('item_name')) {
+            $query->where('i.item_name', 'like', '%' . trim($request->item_name) . '%');
+        }
+
+        if ($request->filled('status')) {
+            $status = $request->status;
+
+            if ($status === 'Out Of Stock') {
+                $query->havingRaw('SUM(s.present_qty) <= 0');
+            } elseif ($status === 'Available') {
+                $query->havingRaw('SUM(s.present_qty) > 0 AND i.low_level < FLOOR(SUM(s.present_qty) / NULLIF(i.sub_unit_no,0))');
+            } elseif ($status === 'Low Stock') {
+                $query->havingRaw('SUM(s.present_qty) > 0 AND i.low_level >= FLOOR(SUM(s.present_qty) / NULLIF(i.sub_unit_no,0))');
+            }
+        }
+
+        return $query;
+    }
+
+    private function formatPresentStockExportRow($row): array
+    {
+        $unitSubNo = (int) $row->sub_unit_no;
+        $remainingSub = (int) $row->present_qty;
+        $remainingUnit = ($unitSubNo > 0) ? intdiv($remainingSub, $unitSubNo) : 0;
+        $remainingSubUnit = ($unitSubNo > 0) ? ($remainingSub % $unitSubNo) : 0;
+        $stockTotalSub = ((int) $row->stock_unit * $unitSubNo) + (int) $row->stock_sub;
+
+        $amount = 0;
+        if ($stockTotalSub > 0) {
+            $amount = ((float) $row->stock_total / $stockTotalSub) * $remainingSub;
+        }
+
+        $status = 'Out Of Stock';
+        if ($remainingSub > 0) {
+            $status = ((int) $row->low_level < $remainingUnit) ? 'Available' : 'Low Stock';
+        }
+
+        return [
+            'id' => $row->id,
+            'item' => $row->item_name,
+            'relation' => '1 '.$row->unit.' = '.$unitSubNo.' '.$row->sub_unit,
+            'qty' => $remainingUnit.' '.$row->unit.' '.$remainingSubUnit.' '.$row->sub_unit,
+            'total_qty' => $remainingSub.' '.$row->sub_unit,
+            'return_qty' => ((int) $row->return_qty).' '.$row->sub_unit,
+            'amount' => (float) $amount,
+            'check_qty' => $remainingSub,
+            'status' => $status,
+        ];
+    }
+
+    public function department_stock_report(Request $request)
+    {
+        $department = StDepartment::where('status', '0')->orderByDesc('id')->get();
+        $pasent_stock = [];
+
+        if ($request->has('dept')) {
+
+            $deptId = $request->dept;
+
+            // Get distinct item IDs issued to the department
+            $itemIds = StIssue::join('st_product_issue as pi', 'pi.id', '=', 'st_issues.issue_id')
+                ->where('pi.department_id', $deptId)->distinct()->pluck('st_issues.item_id');
+
+            // Get item details
+            $items = StItem::select('st_items.*', 'u1.unit', 'u2.unit as sub_unit')
+                ->join('st_units as u1', 'u1.id', '=', 'st_items.unit_id')
+                ->join('st_units as u2', 'u2.id', '=', 'st_items.sub_unit_id')
+                ->whereIn('st_items.id', $itemIds)
+                ->when(!empty($request->item_name), function ($query) use ($request) {
+                    $query->where('st_items.item_name', 'like', '%' . $request->item_name . '%');
+                })
+                ->get();
+                // dd($items);
+            // Get all issue records for this department
+            $issues = StIssue::join('st_product_issue as pi', 'pi.id', '=', 'st_issues.issue_id')
+                ->where('pi.department_id', $deptId)
+                ->get();
+
+            // Calculate stock for each item
+            foreach ($items as $item) {
+                $unitSubNo = $item->sub_unit_no;
+                $itemIssues = $issues->where('item_id', $item->id);
+
+                $issueUnit = $itemIssues->sum('unit_qty');
+                $issueSub = $itemIssues->sum('sub_unit_qty');
+                $issueTotal = $itemIssues->sum('total');
+                $returnQty = $itemIssues->sum('return_qty');
+
+                $issueTotalSub = ($issueUnit * $unitSubNo) + $issueSub;
+
+                $remainingUnit = intdiv($issueTotalSub, $unitSubNo);
+                $remainingSubUnit = $issueTotalSub % $unitSubNo;
+
+                $pasent_stock[] = [
+                    'id' => $item->id,
+                    'item' => $item->item_name,
+                    'low_level' => $item->low_level,
+                    'unit_qty' => $remainingUnit,
+                    'unit_sub_qty' => $remainingSubUnit,
+                    'qty' => "{$remainingUnit} {$item->unit} {$remainingSubUnit} {$item->sub_unit}",
+                    'total_qty' => "{$issueTotalSub} {$item->sub_unit}",
+                    'relation' => "1 {$item->unit} = {$unitSubNo} {$item->sub_unit}",
+                    'amount' => $issueTotal,
+                    'return_qty' => "{$returnQty} {$item->sub_unit}",
+                    'check_qty' => $issueTotalSub,
+                ];
+            }
+
+            // Sort descending by sub-unit quantity
+            usort($pasent_stock, fn($a, $b) => $b['check_qty'] <=> $a['check_qty']);
+        }
+
+        return view('store.reports.department-stock', compact('pasent_stock', 'department', 'request'));
+    }
+
+    public function department_stock_report_export(Request $request, string $format)
+    {
+        $format = strtolower($format);
+        if ($format !== 'excel') {
+            abort(404);
+        }
+
+        if (!$request->filled('dept')) {
+            return redirect()->route('store.department-stock-reports');
+        }
+
+        $deptId = $request->dept;
+        $departmentName = optional(StDepartment::find($deptId))->department_name ?? '';
+
+        $itemIds = StIssue::join('st_product_issue as pi', 'pi.id', '=', 'st_issues.issue_id')
+            ->where('pi.department_id', $deptId)
+            ->distinct()
+            ->pluck('st_issues.item_id');
+
+        $items = StItem::select('st_items.*', 'u1.unit', 'u2.unit as sub_unit')
+            ->join('st_units as u1', 'u1.id', '=', 'st_items.unit_id')
+            ->join('st_units as u2', 'u2.id', '=', 'st_items.sub_unit_id')
+            ->whereIn('st_items.id', $itemIds)
+            ->when(!empty($request->item_name), function ($query) use ($request) {
+                $query->where('st_items.item_name', 'like', '%' . $request->item_name . '%');
+            })
+            ->get();
+
+        $issues = StIssue::join('st_product_issue as pi', 'pi.id', '=', 'st_issues.issue_id')
+            ->where('pi.department_id', $deptId)
+            ->get();
+
+        $pasent_stock = [];
+        foreach ($items as $item) {
+            $unitSubNo = (int) $item->sub_unit_no;
+            $itemIssues = $issues->where('item_id', $item->id);
+
+            $issueUnit = (int) $itemIssues->sum('unit_qty');
+            $issueSub = (int) $itemIssues->sum('sub_unit_qty');
+            $issueTotal = (float) $itemIssues->sum('total');
+            $returnQty = (int) $itemIssues->sum('return_qty');
+            $issueTotalSub = ($issueUnit * $unitSubNo) + $issueSub;
+
+            $remainingUnit = ($unitSubNo > 0) ? intdiv($issueTotalSub, $unitSubNo) : 0;
+            $remainingSubUnit = ($unitSubNo > 0) ? ($issueTotalSub % $unitSubNo) : 0;
+            $netAmount = $issueTotal;
+            if ($issueTotalSub > 0) {
+                $netAmount = $issueTotal - (($issueTotal / $issueTotalSub) * $returnQty);
+            }
+
+            $pasent_stock[] = [
+                'id' => $item->id,
+                'item' => $item->item_name,
+                'qty' => "{$remainingUnit} {$item->unit} {$remainingSubUnit} {$item->sub_unit}",
+                'total_qty' => "{$issueTotalSub} {$item->sub_unit}",
+                'relation' => "1 {$item->unit} = {$unitSubNo} {$item->sub_unit}",
+                'return_qty' => "{$returnQty} {$item->sub_unit}",
+                'check_qty' => $issueTotalSub,
+                'net_amount' => $netAmount,
+            ];
+        }
+
+        usort($pasent_stock, fn($a, $b) => $b['check_qty'] <=> $a['check_qty']);
+
+        $totalAmount = collect($pasent_stock)->sum('net_amount');
+        $content = view('store.reports.department-stock-export', compact('pasent_stock', 'totalAmount', 'departmentName', 'request'))->render();
+        $filename = 'department-stock-report-'.now()->format('Y-m-d-H-i-s').'.xls';
+
+        return response("\xEF\xBB\xBF".$content, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    public function issue_report(Request $request){
+        if ($request->ajax()) {
+            $data = StIssue::select('st_issues.*','si.item_name','u.name as created_by')
+                ->join('st_items as si','si.id','=','st_issues.item_id')
+                ->join('users as u','u.id','=','st_issues.generated_by')
+                ->orderBy('st_issues.id','DESC');
+
+            // Filter by data
+            if (!empty($request->from_date)) {
+                $data->whereDate('st_issues.date', '>=', date('Y-m-d',strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('st_issues.date', '<=', date('Y-m-d',strtotime($request->to_date)));
+            }
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('issue_date', function($row){
+                    $dateBtn = dateFor($row->date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('exp_date', function($row){
+                    $dateBtn = dateFor($row->exp_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('qty', function($row){
+                    $qtyBtn = $row->unit_qty.' '.$row->unit.' '.$row->sub_unit_qty.' '.$row->sub_unit;
+                    return $qtyBtn;
+                })
+                ->rawColumns(['issue_date','exp_date','qty'])
+                ->make(true);
+        }
+        return view('store.reports.issue');
+    }
+
+    public function stock_report(Request $request){
+        if ($request->ajax()) {
+            $data = StStock::select('st_stocks.*','si.item_name','u.name as created_by')
+                ->join('st_items as si','si.id','=','st_stocks.item_id')
+                ->join('users as u','u.id','=','st_stocks.generated_by')
+                ->orderBy('st_stocks.id','DESC');
+
+            // Filter by data
+            if (!empty($request->from_date)) {
+                $data->whereDate('st_stocks.date', '>=', date('Y-m-d',strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('st_stocks.date', '<=', date('Y-m-d',strtotime($request->to_date)));
+            }
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('issue_date', function($row){
+                    $dateBtn = dateFor($row->date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('exp_date', function($row){
+                    $dateBtn = dateFor($row->exp_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('qty', function($row){
+                    $qtyBtn = $row->unit_qty.' '.$row->unit.' '.$row->sub_unit_qty.' '.$row->sub_unit;
+                    return $qtyBtn;
+                })
+                ->rawColumns(['issue_date','exp_date','qty'])
+                ->make(true);
+        }
+        return view('store.reports.stock');
+    }
+
+    public function purchase_report(Request $request){
+        if ($request->ajax()) {
+            $data = StPurchaseDetail::select('st_purchase_details.*','si.item_name','u.name as created_by','p.date')
+                ->join('st_items as si','si.id','=','st_purchase_details.item_id')
+                ->join('st_purchases as p','p.id','=','st_purchase_details.purchase_id')
+                ->join('users as u','u.id','=','p.generated_by')
+                ->where('st_purchase_details.is_delete', '0')
+                ->orderBy('st_purchase_details.id','DESC');
+
+            // Filter by data
+            if (!empty($request->from_date)) {
+                $data->whereDate('p.date', '>=', date('Y-m-d',strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('p.date', '<=', date('Y-m-d',strtotime($request->to_date)));
+            }
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('p_date', function($row){
+                    $dateBtn = dateFor($row->date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('exp_date', function($row){
+                    $dateBtn = dateFor($row->exp_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('qty', function($row){
+                    $qtyBtn = $row->unit_qty.' '.$row->unit.' '.$row->sub_unit_qty.' '.$row->sub_unit;
+                    return $qtyBtn;
+                })
+                ->rawColumns(['p_date','exp_date','qty'])
+                ->make(true);
+        }
+        return view('store.reports.purchase');
+    }
+
+    public function po_report(Request $request){
+        if ($request->ajax()) {
+            $data = StPurchaseOrderItem::select('st_purchase_order_items.*','si.item_name','po.po_date', 'po.fy_po_no')
+                ->join('st_items as si','si.id','=','st_purchase_order_items.item_id')
+                ->join('st_purchase_orders as po','po.id','=','st_purchase_order_items.po_id')
+                ->where('st_purchase_order_items.is_delete', '0')
+                ->orderBy('st_purchase_order_items.id','DESC');
+
+            // Filter by data
+            if (!empty($request->from_date)) {
+                $data->whereDate('po.po_date', '>=', date('Y-m-d',strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('po.po_date', '<=', date('Y-m-d',strtotime($request->to_date)));
+            }
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('po_date', function($row){
+                    $dateBtn = dateFor($row->po_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('qty', function($row){
+                    $qtyBtn = $row->unit_qty.' '.$row->unit_name.' '.$row->sub_unit_qty.' '.$row->sub_unit_name;
+                    return $qtyBtn;
+                })
+                ->rawColumns(['po_date','qty'])
+                ->make(true);
+        }
+        return view('store.reports.po');
+    }
+
+    public function requisition_report(Request $request){
+        if ($request->ajax()) {
+            $data = StRequisitionItem::select('st_requisition_items.*','si.item_name','r.requisition_date')
+                ->join('st_items as si','si.id','=','st_requisition_items.item_id')
+                ->join('st_requisitions as r','r.id','=','st_requisition_items.requisition_id')
+                ->where('st_requisition_items.is_delete', '0')
+                ->orderBy('st_requisition_items.id','DESC');
+
+            // Filter by data
+            if (!empty($request->from_date)) {
+                $data->whereDate('r.requisition_date', '>=', date('Y-m-d',strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('r.requisition_date', '<=', date('Y-m-d',strtotime($request->to_date)));
+            }
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('requisition_date', function($row){
+                    $dateBtn = dateFor($row->requisition_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('qty', function($row){
+                    $qtyBtn = $row->unit_qty.' '.$row->unit_name.' '.$row->sub_unit_qty.' '.$row->sub_unit_name;
+                    return $qtyBtn;
+                })
+                ->rawColumns(['requisition_date','qty'])
+                ->make(true);
+        }
+        return view('store.reports.requisition');
+    }
+}

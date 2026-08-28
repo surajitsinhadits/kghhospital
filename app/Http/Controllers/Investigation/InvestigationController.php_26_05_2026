@@ -1,0 +1,718 @@
+<?php
+
+namespace App\Http\Controllers\Investigation;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use Yajra\Datatables\DataTables;
+use App\Models\User;
+use App\Models\State;
+use App\Models\Header;
+use App\Models\Charge;
+use App\Models\Patient;
+use App\Models\Billing;
+use App\Models\Payment;
+use App\Models\Referral;
+use App\Models\Department;
+use App\Models\CaseReference;
+use App\Models\BillingDetail;
+use App\Models\PatientCraditAmount;
+use App\Models\InvestigationRegister;
+use App\Models\Investigation;
+use App\Models\InvestigationDetail;
+use App\Models\ChargesHasNormal;
+use Exception;
+use Illuminate\Support\Facades\DB;
+
+class InvestigationController extends Controller
+{
+    public function index(Request $request){
+        $doctor = Referral::where('type','referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        if ($request->ajax()) {
+            $data = InvestigationRegister::select('investigation_registers.id','investigation_registers.type','investigation_registers.patient_id','investigation_registers.appointment_date','investigation_registers.referred_by','b.id as billing_id','b.uid','b.due_amount','b.bill_status','p.name as patient_name','p.phone','p.gender','p.dob_year','p.dob_month','p.dob_day','r.referral_name')
+                ->join('billings as b', function ($join) {
+                    $join->on('b.section_id', '=', 'investigation_registers.id')
+                         ->where('b.section', '=', 'INVESTIGATION');
+                })
+                ->join('patients as p','p.id','=','investigation_registers.patient_id')
+                ->join('referrals as r','r.id','=','investigation_registers.referred_by')
+                ->where('investigation_registers.is_delete',0)
+                ->orderBy('investigation_registers.id','DESC');
+
+                // Filter based on field_name and field_value
+                if (!empty($request->field_name) && !empty($request->field_value)) {
+                    if ($request->field_name === 'investigation_registers.referred_by') {
+                        $data->where('investigation_registers.referred_by', $request->field_value);
+                    } else {
+                        $data->where($request->field_name, 'LIKE', '%' . $request->field_value . '%');
+                    }
+                }
+
+                // Filter by date range
+                if (!empty($request->from_date)) {
+                    $data->whereDate('investigation_registers.appointment_date', '>=', date('Y-m-d',strtotime($request->from_date)));
+                }
+                if (!empty($request->to_date)) {
+                    $data->whereDate('investigation_registers.appointment_date', '<=', date('Y-m-d',strtotime($request->to_date)));
+                }
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('billing', function($row){
+                    $billingBtn = '<a href="'.route('bill.billing-details', ['investigation', ed($row->billing_id, true)]).'" data-placement="top" data-toggle="tooltip" title="Click here to show bill details" data-original-title="Click here to show bill details">'.$row->uid.'</a><br>';
+                    $billingBtn .= $row->bill_status == 3 ? '<span class="badge badge-gradient-secondary mr-1">Cancel Bill</span>': '';
+                    $row->due_amount > 0 ? $billingBtn .= '<span class="badge badge-gradient-warning">Due</span>' : $billingBtn .= '<span class="badge badge-gradient-success">No Due</span>';
+                    return $billingBtn;
+                })
+                ->addColumn('patient', function($row){
+                    $patientBtn = '<a href="'.route('hr.patient-profile-details', ed($row->patient_id, true)).'" data-placement="left" data-toggle="tooltip" title="Click here for patient details" style="cursor: pointer !important" data-original-title="Click here for patient details">
+                        '.$row->patient_name.'
+                        <br>
+                        <i class="fa fa-venus-mars text-blue"></i> '.$row->gender.'
+                        <i class="fa fa-calendar-plus-o text-blue ml-1"></i> '.$row->dob_year.'Y '.$row->dob_month.'M '.$row->dob_day.'D
+                        <span class="badge badge-gradient-primary mt-2 ml-1">'.$row->type.'</span>
+                    </a>';
+                    return $patientBtn;
+                })
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="'.route('bill.billing-details', ['investigation', ed($row->billing_id, true)]).'" class="btn btn-primary btn-sm mx-1" title="Click here to show bill details"><i class="fa fa-eye"></i> View</a>';
+                    return $actionBtn;
+                })
+                ->rawColumns(['action','billing','patient'])
+                ->make(true);
+        }
+        return view('investigation.investigation', compact('doctor'));
+    }
+    public function investigation_register(){
+        $doctor = User::where('user_type','doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $states = State::where('country_id','1')->get();
+        $referral = Referral::where('type','referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type','provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type','market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+        $charges = Charge::select('charges.id','charges.charge_name','chs.charge_amount')
+            ->join('charges_has_sections as chs','chs.charge_id','=','charges.id')
+            ->join('charges_sections as cs','cs.id','=','chs.charge_section_id')
+            ->where('cs.charges_section_name','INVESTIGATION')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+        $data = compact('doctor','states','referral','provider','market_by','charges');
+        // dd($data);
+        return view('investigation.investigation-register')->with($data);
+    }
+    public function update_investigation_register(Request $request){
+
+        $request->validate([
+            'appointment_date' => 'required',
+            'referred_by' => 'required',
+            'name' => 'required',
+            'gender' => 'required',
+            'phone' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'uhid' => 'nullable|exists:patients,id',
+        ]);
+        // dd($request);
+        DB::beginTransaction();
+        try {
+            //SAVE in Patient
+            $request->uhid ? $patient = Patient::find($request->uhid) : $patient = new Patient();
+            $patient->name = ucwords($request->name);
+            $patient->phone = $request->phone;
+            $patient->gender = $request->gender;
+            $patient->dob_year = $request->date_of_birth_year ?? 0;
+            $patient->dob_month = $request->date_of_birth_month ?? 0;
+            $patient->dob_day = $request->date_of_birth_day ?? 0;
+            $patient->address = $request->address;
+            $patient->state = $request->state;
+            $patient->district = is_numeric($request->district) ? $request->district : null;
+            $patient->pin_code = $request->pin_no;
+            $patient->identification_number = $request->aadhaar_card;
+            $patient->save();
+            $patient_id = $patient->id;
+
+            //SAVE in INVESTIGATION Details
+            $investigation = new InvestigationRegister();
+            $investigation->doctor_id = $request->cons_doctor;
+            $investigation->patient_id = $patient_id;
+            $investigation->generate_by = Auth::user()->id;
+            $investigation->type = $request->uhid ? 'old' : 'new';
+            $investigation->appointment_date = $request->appointment_date ? date('Y-m-d H:i:s', strtotime($request->appointment_date)) : null;
+            $investigation->referred_by = $request->referred_by;
+            $investigation->provider = $request->provider;
+            $investigation->market_by = $request->market_by;
+            $investigation->save();
+            $investigation_id = $investigation->id;
+
+            //SAVE in CASE Reference
+            $caseReference = new CaseReference;
+            $caseReference->patient_id = $patient_id;
+            $caseReference->section = 'INVESTIGATION';
+            $caseReference->section_id = $investigation_id;
+            $caseReference->save();
+
+            //SAVE in Billing Section
+            $bill = new Billing();
+            $bill->uid = Billing::where('section', 'INVESTIGATION')->selectRaw('MAX(CAST(uid AS UNSIGNED)) as max_uid')->value('max_uid') + 1;
+            $bill->section = 'INVESTIGATION';
+            $bill->section_id = $investigation_id;
+            $bill->bill_date = $request->appointment_date ? date('Y-m-d H:i:s', strtotime($request->appointment_date)) : null;
+            $bill->patient_id = $patient_id;
+            $bill->doctor_id = $request->cons_doctor;
+            $bill->referred_by = $request->referred_by;
+            $bill->provider = $request->provider;
+            $bill->market_by = $request->market_by;
+            $bill->case_id = $caseReference->id;
+            $bill->total = $request->total;
+            $bill->sub_total = $request->total;
+            $bill->discount_amount = $request->total - $request->grand_total;
+            $bill->discount = $request->total_discount ?? 0;
+            $bill->discount_type = $request->discount_type;
+            $bill->discount_status = 'Approved';
+            $bill->total_payment = $request->total_payment;
+            if($request->grand_total > $request->total_payment){
+                $bill->due_amount = $request->grand_total - $request->total_payment;
+            }else{
+                $bill->cradit_amount = $request->total_payment - $request->grand_total;
+            }
+            $bill->grand_total = $request->grand_total;
+            $bill->status = 'Done';
+            $bill->bill_status = 1;
+            $bill->created_by = Auth::user()->id;
+            $bill->save();
+            $bill_id = $bill->id;
+
+            if($bill->cradit_amount > 0){
+                PatientCraditAmount::create([
+                    'patient_id' => $patient_id,
+                    'billing_id' => $bill_id,
+                    'date' => date('Y-m-d H:i:s'),
+                    'amount' => $bill->cradit_amount,
+                    'type' => 'credit',
+                    'remarks' => 'added',
+                    'generated_by' => Auth::id(),
+                ]);
+            }
+
+            //SAVE in Billing Details
+            foreach ($request->charge_name as $key => $value) {
+                $charge = Charge::select('charges.*','cc.charges_catagories_name')
+                    ->leftjoin('charges_catagories as cc','cc.id','=','charges.sub_category_id')
+                    ->where('charges.id', $request->charge_name[$key])
+                    ->first();
+
+                $bill_details =  new BillingDetail();
+                $bill_details->billing_id = $bill_id;
+                $bill_details->charge_category_id = $charge->category_id;
+                $bill_details->charge_sub_category_id = $charge->sub_category_id;
+                $bill_details->date = $request->appointment_date ? date('Y-m-d H:i', strtotime($request->appointment_date)) : date('Y-m-d H:i:s');
+                $bill_details->charge_id = $request->charge_name[$key];
+                $bill_details->charge_name = $charge->charge_name;
+                $bill_details->standard_charges = $request->rate[$key];
+                $bill_details->discount_percentage = $request->discount_in_per[$key];
+                $bill_details->discount_amount = $request->discount_amount[$key];
+                $bill_details->qty = $request->qty[$key];
+                $bill_details->amount = $request->amount[$key];
+                $bill_details->save();
+
+                //SAVE in investigations
+                if($charge->charge_type == 'investigation'){
+                    $charge_normal = ChargesHasNormal::where('charge_id',$charge->id)->get();
+
+                    if($charge->category_id == 10){
+                        $type = 'pathology';
+                    }elseif($charge->category_id == 12){
+                        $type = 'non-pathology';
+                    }elseif($charge->category_id == 11){
+                        $type = 'radiology';
+                    }else{
+                        $type = null;
+                    }
+                    // dd($charge,$type);
+
+                    if($type){
+                        $investiga = new Investigation();
+                        $investiga->type = $type;
+                        $investiga->charge_id = $charge->id;
+                        $investiga->bill_id =  $bill_id;
+                        $investiga->bill_details_id = $bill_details->id;
+                        $investiga->patient_id = $patient_id;
+                        $investiga->bill_created_by = Auth::user()->id;
+                        $investiga->bill_created_date = date('Y-m-d H:i:s');
+                        $investiga->expected_delivery_at = date('Y-m-d');
+                        $investiga->report_status = '0'; // 0 => only bill created, 1 => sample collected, 2 => sample collecting, 3 => lab received, 4 => report generated, 5 => report deliverd
+                        $investiga->section =  'INVESTIGATION';
+                        $investiga->section_id = $investigation_id;
+                        $investiga->referral_id = $request->referred_by;
+                        $investiga->save();
+
+                        foreach ($charge_normal as $key => $value) {
+                            $investigation_details = new InvestigationDetail();
+                            $investigation_details->investigation_id = $investiga->id;
+                            $investigation_details->charge_normal_id = $value->id;
+                            $investigation_details->save();
+                        }
+                    }
+                }
+            }
+
+            //SAVE in Payment
+            if (count($request->payment_amount) > 0) {
+                foreach($request->payment_amount as $key=>$value){
+                    if($request->payment_amount[$key] > 0){
+                        $payment = new Payment();
+                        $payment->billing_id = $bill_id;
+                        $payment->patient_id = $patient_id;
+                        $payment->section = 'INVESTIGATION';
+                        $payment->payment_amount = $request->payment_amount[$key];
+                        $payment->payment_mode = $request->payment_mode[$key];
+                        $payment->payment_bank = $request->payment_mode[$key] == 'Cash' ? null : $request->bank_name;
+                        $payment->payment_recived_by = Auth::user()->id;
+                        $payment->payment_date = date('Y-m-d H:i');
+                        $payment->save();
+                    }
+                }
+            }
+
+            //credit use
+            if (count($request->adjust_credit_amount ?? []) > 0) {
+                foreach($request->adjust_credit_amount as $key=>$value){
+                    if($request->adjust_credit_amount[$key] > 0){
+                        $credit = new PatientCraditAmount();
+                        $credit->billing_id = $bill_id;
+                        $credit->patient_id = $patient_id;
+                        $credit->date = date('Y-m-d H:i:s');
+                        $credit->amount = $request->adjust_credit_amount[$key];
+                        $credit->type = 'debit';
+                        $credit->remarks = 'reused';
+                        $credit->use_bill_id = $request->credit_bill[$key];
+                        $credit->generated_by = Auth::user()->id;
+                        $credit->save();
+
+                        $upbill = Billing::find($request->credit_bill[$key]);
+                        $upbill->cradit_amount = $upbill->cradit_amount - $request->adjust_credit_amount[$key];
+                        $upbill->cradituse_bill_id = $upbill->cradituse_bill_id.'_'.$bill_id;
+                        $upbill->cradituse_bill_amount = $upbill->cradituse_bill_amount.'_'.$request->adjust_credit_amount[$key];
+                        $upbill->save();
+                    }
+                }
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+        $url1 = route('bill.print-bill', ['investigation',ed($bill_id, true)]);
+        $return_action = route('investigation.investigation');
+        return view('open-single-tabs', compact('url1', 'return_action'));
+    }
+    public function investigation_report(Request $request, $type, $value = null){
+        if($type == 'pathology'){
+            if($value == 'collection'){
+                $tag = 'Collect';
+                $url['single'] = route('investigation.sample-collected');
+                $url['bulk'] = route('investigation.bulk-sample-collected');
+                $status['key'] = ['All','Collected','Not Collected'];
+                $status['value'] = ['0-1','1','0'];
+                $title = 'Pathology Collections';
+            }elseif($value == 'lab-recived'){
+                $tag = 'Receive';
+                $url['single'] = route('investigation.lab-received');
+                $url['bulk'] = route('investigation.bulk-lab-received');
+                $status['key'] = ['All','Received By Lab','Not Receive By Lab'];
+                $status['value'] = ['1-2','2','1'];
+                $title = 'Pathology Lab Receive';
+            }else{
+                $tag = 'Generate';
+                $url['single'] = route('investigation.report-generate');
+                $url['bulk'] = route('investigation.bulk-report-generate');
+                $status['key'] = ['All','Report Updated','Report Not Update'];
+                $status['value'] = ['2-3','3','2'];
+                $title = 'Pathology Reports';
+            }
+        }else{
+            $tag = 'Generate';
+            $url['single'] = route('investigation.report-generate');
+            $url['bulk'] = route('investigation.bulk-report-generate');
+            $status['key'] = ['All','Report Updated','Report Not Update'];
+            $status['value'] = ['0-1','1','0'];
+            $title = ucwords($type).' Reports';
+        }
+
+        if ($request->ajax()) {
+            $data = Investigation::select(
+                'investigations.id',
+                'investigations.bill_id',
+                'investigations.patient_id',
+                'b.uid',
+                'investigations.bill_created_date',
+                'p.name as patient_name',
+                'p.phone',
+                'p.gender',
+                'p.dob_year',
+                'p.dob_month',
+                'p.dob_day',
+                'r.referral_name',
+                'u.name as doctor_name',
+                'investigations.section',
+                'investigations.section_id',
+                'beds.bed_name'
+            )
+            ->leftjoin('billings as b','b.id','=','investigations.bill_id')
+            ->leftjoin('patients as p','p.id','=','investigations.patient_id')
+            ->leftJoin('referrals as r','r.id','=','investigations.referral_id')
+            ->leftJoin('users as u','u.id','=','investigations.doctor_id')
+            ->leftJoin('ipd_registers', function ($join) {
+                $join->on('ipd_registers.id', '=', 'investigations.section_id')
+                     ->where('investigations.section', 'IPD')
+                     ->leftjoin('beds', 'beds.id', '=', 'ipd_registers.bed_id');
+            })
+            ->where('investigations.type', '=', $type)
+            ->where('investigations.is_delete', 0)
+            // ->where('investigations.report_status', $rs)
+            // ->whereIn('investigations.id', function ($subQuery) use ($rs) {
+            //     $subQuery->select(DB::raw('MAX(id)'))
+            //              ->from('investigations')
+            //              ->where('report_status', $rs)
+            //              ->groupBy('bill_id');
+            // })
+            ->OrderBy('investigations.bill_created_date','DESC');
+
+            // Filter based on field_name and field_value
+            if (!empty($request->field_name) && !empty($request->field_value)) {
+                $data->where($request->field_name, 'LIKE', '%' . $request->field_value . '%');
+            }
+
+            // Filter by status
+            if (is_numeric($request->status_value) && $request->status_value == 0) {
+                $status = (string)$request->status_value;
+                $data->where('investigations.report_status', $status);
+                $data->whereIn('investigations.id', function ($subQuery) use ($status, $type) {
+                    $subQuery->select(DB::raw('MAX(id)'))
+                            ->from('investigations')
+                            ->where('report_status', (string)$status)
+                            ->where('type', '=', (string)$type)
+                            ->groupBy('bill_id');
+                });
+            } else {
+                $status = explode('-', $request->status_value);
+                $data->whereIn('investigations.report_status', $status);
+                $data->whereIn('investigations.id', function ($subQuery) use ($status, $type) {
+                    $subQuery->select(DB::raw('MAX(id)'))
+                            ->from('investigations')
+                            ->whereIn('report_status', $status)
+                            ->where('type', '=', (string)$type)
+                            ->groupBy('bill_id');
+                });
+            }
+
+            // Filter by test
+            if (!empty($request->select_value)) {
+                $data->whereIn('investigations.charge_id', $request->select_value);
+            }
+
+            // Filter by date range
+            if (!empty($request->from_date)) {
+                $data->whereDate('investigations.bill_created_date', '>=', date('Y-m-d',strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('investigations.bill_created_date', '<=', date('Y-m-d',strtotime($request->to_date)));
+            }
+            // dd($data->toSql(), $data->getBindings());
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('cre_date', function($row){
+                    $dateBtn = dateFor($row->bill_created_date, true);
+                    return $dateBtn;
+                })
+                ->rawColumns(['cre_date'])
+                ->make(true);
+        }
+        $charge = Charge::select('id','charge_name')->where('is_active',1)->where('is_delete',0)->get();
+        $data = compact('type','value','tag','url','title','charge','status');
+        return view('investigation.investigation-reports')->with($data);
+    }
+    public function investigation_deatils(Request $request){
+        if (is_numeric($request->status)) {
+            $status = [(string)$request->status];
+        } else {
+            $status = explode('-', $request->status);
+        }
+        $bill_date = Billing::where('id', $request->bill_id)
+            ->select('bill_date')
+            ->first();
+        $response = Investigation::select('investigations.id','investigations.charge_id','c.charge_name','st.sample_name','v.vial_name','investigations.report_status','investigations.bill_created_date','investigations.attach_document')
+            ->leftjoin('charges as c','c.id','=','investigations.charge_id')
+            ->leftJoin('sample_types as st','st.id','=','c.sample_id')
+            ->leftJoin('vials as v','v.id','=','c.vial_id')
+            ->where('investigations.bill_id', $request->bill_id)
+            ->when($request->type, function($query) use ($request) {
+                return $query->where('investigations.type', $request->type);
+            })
+            // ->whereDate('investigations.bill_created_date', date('Y-m-d', strtotime($bill_date->bill_date)))
+            ->whereIn('investigations.report_status', $status)
+            ->where('investigations.is_delete', '0')
+            ->get()
+            ->map(function($item) {
+                $item->id_ed = ed($item->id, true);
+                if($item->attach_document){
+                    $item->attach_document = url('public/assets/attachments/investigation').'/'.$item->attach_document;
+                }else{
+                    $item->attach_document = null;
+                }
+                return $item;
+            });
+        return response()->json([
+            'success' => true,
+            'results' => $response,
+            'route' => route('investigation.print-bulk-reports'),
+            'billId' => $request->bill_id,
+        ]);
+    }
+    public function sample_collected($id){
+        $id = ed($id, false);
+        Investigation::where('id', $id)->update([
+            'report_status' => '1',
+            'sample_collected_by' => Auth::user()->id,
+            'sample_collected_at' => date('Y-m-d H:i:s')
+        ]);
+        return redirect()->back()->with('success','Sample Collected SuccessFully');
+    }
+    public function bulk_sample_collected(Request $request){
+        Investigation::whereIn('id',$request->testId)->update([
+            'report_status' => '1',
+            'sample_collected_by' => Auth::user()->id,
+            'sample_collected_at' => date('Y-m-d H:i:s')
+        ]);
+        return;
+    }
+    public function lab_received($id){
+        $id = ed($id, false);
+        Investigation::where('id', $id)->update([
+            'report_status' => '2',
+            'lab_receive_by' => Auth::user()->id,
+            'lab_receive_at' => date('Y-m-d H:i:s')
+        ]);
+        return redirect()->back()->with('success','LAB Received SuccessFully');
+    }
+    public function bulk_lab_received(Request $request){
+        Investigation::whereIn('id',$request->testId)->update([
+            'report_status' => '2',
+            'lab_receive_by' => Auth::user()->id,
+            'lab_receive_at' => date('Y-m-d H:i:s')
+        ]);
+        return;
+    }
+    public function report_generate($id){
+        $id = ed($id, false);
+        Investigation::where('id', $id)->update([
+            'report_status' => '3',
+            'report_generate_by' => Auth::user()->id,
+            'report_generate_at' => date('Y-m-d H:i:s')
+        ]);
+        return redirect()->back()->with('success','Report Generated SuccessFully');
+    }
+    public function bulk_report_generate(Request $request){
+        Investigation::whereIn('id',$request->testId)->update([
+            'report_status' => '3',
+            'report_generate_by' => Auth::user()->id,
+            'report_generate_at' => date('Y-m-d H:i:s')
+        ]);
+        return;
+    }
+    public function report_upload($id){
+        $id = ed($id, false);
+        $report =  Investigation::select(
+                'investigations.*',
+                'b.uid',
+                'p.name as patient_name',
+                'p.phone',
+                'p.gender',
+                'p.dob_year',
+                'p.dob_month',
+                'p.dob_day',
+                'r.referral_name',
+                'u.name as doctor_name',
+                'u1.name as collected_name',
+                'u2.name as received_name',
+                'c.charge_name',
+				'c.note as charge_note',
+                'c.instrument_used',
+                'c.template',
+                'sample_types.sample_name',
+                'vials.vial_name',
+            )
+            ->join('billings as b','b.id','=','investigations.bill_id')
+            ->join('patients as p','p.id','=','investigations.patient_id')
+            ->join('charges as c','c.id','=','investigations.charge_id')
+            ->leftJoin('sample_types','sample_types.id','=','c.sample_id')
+            ->leftJoin('vials','vials.id','=','c.vial_id')
+            ->leftJoin('referrals as r','r.id','=','investigations.referral_id')
+            ->leftJoin('users as u','u.id','=','investigations.doctor_id')
+            ->leftJoin('users as u1','u1.id','=','investigations.sample_collected_by')
+            ->leftJoin('users as u2','u2.id','=','investigations.lab_receive_by')
+            ->where('investigations.id', $id)
+            ->first();
+        $report_details = InvestigationDetail::select('investigation_details.id as inv_id','investigation_details.*','chn.*')
+            ->join('charges_has_normals as chn','chn.id','=','investigation_details.charge_normal_id')
+            ->where('investigation_id',$id)
+            ->get();
+        $doctors = User::where('user_type','doctor')->where('is_active',1)->where('is_delete',0)->get();
+
+        $role_id = Auth::user()->role_id;
+
+        $data = compact('report','report_details','doctors', 'role_id');
+        // dd($data);
+        return view('investigation.report-upload', $data);
+    }
+    public function update_report(Request $request){
+        $path = public_path('assets/attachments/investigation');
+        if ($request->file('attach_document')) {
+            $attach_document = rand() . "." . $request->file('attach_document')->getClientOriginalExtension();
+            $request->file('attach_document')->move($path, $attach_document);
+        } else {
+            $attach_document = null;
+        }
+
+        $investigation = Investigation::where('id',$request->investigation_id)->update([
+            'note'=> $request->note,
+            'extra_note'=>$request->extra_note,
+            // 'remarks'=> $request->remarks,
+            // 'special_remarks'=> $request->special_remarks,
+            'attach_document'=> $attach_document,
+            'approved_at' =>  date('Y-m-d H:i'),
+            'approved_doctor_by' => $request->approved_test_doctor,
+            'report_deliverd_at'=> date('Y-m-d H:i'),
+            'report_template_result'=> $request->report_template_result
+        ]);
+
+        if(@$request->report_details_id){
+            foreach ($request->report_details_id as $key => $value) {
+                $pathology_details = InvestigationDetail::where('id', $value)->first();
+                $pathology_details->test_result_value = $request->result[$key];
+                $pathology_details->comment = $request->comment[$key];
+                $pathology_details->save();
+            }
+        }
+
+        if($request->save_type == 'only_update_and_print'){
+            return redirect()->route('investigation.print-from-report-update',ed($request->investigation_id, true));
+        }else{
+            return redirect()->back()->with('success','Result update successfully');
+        }
+    }
+    public function rate_query(){
+        $charges = Charge::select('charges.id','charges.charge_name','chs.charge_amount')
+            ->join('charges_has_sections as chs','chs.charge_id','=','charges.id')
+            ->join('charges_sections as cs','cs.id','=','chs.charge_section_id')
+            ->where('cs.charges_section_name','INVESTIGATION')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+        $data = compact('charges');
+        return view('investigation.rate-query')->with($data);
+    }
+    public function complete_investigation_report(Request $request){
+        $title = 'Ready Reports';
+        $status['key'] = ['All','Report Deliverd','Report Not Deliverd'];
+        $status['value'] = ['3-4','4','3'];
+        $charge = Charge::select('id','charge_name')->where('is_active',1)->where('is_delete',0)->get();
+        if ($request->ajax()) {
+            $data = Investigation::select(
+                'investigations.id',
+                'investigations.bill_id',
+                'b.uid',
+                'investigations.bill_created_date',
+                'p.name as patient_name',
+				'investigations.patient_id',
+                'p.phone',
+                'p.gender',
+                'p.dob_year',
+                'p.dob_month',
+                'p.dob_day',
+                'r.referral_name',
+                'u.name as doctor_name',
+                'investigations.section',
+                'investigations.section_id',
+                'beds.bed_name'
+            )
+            ->join('billings as b','b.id','=','investigations.bill_id')
+            ->join('patients as p','p.id','=','investigations.patient_id')
+            ->leftJoin('referrals as r','r.id','=','investigations.referral_id')
+            ->leftJoin('users as u','u.id','=','investigations.doctor_id')
+            ->leftJoin('ipd_registers', function ($join) {
+                $join->on('ipd_registers.id', '=', 'investigations.section_id')
+                     ->where('investigations.section', '=', 'IPD')
+                     ->join('beds', 'beds.id', '=', 'ipd_registers.bed_id');
+            })
+            ->where('investigations.is_delete', 0)
+            // ->where('investigations.report_status', 3)
+            // ->whereIn('investigations.id', function ($subQuery) {
+            //     $subQuery->select(DB::raw('MAX(id)'))
+            //              ->from('investigations')
+            //              ->where('report_status', 3)
+            //              ->groupBy('bill_id');
+            // })
+            ->OrderBy('investigations.bill_created_date','DESC');
+
+            // Filter based on field_name and field_value
+            if (!empty($request->field_name) && !empty($request->field_value)) {
+                $data->where($request->field_name, 'LIKE', '%' . $request->field_value . '%');
+            }
+
+            // Filter by status
+            if (is_numeric($request->status_value) && $request->status_value == 0) {
+                $status = (string)$request->status_value;
+                $data->where('investigations.report_status', $status);
+                $data->whereIn('investigations.id', function ($subQuery) use ($status) {
+                    $subQuery->select(DB::raw('MAX(id)'))
+                            ->from('investigations')
+                            ->where('report_status', $status)
+                            ->groupBy('bill_id');
+                });
+            } else {
+                $status = explode('-', $request->status_value);
+                $data->whereIn('investigations.report_status', $status);
+                $data->whereIn('investigations.id', function ($subQuery) use ($status) {
+                    $subQuery->select(DB::raw('MAX(id)'))
+                            ->from('investigations')
+                            ->whereIn('report_status', $status)
+                            ->groupBy('bill_id');
+                });
+            }
+
+            // Filter by test
+            if (!empty($request->select_value)) {
+                $data->whereIn('investigations.charge_id', $request->select_value);
+            }
+
+            // Filter by date range
+            if (!empty($request->from_date)) {
+                $data->whereDate('investigations.bill_created_date', '>=', date('Y-m-d',strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('investigations.bill_created_date', '<=', date('Y-m-d',strtotime($request->to_date)));
+            }
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('cre_date', function($row){
+                    $dateBtn = dateFor($row->bill_created_date, true);
+                    return $dateBtn;
+                })
+                ->rawColumns(['cre_date'])
+                ->make(true);
+        }
+        $data = compact('title','charge','status');
+        return view('investigation.ready-reports')->with($data);
+    }
+    public function report_deliverd($id){
+        $id = ed($id, false);
+        Investigation::where('id', $id)->update([
+            'report_status' => '4',
+            'report_deliverd_by' => Auth::user()->id,
+            'report_deliverd_at' => date('Y-m-d H:i:s')
+        ]);
+        return redirect()->back()->with('success','Report Deliverd SuccessFully');
+    }
+}

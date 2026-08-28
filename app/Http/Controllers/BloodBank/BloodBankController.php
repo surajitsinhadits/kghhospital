@@ -1,0 +1,1362 @@
+<?php
+
+namespace App\Http\Controllers\BloodBank;
+
+use App\Http\Controllers\Controller;
+use App\Models\Billing;
+use App\Models\BlBloodCompatibility;
+use App\Repositories\BloodBankRepository;
+use App\Models\BlBloodInventory;
+use App\Models\BlBloodIssue;
+use App\Models\BlDonationCamp;
+use App\Models\BlDonation;
+use App\Models\BlDonor;
+use App\Models\BlLabScreening;
+use App\Models\BlReceptant;
+use App\Models\BlSectionHistory;
+use App\Models\Patient;
+use App\Models\State;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Str;
+
+class BloodBankController extends Controller
+{
+    public function index1()
+    {
+        $today = Carbon::now();
+        $oneMonthAgo = Carbon::now()->subMonth();
+        $twoMonthsAgo = Carbon::now()->subMonths(2);
+
+        // INIT $total ONCE
+        $total = [];
+
+        // Donations count
+        $total['donations_one_month'] = BlDonation::whereBetween('created_at', [$oneMonthAgo, $today])->count();
+        $total['donations_prev_month'] = BlDonation::whereBetween('created_at', [$twoMonthsAgo, $oneMonthAgo])->count();
+
+        // Donation percentage change
+        if ($total['donations_prev_month'] != 0) {
+            $donationsPercentageChange = (
+                ($total['donations_one_month'] - $total['donations_prev_month']) 
+                / $total['donations_prev_month']
+            ) * 100;
+        } else {
+            $donationsPercentageChange = null;
+        }
+
+        $recentDonations = BlDonation::select('bl_donations.*', 'd.name')
+            ->join('bl_donors as d', 'd.id', '=', 'bl_donations.donor_id')
+            ->orderBy('bl_donations.id', 'DESC')
+            ->limit(5)
+            ->get();
+
+        $topDonations = BlDonation::select(
+            'bl_donations.donor_id',
+            'd.name',
+            'd.last_donation_date',
+            'd.blood_group',
+            DB::raw('COUNT(bl_donations.id) as total_donations')
+        )
+        ->join('bl_donors as d', 'd.id', '=', 'bl_donations.donor_id')
+        ->groupBy('bl_donations.donor_id', 'd.name', 'd.last_donation_date', 'd.blood_group')
+        ->orderByDesc('total_donations')
+        ->limit(5)
+        ->get();
+
+        $active_doners = BlDonor::whereDate('last_donation_date', '>=', Carbon::now()->subMonths(6))->count();
+        $inactive_donors = BlDonor::whereDate('last_donation_date', '<', Carbon::now()->subMonths(6))->count();
+
+        $blood_transaction = BlBloodIssue::select(
+                'bl_blood_issue.*',
+                'bl_donations.bag_barcode',
+                'patients.name as patient_name',
+                'patients.uhid as patient_uhid',
+                'bl_donations.blood_group'
+            )
+            ->join('bl_donations', 'bl_donations.id', '=', 'bl_blood_issue.donation_id')
+            ->join('patients', 'patients.id', '=', 'bl_blood_issue.patient_id')
+            ->orderBy('bl_blood_issue.created_at', 'DESC')
+            ->take(5)
+            ->get();
+
+        $total_blood = BlDonation::whereStockUpdated(1)->get();
+        $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+        $availableBlood = BlDonation::whereStockUpdated(1)
+            ->whereIsUsed(0)
+            ->get();
+
+        $bloodGroupSummary = [];
+
+        foreach ($bloodGroups as $item) {
+            $available_Blood = $availableBlood->where('blood_group', $item)->count();
+            $total_count = $total_blood->where('blood_group', $item)->count();
+            $available_percentage = $total_count > 0 ? round(($available_Blood / $total_count) * 100, 2) : 0;
+
+            $minimumStock = match ($item) {
+                'O+' => 30,
+                'A+' => 25,
+                'B+' => 20,
+                'AB+' => 10,
+                'O-' => 15,
+                'A-' => 12,
+                'B-' => 8,
+                'AB-' => 5,
+                default => 10
+            };
+
+            if ($available_Blood <= $minimumStock) {
+                $status = 'CRITICAL';
+            } elseif ($available_Blood <= $minimumStock * 1.5) {
+                $status = 'LOW';
+            } else {
+                $status = 'NORMAL';
+            }
+
+            $bloodGroupSummary[] = [
+                'bloodGroup' => $item,
+                'current' => $available_Blood,
+                'minimum' => $minimumStock,
+                'status' => $status,
+                'availablePercentage' => $available_percentage
+            ];
+        }
+
+        $criticalCount = collect($bloodGroupSummary)->where('status', 'CRITICAL')->count();
+
+        // Available blood counts (DO NOT RESET $total)
+        $total['available_blood_one_month'] = BlDonation::whereStockUpdated(1)
+            ->whereIsUsed(0)
+            ->whereBetween('created_at', [$oneMonthAgo, $today])
+            ->count();
+
+        $total['available_blood_prev_month'] = BlDonation::whereStockUpdated(1)
+            ->whereIsUsed(0)
+            ->whereBetween('created_at', [$twoMonthsAgo, $oneMonthAgo])
+            ->count();
+
+        if ($total['available_blood_one_month'] != 0) {
+            $availableBloodPercentageChange = (
+                ($total['available_blood_one_month'] - $total['available_blood_prev_month']) 
+                / $total['available_blood_one_month']
+            ) * 100;
+        } else {
+            $availableBloodPercentageChange = null;
+        }
+
+        $today = Carbon::today();
+
+        $oneMonthAgo = Carbon::today()->subMonth();
+
+        $twoMonthsAgo = Carbon::today()->subMonths(2);
+
+        $total['issued_blood_one_month'] = BlBloodIssue::whereBetween('created_at', [$oneMonthAgo, $today])
+            ->count();
+      
+        $total['issued_blood_prev_month'] = BlBloodIssue::whereBetween('created_at', [$twoMonthsAgo, $oneMonthAgo])
+            ->count();
+             
+        if ($total['issued_blood_one_month'] != 0) {
+            $issuedBloodPercentageChange = (
+                ($total['issued_blood_one_month'] - $total['issued_blood_prev_month']) 
+                / $total['issued_blood_one_month']
+            ) * 100;
+        } else {
+            $issuedBloodPercentageChange = null;
+        }
+
+        $bloodGroupsList = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'];
+
+        $sixMonthsAgo = Carbon::now()->subMonths(5)->startOfMonth();
+
+        $rawData = BlBloodIssue::select(
+                DB::raw("DATE_FORMAT(bl_blood_issue.created_at, '%b') as month"),
+                'bl_donations.blood_group',
+                DB::raw("COUNT(*) as total")
+            )
+            ->join('bl_donations', 'bl_donations.id', '=', 'bl_blood_issue.donation_id')
+            ->where('bl_blood_issue.created_at', '>=', $sixMonthsAgo)
+            ->groupBy('month', 'bl_donations.blood_group')
+            ->orderByRaw("MIN(bl_blood_issue.created_at)")
+            ->get()
+            ->groupBy('month');
+
+        $monthlyBloodIssueData = [];
+        $monthsOrder = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $monthsOrder[] = Carbon::now()->subMonths($i)->format('M');
+        }
+
+        foreach ($monthsOrder as $month) {
+            $row = ['month' => $month];
+            foreach ($bloodGroupsList as $group) {
+                $row[$group] = isset($rawData[$month])
+                    ? $rawData[$month]->firstWhere('blood_group', $group)->total ?? 0
+                    : 0;
+            }
+            $monthlyBloodIssueData[] = $row;
+        }
+
+        return view(
+            'blood_bank.index1',
+            compact(
+                'recentDonations',
+                'active_doners',
+                'inactive_donors',
+                'topDonations',
+                'blood_transaction',
+                'bloodGroupSummary',
+                'availableBloodPercentageChange',
+                'total',
+                'issuedBloodPercentageChange',
+                'monthlyBloodIssueData',
+                'criticalCount',
+                'donationsPercentageChange'
+            )
+        );
+    }
+
+    public function index()
+    {
+
+        //TOTAL DONERS
+        $total_doners = BlDonor::count();
+
+        //BLOOD UNIT AVAILABLE
+        $available_blood_unit = BlDonation::whereIsUsed(0)->whereStockUpdated(1)->count();
+
+        //DONATED TODAY
+        $blood_donated_today = BlBloodIssue::whereDate('created_at', Carbon::today())->count();
+
+        $total_blood = BlDonation::whereStockUpdated(1)->get();
+        $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+        $availableBlood = BlDonation::whereStockUpdated(1)->whereIsUsed(0)->get();
+
+
+        $bloodGroupSummary = [];
+        foreach ($bloodGroups as $item) {
+            $total = $total_blood->where('blood_group', $item)->count();
+            $available_Blood = $availableBlood->where('blood_group', $item)->count();
+            $available_percentage = $total > 0 ? round(($available_Blood / $total) * 100, 2) : 0;
+
+            $bloodGroupSummary[] = [
+                'blood_group' => $item,
+                'total_blood' => $total,
+                'available_blood' => $available_Blood,
+                'available_percentage' => $available_percentage
+            ];
+        }
+
+        $recentDonations = BlDonation::join('bl_blood_issue', 'bl_blood_issue.donation_id', '=', 'bl_donations.id')
+            ->join('patients', 'patients.id', '=', 'bl_blood_issue.patient_id')
+            ->select('bl_donations.blood_group', 'bl_donations.created_at', 'patients.name', 'bl_donations.status')
+            ->orderBy('bl_donations.id', 'DESC')
+            ->limit(6)
+            ->get();
+
+        $year = now()->year;
+        $percentages = [];
+
+        // Initialize result array with zero percentages
+        foreach ($bloodGroups as $group) {
+            $percentages[$group] = 0.0;
+        }
+
+        // Query total donations per blood group for the year
+        $donations = BlDonation::selectRaw('blood_group, COUNT(*) as total')
+            ->where('stock_updated', 1)
+            ->whereYear('donation_date', $year)
+            ->groupBy('blood_group')
+            ->get();
+
+        // Query used donations per blood group for the year
+        $donations_used = BlDonation::selectRaw('blood_group, COUNT(*) as total')
+            ->where('stock_updated', 1)
+            ->where('is_used', 1)
+            ->whereYear('donation_date', $year)
+            ->groupBy('blood_group')
+            ->get();
+
+        $issued_blood = $donations_used->count();
+
+        // Fill in total donations
+        
+        foreach ($donations as $donation) {
+            $totals[$donation->blood_group] = $donation->total;
+        }
+
+        // Fill in used donations
+        $useds = [];
+        foreach ($donations_used as $used) {
+            $useds[$used->blood_group] = $used->total;
+        }
+
+        // Calculate percentage used for the year
+        foreach ($bloodGroups as $group) {
+            $total = $totals[$group] ?? 0;
+            $used = $useds[$group] ?? 0;
+            if ($total == 0) {
+                $percentages[$group] = 0.0;
+            } elseif ($used == 0) {
+                $percentages[$group] = 100.0;
+            } else {
+                $percentages[$group] = round(($used / $total) * 100, 2);
+            }
+        }
+
+        $total_blood_wise = $percentages;
+
+        $percentages = [];
+        // Initialize result array with zero percentages for each month
+        foreach (range(1, 12) as $month) {
+            $monthName = \Carbon\Carbon::create()->month($month)->format('F');
+            $percentages[$monthName] = 0.0;
+        }
+
+        // Query total donations per month for the year (all blood groups)
+        $donations = \App\Models\BlDonation::selectRaw('MONTH(donation_date) as month, COUNT(*) as total')
+            ->where('stock_updated', 1)
+            ->whereYear('donation_date', $year)
+            ->groupBy('month')
+            ->get();
+
+        // Query used donations per month for the year (all blood groups)
+        $donations_used = \App\Models\BlDonation::selectRaw('MONTH(donation_date) as month, COUNT(*) as total')
+            ->where('stock_updated', 1)
+            ->where('is_used', 1)
+            ->whereYear('donation_date', $year)
+            ->groupBy('month')
+            ->get();
+
+        // Fill in total donations per month
+        $totals = [];
+        foreach ($donations as $donation) {
+            $monthName = \Carbon\Carbon::create()->month($donation->month)->format('F');
+            $totals[$monthName] = $donation->total;
+        }
+
+        // Fill in used donations per month
+        $useds = [];
+        foreach ($donations_used as $used) {
+            $monthName = \Carbon\Carbon::create()->month($used->month)->format('F');
+            $useds[$monthName] = $used->total;
+        }
+
+        // Calculate percentage used for each month
+        foreach ($percentages as $month => $val) {
+            $total = $totals[$month] ?? 0;
+            $used = $useds[$month] ?? 0;
+            if ($total == 0) {
+                $percentages[$month] = 0.0;
+            } elseif ($used == 0) {
+                $percentages[$month] = 100.0;
+            } else {
+                $percentages[$month] = round(($used / $total) * 100, 2);
+            }
+        }
+
+        $total_month_wise = $percentages;
+
+        return view(
+            'blood_bank.index',
+            compact(
+                'total_doners',
+                'available_blood_unit',
+                'blood_donated_today',
+                'bloodGroupSummary',
+                'recentDonations',
+                'total_month_wise',
+                'total_blood_wise',
+                'issued_blood'
+            )
+        );
+    }
+    public function section_history($section, $receptant_id, Request $request)
+    {
+        $section_history = new BlSectionHistory();
+        $section_history->bill_id = $request['bill_id'];
+        $section_history->section_id = $request['section_id'];
+        $section_history->section = $section;
+        $section_history->receptant_id = $receptant_id;
+        $section_history->created_by = Auth::id();
+        $section_history->save();
+
+        return 1;
+    }
+    public function remove_blood_issue($bill_id)
+    {
+        $bl_issue_save = BlBloodIssue::whereBillingId($bill_id)->first();
+        $bl_issue_save->delete();
+
+        return response()->json([
+            'success' => true,
+            'data' => $bl_issue_save
+        ]);
+    }
+
+    public function get_doner_info(Request $request)
+    {
+        $doners = BlDonor::where($request->field, 'LIKE', "%{$request->value}%")->where('status', '0')->limit(10)->get();
+        return response()->json([
+            'success' => true,
+            'doner' => $doners
+        ]);
+    }
+    public function getBloodGroups(Request $request)
+    {
+        $code = $request->blood_group_code;
+
+        $groups = BlBloodInventory::where('blood_group', $code)->get(['id', 'blood_group', 'quantity']);
+
+        return response()->json($groups);
+    }
+    public function view_and_approve($id)
+    {
+        $title = "View and Approve";
+        $btn3 = 'Update and Approve';
+        $edit = BlDonation::select('bl_donors.id as donor_id', 'bl_donations.id as donations_id', 'bl_lab_screenings.id as bl_lab_screenings_id', 'bl_donations.*', 'bl_donors.*', 'bl_lab_screenings.*')
+            ->join('bl_donors', 'bl_donors.id', 'bl_donations.donor_id')
+            ->leftJoin('bl_lab_screenings', function ($join) {
+                $join->on('bl_lab_screenings.section_id', '=', 'bl_donations.id')
+                    ->where('bl_lab_screenings.section', '=', 'Donation');
+            })
+            ->where('bl_donations.id', $id)
+            ->first();
+        return view('blood_bank.doner-register')->with(compact('title', 'btn3', 'edit'));
+    }
+    public function get_donor_details(Request $request)
+    {
+        $testedOptions = BlDonation::select('tested')
+            ->whereNotNull('tested')
+            ->groupBy('tested')
+            ->pluck('tested');
+
+        if ($request->ajax()) {
+            $data = BlDonation::select('bl_donations.id', 'donor_id', 'bl_donors.name', 'bl_donations.stock_updated', 'bl_donations.donation_date', 'bl_donations.quantity_ml', 'bl_donations.expiry_date', 'bl_donations.tested', 'bl_donations.status', 'bl_donations.created_at')
+                ->join('bl_donors', 'bl_donors.id', 'bl_donations.donor_id')
+                ->where('is_deleted', 0);
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+
+                ->addColumn('donation_date', function ($row) {
+                    return Carbon::parse($row->donation_date)->format('d-m-Y');
+                })
+
+                ->addColumn('expiry_date', function ($row) {
+                    return Carbon::parse($row->expiry_date)->format('d-m-Y');
+                })
+
+                ->addColumn('tested', function ($row) {
+                    return $row->tested === 'Yes'
+                        ? '<span class="badge badge-success">Tested</span>'
+                        : '<span class="badge badge-warning">Not Tested</span>';
+                })
+
+                ->addColumn('status', function ($row) {
+                    return $row->status == 1
+                        ? '<span class="badge badge-success">Safe</span>'
+                        : '<span class="badge badge-danger">Unsafe</span>';
+                })
+
+                ->addColumn('action', function ($row) {
+                    $data = !$row->stock_updated ? '<a href="' . route('bl.edit', $row->id) . '" class="btn btn-sm btn-primary me-2">
+                            <i class="fa fa-edit"></i> Edit
+                        </a>' : '';
+                    return $data;
+                })
+
+                ->rawColumns(['tested', 'status', 'action'])
+                ->make(true);
+        }
+
+        $data = compact('testedOptions');
+        return view('blood_bank.receptant')->with($data);
+    }
+    public function blood_report()
+    {
+        return view('blood_bank.blood_report');
+    }
+    public function get_issued_blood(Request $request)
+    {
+        if ($request->ajax()) {
+            $data =  BlBloodIssue::select('bl_donations.bag_barcode', 'patients.name as issued_to', 'bl_blood_issue.created_at as issue_date', 'bl_donors.blood_group', 'bl_donations.component_type')
+                ->join('bl_donations', 'bl_donations.id', '=', 'bl_blood_issue.donation_id')
+                ->join('bl_donors', 'bl_donors.id', '=', 'bl_donations.donor_id')
+                ->join('patients', 'patients.id', '=', 'bl_blood_issue.patient_id');
+
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+
+                ->addColumn('bag_barcode', function ($row) {
+                    return $row->bag_barcode;
+                })
+                ->addColumn('issue_date', function ($row) {
+                    return Carbon::parse($row->issued_date)->format('d-m-Y');
+                })
+                ->addColumn('issued_to', function ($row) {
+                    return $row->issued_to;
+                })
+                ->addColumn('component_type', function ($row) {
+                    return $row->component_type ?? null;
+                })
+                ->addColumn('blood_group', function ($row) {
+                    return $row->blood_group;
+                })
+                ->make(true);
+        }
+    }
+    public function get_available_blood(Request $request)
+    {
+        if ($request->ajax()) {
+            $bl_issue = BlBloodIssue::pluck('donation_id');
+
+            $data = BlDonation::join('bl_lab_screenings', 'bl_lab_screenings.bag_barcode', '=', 'bl_donations.bag_barcode')
+                ->join('bl_donors', 'bl_donors.id', '=', 'bl_donations.donor_id')
+                ->whereDate('bl_donations.expiry_date', '>', Carbon::today())
+                ->whereNotIn('bl_donations.id', $bl_issue)
+                ->orderBy('bl_donations.expiry_date', 'DESC')
+                ->select([
+                    'bl_donations.id as donation_id',
+                    'bl_donations.bag_barcode',
+                    'bl_donations.expiry_date',
+                    'bl_donations.component_type',
+                    'bl_donors.name as donor_name',
+                    'bl_donors.blood_group',
+                    'bl_lab_screenings.nat_result',
+                    'bl_lab_screenings.elisa_result',
+                    'bl_lab_screenings.hiv_result',
+                    'bl_lab_screenings.hbsag_result',
+                    'bl_lab_screenings.hcv_result',
+                    'bl_lab_screenings.syphilis_result',
+                    'bl_lab_screenings.malaria_result',
+                    'bl_lab_screenings.crossmatch_result'
+                ]);
+
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+
+                ->addColumn('bag_barcode', function ($row) {
+                    return $row->bag_barcode;
+                })
+
+                ->addColumn('expiry_date', function ($row) {
+                    return Carbon::parse($row->expiry_date)->format('d-m-Y');
+                })
+                ->addColumn('blood_group', function ($row) {
+                    return $row->blood_group;
+                })
+                ->addColumn('nat_result', function ($row) {
+                    return $row->nat_result;
+                })
+                ->addColumn('elisa_result', function ($row) {
+                    return $row->elisa_result;
+                })
+                ->addColumn('hiv_result', function ($row) {
+                    return $row->hiv_result;
+                })
+                ->addColumn('hbsag_result', function ($row) {
+                    return $row->hbsag_result;
+                })
+                ->addColumn('hcv_result', function ($row) {
+                    return $row->hcv_result;
+                })
+                ->addColumn('syphilis_result', function ($row) {
+                    return $row->syphilis_result;
+                })
+                ->addColumn('malaria_result', function ($row) {
+                    return $row->malaria_result;
+                })
+                ->addColumn('crossmatch_result', function ($row) {
+                    return $row->crossmatch_result;
+                })
+                ->make(true);
+        }
+    }
+    public function get_expired_blood(Request $request)
+    {
+        if ($request->ajax()) {
+            $bl_issue = BlBloodIssue::pluck('donation_id');
+            $data = BlDonation::
+                // leftJoin('bl_lab_screenings', function ($join) {
+                //     $join->on('bl_lab_screenings.section_id', '=', 'bl_donations.id')
+                //         ->where('bl_lab_screenings.section', '=', 'Donation');
+                // })
+                join('bl_donors', 'bl_donors.id', '=', 'bl_donations.donor_id')
+                ->join('bl_lab_screenings', 'bl_lab_screenings.bag_barcode', '=', 'bl_donations.bag_barcode')
+                ->whereNotIn('bl_donations.id', $bl_issue)
+                ->whereDate('bl_donations.expiry_date', '<', Carbon::today())
+                ->get();
+
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+
+                ->addColumn('bag_barcode', function ($row) {
+                    return $row->bag_barcode;
+                })
+
+                ->addColumn('expiry_date', function ($row) {
+                    return Carbon::parse($row->expiry_date)->format('d-m-Y');
+                })
+                ->addColumn('blood_group', function ($row) {
+                    return $row->blood_group;
+                })
+                ->addColumn('nat_result', function ($row) {
+                    return $row->nat_result;
+                })
+                ->addColumn('elisa_result', function ($row) {
+                    return $row->elisa_result;
+                })
+                ->addColumn('hiv_result', function ($row) {
+                    return $row->hiv_result;
+                })
+                ->addColumn('hbsag_result', function ($row) {
+                    return $row->hbsag_result;
+                })
+                ->addColumn('hcv_result', function ($row) {
+                    return $row->hcv_result;
+                })
+                ->addColumn('syphilis_result', function ($row) {
+                    return $row->syphilis_result;
+                })
+                ->addColumn('malaria_result', function ($row) {
+                    return $row->malaria_result;
+                })
+                ->addColumn('crossmatch_result', function ($row) {
+                    return $row->crossmatch_result;
+                })
+                ->make(true);
+        }
+    }
+    public function return_to_inventory($id)
+    {
+        $title = "Back to Inventory";
+        $btn5 = "Update and Send to Inventory";
+        $edit = BlDonation::select('bl_donors.id as donor_id', 'bl_donations.id as donations_id', 'bl_lab_screenings.id as bl_lab_screenings_id', 'bl_donations.*', 'bl_donors.*', 'bl_lab_screenings.*')
+            ->join('bl_donors', 'bl_donors.id', 'bl_donations.donor_id')
+            ->leftJoin('bl_lab_screenings', function ($join) {
+                $join->on('bl_lab_screenings.section_id', '=', 'bl_donations.id')
+                    ->where('bl_lab_screenings.section', '=', 'Donation');
+            })
+            ->where('bl_donations.id', $id)
+            ->first();
+
+        return view('blood_bank.doner-register')->with(compact('edit', 'title', 'btn5'));
+    }
+    public function store_blood($id)
+    {
+        $title = "Send to Store";
+        $btn4 = "Update and Send to Store";
+        $edit = BlDonation::select('bl_donors.id as donor_id', 'bl_donations.id as donations_id', 'bl_lab_screenings.id as bl_lab_screenings_id', 'bl_donations.*', 'bl_donors.*', 'bl_lab_screenings.*')
+            ->join('bl_donors', 'bl_donors.id', 'bl_donations.donor_id')
+            ->leftJoin('bl_lab_screenings', function ($join) {
+                $join->on('bl_lab_screenings.section_id', '=', 'bl_donations.id')
+                    ->where('bl_lab_screenings.section', '=', 'Donation');
+            })
+            ->where('bl_donations.id', $id)
+            ->first();
+
+        return view('blood_bank.doner-register')->with(compact('edit', 'title', 'btn4'));
+    }
+    public function save_donor_details(Request $request)
+    {
+        $validated = $request->validate([
+            'donor_id'      => 'required|exists:donors,id',
+            'donation_date' => 'required|date|before_or_equal:today',
+            'quantity_ml'   => 'required|integer|min:1',
+            'expiry_date'   => 'required|date|after:donation_date',
+            'tested'        => 'required|in:Yes,No',
+            'status'        => 'required|integer|in:0,1',
+        ]);
+
+        if ($request['id']) {
+            $save_receptant = BlDonation::find($request['id']);
+        } else {
+            $save_receptant = new BlDonation();
+        }
+
+        $save_receptant->donor_id = $request['donor_id'];
+        $save_receptant->donation_date = date('Y-m-d', strtotime($request['donation_date']));
+        $save_receptant->quantity_ml = $request['quantity_ml'];
+        $save_receptant->expiry_date = date('Y-m-d', strtotime($request['expiry_date']));
+        $save_receptant->tested = $request['tested'];
+        $save_receptant->status = $request['status'];
+        $save_receptant->save();
+
+        return redirect()->route('bl.doner-details')->with('success', 'BlReceptant ' . ($request['id'] ? 'Updated' : 'Added') . ' Sucessfully');
+    }
+    public function delete_donor_details($id)
+    {
+        $receptant = BlDonation::find($id);
+        $receptant->is_deleted = 1;
+        $receptant->update();
+        return redirect()->route('bl.doner-details')->with('success', 'BlReceptant Deleted Sucessfully');
+    }
+
+    // receptant
+    public function get_receptant(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = BlReceptant::select('bl_receptant.id', 'bl_receptant.section_id', 'patients.name', 'donated_date', 'quantity', 'bl_receptant.created_at')
+                ->join('patients', 'patients.id', 'bl_receptant.section_id');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+
+                ->editColumn('name', function ($row) {
+                    return $row->name;
+                })
+
+                ->editColumn('donated_date', function ($row) {
+                    return \Carbon\Carbon::parse($row->donated_date)->format('d-m-Y');
+                })
+
+                ->editColumn('quantity', function ($row) {
+                    return $row->quantity . ' ml';
+                })
+
+                ->addColumn('action', function ($row) {
+                    $editBtn = '<a href="' . route('bl.receptant-edit', $row->id) . '" class="btn btn-sm btn-primary" title="Edit"><i class="fa fa-edit"></i> Edit</a>';
+                    return $editBtn;
+                })
+
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+
+        return view('blood_bank.receptant');
+    }
+    public function receptant_register(Request $request)
+    {
+        $title = 'BlReceptant Register';
+        $btn = 'Save';
+        $bloodGroups = BlBloodInventory::select('id', 'blood_group', 'quantity')
+            ->whereDate('expiry_date', '>', Carbon::today())
+            ->whereIsUsed(0)
+            ->orderBy('blood_group')
+            ->get();
+
+        $patient = Patient::select('id', 'name')->where('is_original', 1)->get();
+
+        return view('blood_bank.receptant-register')->with(compact('bloodGroups', 'patient', 'title', 'btn'));
+    }
+    public function receptant_save(Request $request)
+    {
+
+        $blood_inventory = BlBloodInventory::find($request['blood_group']);
+        $blood_inventory->is_used = 1;
+        $blood_inventory->save();
+
+        if ($request['id']) {
+            $receptant = BlReceptant::find($request['id']);
+        } else {
+            $receptant = new BlReceptant();
+        }
+
+        $receptant = new BlReceptant();
+        $receptant->section_id = $request['patient_id'];
+        $receptant->section_name = 'Patient';
+        $receptant->blood_inventory_id = $blood_inventory->id;
+        $receptant->donated_date = $request['donated_date'];
+        $receptant->quantity = $blood_inventory->quantity;
+        $receptant->save();
+
+        return redirect()->route('bl.get-receptant')->with('success', 'BlReceptant saved Successfully');
+    }
+    public function receptant_edit($id)
+    {
+
+        $title = "BlReceptant Edit";
+        $btn = "Update";
+
+        $patient = Patient::select('id', 'name')->where('is_original', 1)->get();
+        $edit = BlReceptant::find($id);
+
+        $bloodGroups = BlBloodInventory::select('id', 'blood_group', 'quantity')
+            ->whereDate('expiry_date', '>', Carbon::today())
+            ->whereIsUsed(1)
+            ->orderBy('blood_group')
+            ->where('id', $edit->blood_inventory_id)
+            ->get();
+
+        $edit->blood_group = $edit->blood_inventory_id;
+        $edit->patient_id = $edit->section_id;
+
+        return view('blood_bank.receptant-register')->with(compact('bloodGroups', 'patient', 'title', 'btn', 'edit'));
+    }
+
+    // Issue
+    public function get_doner_available_blood(Request $request)
+    {
+
+        $_blood_compatibility = BlBloodCompatibility::where('recipient_group', $request->blood_group)
+            ->distinct()
+            ->pluck('donor_group');
+
+        $_available_blood = BlDonor::select(
+            'bl_donations.id as bl_donation_id',
+            'bl_donors.id as bl_donors_id',
+            'bl_donations.*',
+            'bl_donors.*'
+        )
+            ->join('bl_donations', 'bl_donors.id', '=', 'bl_donations.donor_id')
+            ->where('bl_donations.stock_updated', 1)
+            ->where('is_used', 0)
+            ->whereIn('bl_donors.blood_group', $_blood_compatibility)
+            ->get();
+
+        return response()->json(['blood_available' => $_available_blood, 'test' => $_blood_compatibility]);
+    }
+    public function save_blood_issue(Request $request)
+    {
+        $billing = Billing::find($request['bill_id']);
+
+        $checkIssue = BlBloodIssue::where('donation_id', $request['donation_id'])->first();
+        if ($checkIssue) {
+            return response()->json([
+                'success' => false,
+                'data' => null,
+                'message' => 'Blood already issued'
+            ]);
+        }
+
+        $bl_issue_save = new BlBloodIssue();
+        $bl_issue_save->section = $billing->section;
+        $bl_issue_save->section_id = $billing->section_id;
+        $bl_issue_save->billing_id = $request['bill_id'];
+        $bl_issue_save->donation_id = $request['donation_id'];
+        $bl_issue_save->patient_id = $request['patient_id'];
+        $bl_issue_save->created_by = Auth::id();
+        $bl_issue_save->save();
+
+        $blood_donation = BlDonation::find($request['donation_id']);
+        $blood_donation->is_used = 1;
+        $blood_donation->update();
+
+
+        return response()->json([
+            'success' => true,
+            'data' => $bl_issue_save
+        ]);
+    }
+    public function get_blood_by_barcode(Request $request)
+    {
+        $_available_blood = BlDonor::join('bl_donations', 'bl_donations.donor_id', 'bl_donors.id')
+            ->where('stock_updated', 1)
+            ->where('bl_donations.bag_barcode', 'LIKE', "%{$request->value}%")
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $_available_blood
+        ]);
+    }
+    public function get_blood_stock()
+    {
+        $bloodSummary =  DB::table('bl_donations')
+            ->join('bl_donors', 'bl_donors.id', '=', 'bl_donations.donor_id')
+            ->leftJoin('bl_blood_issue', 'bl_donations.id', '=', 'bl_blood_issue.donation_id')
+            ->where('bl_donations.stock_updated', 1)
+            ->whereNull('bl_blood_issue.donation_id')
+            ->select('bl_donors.blood_group', DB::raw('COUNT(bl_donations.donor_id) as quantity'))
+            ->groupBy('bl_donors.blood_group')
+            ->get();
+
+        return view('blood_bank.blood_stock', compact('bloodSummary'));
+    }
+
+    public function get_blood_issue(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = BlBloodIssue::select(
+                'bl_blood_issue.*',
+                'bl_donations.bag_barcode',
+                'patients.name as patient_name',
+                'patients.uhid as patient_uhid',
+                'patients.phone',
+                'patients.gender',
+                'patients.dob_year',
+                'bl_donors.name as donor_name',
+                'bl_donations.blood_group'
+            )
+                ->join('bl_donations', 'bl_donations.id', '=', 'bl_blood_issue.donation_id')
+                ->join('bl_donors', 'bl_donors.id', '=', 'bl_donations.donor_id')
+                ->join('patients', 'patients.id', '=', 'bl_blood_issue.patient_id')
+                ->orderBy('bl_blood_issue.created_at', 'DESC');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->addColumn('created_at', function ($row) {
+                    return Carbon::parse($row->created_at)->format('d-m-Y h:i A');
+                })
+                ->addColumn('billing', function ($row) {
+                    return '<a href="'.route('bill.billing-details', [strtolower($row->section), ed(@$row->billing_id, true)]).'">'.$row->billing_id.'</a>';
+                })
+                ->rawColumns(['billing'])
+                ->make(true);
+        }
+        return view('blood_bank.blood_issue');
+    }
+
+
+    // approval stock
+    public function get_approval_stock(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = BlDonation::select(
+                'bl_donations.*',
+                'u1.name as test_user',
+                'u2.name as approved_user',
+            )
+                ->leftJoin('users as u1', 'u1.id', '=', 'bl_donations.test_by')
+                ->leftJoin('users as u2', 'u2.id', '=', 'bl_donations.approved_by')
+                ->whereIn('bl_donations.status', ['tested', 'approved'])
+                ->orderBy('bl_donations.id', 'DESC');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('bl.blood-testing-info', ed($row->bag_barcode, true)) . '" class="btn btn-primary btn-sm mx-1" title="View"><i class="fa fa-file"></i> View</a>';
+                    if ($row->status == 'tested') {
+                        $actionBtn .= '<a href="' . route('bl.approval.stock.edit', ed($row->bag_barcode, true)) . '" class="btn btn-primary btn-sm mx-1" title="Update">Update</a>';
+                    }
+                    return $actionBtn;
+                })
+
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+
+        return view('blood_bank.blood_approval_stock');
+    }
+    public function approval_stock_edit($id)
+    {
+        $id = ed($id, false);
+        $title = "Blood Approval";
+        $btn = "Update";
+        $approval = true;
+        $donor = BlDonation::where('bag_barcode', $id)->first();
+        $edit = BlLabScreening::where('bag_barcode', $id)->first();
+
+        return view('blood_bank.blood_testing')->with(compact('title', 'btn', 'edit', 'donor', 'approval'));
+    }
+
+    // blood testing
+    public function get_blood_testing(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = BlDonation::select(
+                'bl_donations.*',
+                'd.name',
+            )
+                ->leftJoin('bl_donors as d', 'd.id', '=', 'bl_donations.donor_id')
+                ->whereIn('bl_donations.status', ['tested', 'collected'])
+                ->orderBy('bl_donations.id', 'DESC');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('bl.blood-testing-info', ed($row->bag_barcode, true)) . '" class="btn btn-primary btn-sm mx-1" title="View"><i class="fa fa-file"></i> View</a>';
+                    $actionBtn .= '<a href="' . route('bl.blood.testing.edit', ed($row->bag_barcode, true)) . '" class="btn btn-primary btn-sm mx-1" title="Update"><i class="fa fa-edit"></i> Update</a>';
+                    return $actionBtn;
+                })
+                ->addColumn('donationDate', function ($row) {
+                    return dateFor($row->donation_date);
+                })
+                ->addColumn('expDate', function ($row) {
+                    return $row->expiry_date ? dateFor($row->expiry_date) : 'NA';
+                })
+                ->rawColumns(['action', 'donationDate'])
+                ->make(true);
+        }
+
+        return view('blood_bank.blood_testing_list');
+    }
+    public function blood_testing_edit($id)
+    {
+        $id = ed($id, false);
+        $title = "Blood Testing";
+        $btn = "Update";
+        $approval = false;
+        $donor = BlDonation::where('bag_barcode', $id)->first();
+        $edit = BlLabScreening::where('bag_barcode', $id)->first();
+
+        return view('blood_bank.blood_testing')->with(compact('title', 'btn', 'edit', 'donor', 'approval'));
+    }
+    public function blood_testing_info($id)
+    {
+        $id = ed($id, false);
+        $data = BlDonation::select(
+            'bl_donations.*',
+            'bl_donors.name as donor_name',
+            'bl_donors.last_donation_date',
+            'bl_donors.gender as gen',
+            'bl_donors.contact_number as contact_no',
+            'bl_donors.email',
+            'bl_donors.dob',
+            'bl_donors.blood_group',
+            'bl_donors.address',
+            'bl_donors.pin_code',
+            'states.name as state_name',
+            'districts.name as district_name'
+        )
+            ->join('bl_donors', 'bl_donations.donor_id', '=', 'bl_donors.id')
+            ->leftJoin('states', 'bl_donors.state', '=', 'states.id')
+            ->leftJoin('districts', 'bl_donors.district', '=', 'districts.id')
+            ->where('bl_donations.bag_barcode', $id)
+            ->first();
+
+        $test_data = BlLabScreening::where('bag_barcode', $data->bag_barcode)->first();
+
+        // $states = State::where('country_id','1')->get();
+        return view('blood_bank.blood_testing_info', compact('data', 'test_data'));
+    }
+    public function blood_testing_save(Request $request)
+    {
+        $validated = $request->validate([
+            'bag_barcode' => 'required',
+            'blood_group' => 'required',
+            'expiry_date' => 'required',
+        ]);
+
+        if ($request['update_id']) {
+            $bl_lab_screenings = BlLabScreening::find($request['update_id']);
+        } else {
+            $bl_lab_screenings = new BlLabScreening();
+            $bl_lab_screenings->bag_barcode  = $request['bag_barcode'];
+        }
+        $bl_lab_screenings->blood_group  = $request['blood_group'];
+        $bl_lab_screenings->nat_result = $request['nat_result'];
+        $bl_lab_screenings->elisa_result = $request['elisa_result'];
+        $bl_lab_screenings->hiv_result = $request['hiv_result'];
+        $bl_lab_screenings->hbsag_result = $request['hbsag_result'];
+        $bl_lab_screenings->hcv_result = $request['hcv_result'];
+        $bl_lab_screenings->syphilis_result = $request['syphilis_result'];
+        $bl_lab_screenings->malaria_result = $request['malaria_result'];
+        $bl_lab_screenings->crossmatch_result = $request['crossmatch_result'];
+        $bl_lab_screenings->qc_checks_log = $request['qc_checks_log'];
+        $bl_lab_screenings->quarantine_flag = $request['quarantine_flag'];
+        if ($bl_lab_screenings->save()) {
+            $donation = BlDonation::find($request['donation_id']);
+            $donation->blood_group = $request['blood_group'];
+            $donation->expiry_date = date('Y-m-d', strtotime($request['expiry_date']));
+            if ($request['submit'] == 'update') {
+                $donation->test_at = date('Y-m-d H:i:s');
+                $donation->test_by = Auth::user()->id;
+                $donation->status = 'tested';
+            } elseif ($request['submit'] == 'approve') {
+                $donation->approved_at = date('Y-m-d H:i:s');
+                $donation->approved_by = Auth::user()->id;
+                $donation->status = 'approved';
+                $donation->stock_updated = 1;
+            } elseif ($request['submit'] == 'retest') {
+                $donation->status = 'tested';
+            } elseif ($request['submit'] == 'reject') {
+                $donation->approved_at = date('Y-m-d H:i:s');
+                $donation->approved_by = Auth::user()->id;
+                $donation->status = 'rejected';
+            }
+            $donation->update();
+
+            $donor = BlDonor::find($donation->donor_id);
+            $donor->blood_group = $request['blood_group'];
+            $donor->update();
+        }
+        return redirect()->back()->with('success', 'Doner ' . ($request['update_id'] ? 'Updated' : 'Added') . ' Sucessfully');
+    }
+
+    // blood collection
+    public function blood_collection()
+    {
+        $title = "Blood Collection ";
+        $btn = "Save";
+        $camps = BlDonationCamp::get();
+        $states = State::where('country_id', '1')->get();
+
+        return view('blood_bank.blood_collection')->with(compact('title', 'btn', 'states', 'camps'));
+    }
+    public function blood_collection_save(Request $request)
+    {
+        $validated = $request->validate([
+            'donation_date' => 'required',
+            'bag_barcode' => 'required|unique:bl_donations,bag_barcode,' . $request->donations_id . ',id',
+            'name' => 'required|string|max:255',
+            'gender' => 'required',
+            'contact_number' => 'required|numeric|digits:10',
+            'address' => 'required|string|max:500',
+            'district' => 'required',
+            'state' => 'required',
+        ]);
+
+        if ($request['doner_id']) {
+            $doner_registration = BlDonor::find($request['doner_id']);
+        } else {
+            $doner_registration = new BlDonor();
+        }
+
+        $doner_registration->camp_id = $request['camp_id'] ? $request['camp_id'] : 0;
+        $doner_registration->name = $request['name'];
+        $doner_registration->gender = $request['gender'];
+        $doner_registration->dob = $request['dob'] ? date('Y-m-d', strtotime($request['dob'])) : null;
+        $doner_registration->blood_group = $request['blood_group'];
+        $doner_registration->contact_number = $request['contact_number'];
+        $doner_registration->email = $request['email'];
+        $doner_registration->address = $request['address'];
+        $doner_registration->state = $request['state'];
+        $doner_registration->district = $request['district'];
+        $doner_registration->pin_code = $request['pin_code'];
+        $doner_registration->gov_id = $request['gov_id'];
+        $doner_registration->health_questionnaire_responses = $request['health_questionnaire_responses'];
+        $doner_registration->deferral_reason = $request['deferral_reason'];
+        $doner_registration->last_donation_date = $request['last_donation_date'] ? date('Y-m-d', strtotime($request['last_donation_date'])) : null;
+        $doner_registration->save();
+
+        if ($request['donations_id']) {
+            $save_receptant = BlDonation::find($request['donations_id']);
+        } else {
+            $save_receptant = new BlDonation();
+            $save_receptant->bag_barcode = $request['bag_barcode'];
+        }
+        $save_receptant->donor_id = $doner_registration->id;
+        $save_receptant->blood_group = $request['blood_group'];
+        $save_receptant->donation_date = date('Y-m-d', strtotime($request['donation_date']));
+        $save_receptant->collection_site = $request['collection_site'];
+        $save_receptant->component_type = $request['component_type'];
+        $save_receptant->component_seperation_status = $request['component_seperation_status'];
+        $save_receptant->save();
+
+        return redirect()->route('bl.get-blood-collection')->with('success', 'Doner ' . ($request['doner_id'] ? 'Updated' : 'Added') . ' Sucessfully');
+    }
+    public function get_blood_collection(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = BlDonation::select(
+                'bl_donations.*',
+                'd.name',
+                'd.contact_number',
+            )
+                ->leftJoin('bl_donors as d', 'd.id', '=', 'bl_donations.donor_id')
+                ->whereIn('bl_donations.status', ['collected'])
+                ->orderBy('bl_donations.id', 'DESC');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '';
+
+                    if ($row->is_approved != 1) {
+                        $actionBtn .= '<a href="' . route('bl.blood.collection.edit', ed($row->id, true)) . '" class="btn btn-sm btn-primary me-2">
+                            <i class="fa fa-edit"></i> Edit
+                        </a>';
+                    }
+
+                    return $actionBtn;
+                })
+
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+
+        return view('blood_bank.blood_collection_list');
+    }
+    public function blood_collection_edit($id)
+    {
+        $id = ed($id, false);
+        $title = "Blood Collection";
+        $btn = "Update";
+        $camps = BlDonationCamp::get();
+        $edit = BlDonation::select('bl_donations.*', 'bl_donors.name', 'bl_donors.gender', 'bl_donors.contact_number', 'bl_donors.address', 'bl_donors.state', 'bl_donors.district', 'bl_donors.pin_code', 'bl_donors.last_donation_date', 'bl_donors.camp_id')
+            ->join('bl_donors', 'bl_donations.donor_id', '=', 'bl_donors.id')
+            ->where('bl_donations.id', $id)
+            ->first();
+
+        $states = State::where('country_id', '1')->get();
+
+        return view('blood_bank.blood_collection')->with(compact('title', 'btn', 'edit', 'states', 'camps'));
+    }
+
+    // Doner section
+    public function get_donor(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = BlDonor::select('bl_donors.*')
+                ->orderBy('bl_donors.id', 'DESC');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $data = '<a href="' . route('bl.doner-edit', ed($row->id, true)) . '" class="btn btn-sm btn-primary me-2">
+                        <i class="fa fa-edit"></i> Edit
+                    </a>';
+                    return $data;
+                })
+                ->addColumn('dob', function ($row) {
+                    $data = dateFor($row->dob);
+                    return $data;
+                })
+                ->addColumn('ldd', function ($row) {
+                    $data = dateFor($row->last_donation_date);
+                    return $data;
+                })
+                ->rawColumns(['action', 'dob', 'ldd'])
+                ->make(true);
+        }
+        return view('blood_bank.donor_list');
+    }
+    public function doner_register()
+    {
+        $title = "Doner Registration";
+        $btn = "Save";
+        $states = State::where('country_id', '1')->get();
+        $camps = BlDonationCamp::get();
+        return view('blood_bank.doner-register')->with(compact('title', 'btn', 'states', 'camps'));
+    }
+    public function doner_save(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'gender' => 'required',
+            'contact_number' => 'required|numeric|digits:10',
+            'address' => 'required|string|max:500',
+            'district' => 'required',
+            'state' => 'required',
+        ]);
+
+        if ($request['doner_id']) {
+            $doner_registration = BlDonor::find($request['doner_id']);
+        } else {
+            $doner_registration = new BlDonor();
+        }
+        $doner_registration->camp_id = $request['camp_id'] ?? null;
+        $doner_registration->name = $request['name'];
+        $doner_registration->gender = $request['gender'];
+        $doner_registration->dob = $request['dob'] ? date('Y-m-d', strtotime($request['dob'])) : null;
+        $doner_registration->blood_group = $request['blood_group'];
+        $doner_registration->contact_number = $request['contact_number'];
+        $doner_registration->email = $request['email'];
+        $doner_registration->address = $request['address'];
+        $doner_registration->state = $request['state'];
+        $doner_registration->district = $request['district'];
+        $doner_registration->pin_code = $request['pin_code'];
+        $doner_registration->gov_id = $request['gov_id'];
+        $doner_registration->health_questionnaire_responses = $request['health_questionnaire_responses'];
+        $doner_registration->deferral_reason = $request['deferral_reason'];
+        $doner_registration->last_donation_date = $request['last_donation_date'] ? date('Y-m-d', strtotime($request['last_donation_date'])) : null;
+        $doner_registration->save();
+
+        return redirect()->route('bl.doners')->with('success', 'Doner ' . ($request['doner_id'] ? 'Updated' : 'Added') . ' Sucessfully');
+    }
+    public function doner_edit($id)
+    {
+        $id = ed($id, false);
+        $title = "Doner Registration";
+        $btn = "Update";
+        $edit = BlDonor::select('bl_donors.*')
+            ->where('bl_donors.id', $id)
+            ->first();
+        $camps = BlDonationCamp::get();
+        // dd($edit);
+        $states = State::where('country_id', '1')->get();
+        return view('blood_bank.doner-register')->with(compact('title', 'btn', 'edit', 'states', 'camps'));
+    }
+
+    // Camps Section
+    public function get_camp(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = BlDonationCamp::select('*');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+
+                ->addColumn('status', function ($row) {
+                    $today = \Carbon\Carbon::today();
+                    $campDate = \Carbon\Carbon::parse($row->organized_date); // or $row->date if using 'date'
+
+                    if ($campDate->isToday()) {
+                        return '<span class="badge badge-success">Active</span>';
+                    } elseif ($campDate->isFuture()) {
+                        return '<span class="badge badge-warning">Upcoming</span>';
+                    } else {
+                        return '<span class="badge badge-danger">Inactive</span>';
+                    }
+                })
+
+                ->addColumn('organized_date', function ($row) {
+                    return dateFor($row->organized_date);
+                })
+
+                ->addColumn('action', function ($row) {
+                    $data = '<a href="' . route('bl.camp-edit', ed($row->id, true)) . '" class="btn btn-sm btn-primary me-2">
+                            <i class="fa fa-edit"></i> Edit
+                        </a>';
+
+                    return $data;
+                })
+
+                ->rawColumns(['status', 'action'])
+                ->make(true);
+        }
+
+        return view('blood_bank.camp');
+    }
+    public function register_camp()
+    {
+        $title = "Camp Registration";
+        $btn = "Save";
+        return view('blood_bank.camp-register')->with(compact('title', 'btn'));
+    }
+    public function camp_edit($id)
+    {
+        $id = ed($id, false);
+        $title = "BlCamp Registration";
+        $btn = "Update";
+        $edit = BlDonationCamp::find($id);
+        return view('blood_bank.camp-register', compact('title', 'btn', 'edit'));
+    }
+    public function camp_save(Request $request, $id = null)
+    {
+        $validated = $request->validate([
+            'camp_name'       => 'required|string|max:255',
+            'organized_by'    => 'required|string|max:255',
+            'organized_date'  => 'required|date',
+            'location'        => 'required|string',
+            'start_time'      => 'required',
+            'end_time'        => 'required|after:start_time',
+            'contact_person'  => 'required|string|max:255',
+            'contact_phone'   => 'required|string|max:20',
+            'expected_donors' => 'nullable|integer|min:0',
+            'actual_donors'   => 'nullable|integer|min:0',
+            'remarks'         => 'nullable|string',
+        ]);
+
+        // Create or update
+        if ($request->camp_id) {
+            $camp = BlDonationCamp::find($request->camp_id);
+        } else {
+            $camp = new BlDonationCamp();
+        }
+
+        $camp->camp_name = $request->camp_name;
+        $camp->organized_by = $request->organized_by;
+        $camp->organized_date = $request->organized_date ? date('Y-m-d', strtotime($request->organized_date)) : null;
+        $camp->location = $request->location;
+        $camp->start_time = date('H:i:s', strtotime($request->start_time));
+        $camp->end_time = date('H:i:s', strtotime($request->end_time));
+        $camp->contact_person = $request->contact_person;
+        $camp->contact_phone = $request->contact_phone;
+        $camp->expected_donors = $request->expected_donors ?? 0;
+        $camp->actual_donors = $request->actual_donors ?? 0;
+        $camp->remarks = $request->remarks;
+        $camp->save();
+        return redirect()->route('bl.donation-camps')->with('success', 'Camp ' . ($request->camp_id ? 'Updated' : 'Added') . ' successfully.');
+    }
+}

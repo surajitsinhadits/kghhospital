@@ -1,0 +1,892 @@
+<?php
+
+namespace App\Http\Controllers\Reports;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Yajra\Datatables\DataTables;
+use App\Models\Department;
+use App\Models\Referral;
+use App\Models\TpaManagement;
+use App\Models\Charge;
+use App\Models\Ward;
+use App\Models\User;
+use App\Models\OpdRegister;
+use App\Models\EmgRegister;
+use App\Models\IpdRegister;
+use App\Models\Billing;
+use App\Models\BillingDetail;
+use App\Models\DialysisRegister;
+use App\Models\Childcare;
+use App\Models\DischargeReport;
+use App\Models\ChargeCommission;
+use App\Models\ChargeCommissionMaster;
+// use DB;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Header;
+use Illuminate\Support\Facades\Redirect;
+use Exception;
+
+use function Adminer\redirect;
+
+class ReportController extends Controller
+{
+    public function opd_reports(Request $request)
+    {
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $referral = Referral::where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        if ($request->ajax()) {
+            // Default date range: last 6 months if both dates are empty
+            if (empty($request->from_date) && empty($request->to_date)) {
+                $request->merge([
+                    'from_date' => now()->subMonths(6)->format('Y-m-d'),
+                    'to_date' => now()->format('Y-m-d'),
+                ]);
+            }
+
+            // Helper to apply all filters
+            $applyFilters = function ($query) use ($request) {
+                $filterMap = [
+                    'visit_type' => 'type',
+                    'department' => 'department_id',
+                    'doctor' => 'doctor_id',
+                    'referral' => 'referred_by',
+                    'market_by' => 'market_by',
+                    'provider' => 'provider'
+                ];
+                foreach ($filterMap as $input => $column) {
+                    if ($value = $request->input($input)) {
+                        $query->where("opd_registers.$column", $value);
+                    }
+                }
+                if ($from = $request->input('from_date')) {
+                    $query->whereDate('opd_registers.appointment_date', '>=', date('Y-m-d', strtotime($from)));
+                }
+                if ($to = $request->input('to_date')) {
+                    $query->whereDate('opd_registers.appointment_date', '<=', date('Y-m-d', strtotime($to)));
+                }
+                return $query;
+            };
+
+            // Main data query
+            $baseQuery = OpdRegister::query()
+                ->select(
+                    'opd_registers.id',
+                    'opd_registers.patient_id',
+                    'opd_registers.type',
+                    'opd_registers.appointment_date',
+                    'p.name as patient_name',
+                    'p.phone',
+                    'p.gender',
+                    'p.dob_year',
+                    'p.dob_month',
+                    'p.dob_day',
+                    'u.name as doctor_name',
+                    'd.department_name'
+                )
+                ->join('users as u', 'u.id', '=', 'opd_registers.doctor_id')
+                ->join('departments as d', 'd.id', '=', 'opd_registers.department_id')
+                ->join('patients as p', 'p.id', '=', 'opd_registers.patient_id')
+                ->where('opd_registers.is_active', 1)
+                ->where('opd_registers.is_delete', 0);
+
+            $applyFilters($baseQuery);
+
+            // Summary query (minimal select)
+            $summaryQuery = OpdRegister::query()
+                ->join('users as u', 'u.id', '=', 'opd_registers.doctor_id')
+                ->join('departments as d', 'd.id', '=', 'opd_registers.department_id')
+                ->join('patients as p', 'p.id', '=', 'opd_registers.patient_id')
+                ->where('opd_registers.is_active', 1)
+                ->where('opd_registers.is_delete', 0);
+
+            $applyFilters($summaryQuery);
+
+            // Totals grouped by department
+            $totalsByDept = (clone $summaryQuery)
+                ->select(
+                    'd.department_name',
+                    DB::raw("SUM(CASE WHEN opd_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                    DB::raw("SUM(CASE WHEN opd_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+                )
+                ->groupBy('d.department_name')
+                ->get();
+
+            // Gender/type totals
+            $genderTypeTotals = (clone $summaryQuery)
+                ->select(
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND opd_registers.type = 'new' THEN 1 ELSE 0 END) as male_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND opd_registers.type = 'old' THEN 1 ELSE 0 END) as male_old"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND opd_registers.type = 'new' THEN 1 ELSE 0 END) as female_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND opd_registers.type = 'old' THEN 1 ELSE 0 END) as female_old")
+                )
+                ->first();
+
+            // DataTable response
+            $datatable = Datatables::of($baseQuery->orderBy('opd_registers.id', 'DESC'))
+                ->addIndexColumn()
+                ->addColumn('cre_date', function ($row) {
+                    return dateFor($row->appointment_date, true);
+                })
+                ->rawColumns(['cre_date']);
+
+            return $datatable->with([
+                'totals' => [
+                    'male_new' => $genderTypeTotals->male_new ?? 0,
+                    'male_old' => $genderTypeTotals->male_old ?? 0,
+                    'female_new' => $genderTypeTotals->female_new ?? 0,
+                    'female_old' => $genderTypeTotals->female_old ?? 0,
+                ],
+                'totalsByDept' => $totalsByDept
+            ])->make(true);
+        }
+
+        $data = compact('department', 'doctor', 'referral', 'provider', 'market_by');
+        return view('reports.opd')->with($data);
+    }
+
+    public function emg_reports(Request $request)
+    {
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $referral = Referral::where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        if ($request->ajax()) {
+            $baseQuery = EmgRegister::select('emg_registers.id', 'emg_registers.patient_id', 'emg_registers.type', 'emg_registers.appointment_date', 'p.name as patient_name', 'p.phone', 'p.gender', 'p.dob_year', 'p.dob_month', 'p.dob_day', 'u.name as doctor_name', 'd.department_name')
+                ->join('users as u', 'u.id', '=', 'emg_registers.doctor_id')
+                ->join('departments as d', 'd.id', '=', 'emg_registers.department_id')
+                ->join('patients as p', 'p.id', '=', 'emg_registers.patient_id')
+                ->where('emg_registers.is_active', '1')
+                ->where('emg_registers.is_delete', '0');
+
+            // Apply filters
+            foreach (['visit_type' => 'type', 'department' => 'department_id', 'doctor' => 'doctor_id', 'referral' => 'referred_by', 'market_by' => 'market_by', 'provider' => 'provider'] as $input => $column) {
+                if (!empty($request->$input)) {
+                    $baseQuery->where("emg_registers.$column", $request->$input);
+                }
+            }
+            if (!empty($request->from_date)) {
+                $baseQuery->whereDate('emg_registers.appointment_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $baseQuery->whereDate('emg_registers.appointment_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Clone once for reuse
+            $cloned = (clone $baseQuery);
+
+            // Totals grouped by department
+            $totalsByDept = (clone $cloned)
+                ->select(
+                    'd.department_name',
+                    DB::raw("SUM(CASE WHEN emg_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                    DB::raw("SUM(CASE WHEN emg_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+                )
+                ->groupBy('d.department_name')
+                ->get();
+
+            // All totals in one DB query instead of 8 separate ones
+            $genderTypeTotals = (clone $cloned)
+                ->select(
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND emg_registers.type = 'new' THEN 1 ELSE 0 END) as male_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND emg_registers.type = 'old' THEN 1 ELSE 0 END) as male_old"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND emg_registers.type = 'new' THEN 1 ELSE 0 END) as female_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND emg_registers.type = 'old' THEN 1 ELSE 0 END) as female_old")
+                )
+                ->first();
+
+            // Datatable
+            $datatable = Datatables::of($baseQuery->orderBy('emg_registers.id', 'DESC'))
+                ->addIndexColumn()
+                ->addColumn('cre_date', function ($row) {
+                    $dateBtn = dateFor($row->appointment_date, true);
+                    return $dateBtn;
+                })
+                ->rawColumns(['cre_date']);
+
+            return $datatable->with([
+                'totals' => [
+                    'male_new' => $genderTypeTotals->male_new,
+                    'male_old' => $genderTypeTotals->male_old,
+                    'female_new' => $genderTypeTotals->female_new,
+                    'female_old' => $genderTypeTotals->female_old,
+                ],
+                'totalsByDept' => $totalsByDept
+            ])->make(true);
+        }
+        $data = compact('department', 'doctor', 'referral', 'provider', 'market_by');
+        return view('reports.emg')->with($data);
+    }
+
+    public function ipd_reports(Request $request)
+    {
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $referral = Referral::where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+        $tpa = TpaManagement::where('status', '0')->get();
+        $wards = Ward::where('status', '0')->get();
+        $charges = Charge::select('id', 'charge_name')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        if ($request->ajax()) {
+            $baseQuery = IpdRegister::select('ipd_registers.id', 'ipd_registers.patient_id', 'ipd_registers.type', 'ipd_registers.admission_date', 'ipd_registers.admission_type', 'p.name as patient_name', 'p.phone', 'p.gender', 'p.dob_year', 'p.dob_month', 'p.dob_day', 'p.guardian_name', 'u.name as doctor_name', 'd.department_name', 'ipd_registers.discharge_at', 'w.ward_name', 'b.bed_name', 'tpa.tpa_name')
+                ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+                ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+                ->join('patients as p', 'p.id', '=', 'ipd_registers.patient_id')
+                ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+                ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+                ->join('tpa_managements as tpa', 'tpa.id', '=', 'ipd_registers.insurance_id')
+                ->where('ipd_registers.is_active', '1')
+                ->where('ipd_registers.is_delete', '0');
+
+            // Apply filters
+            foreach (['visit_type' => 'type', 'admission' => 'discharge_status', 'admission_type' => 'admission_type', 'patient_type' => 'insurance_id', 'ward' => 'ward_id', 'department' => 'department_id', 'doctor' => 'doctor_id', 'referral' => 'referred_by', 'market_by' => 'market_by', 'provider' => 'provider'] as $input => $column) {
+                if (!empty($request->$input)) {
+                    $baseQuery->where("ipd_registers.$column", $request->$input);
+                }
+            }
+            if (!empty($request->charge) && count($request->charge) > 0) {
+                $baseQuery->join('billings as bill', function ($join) {
+                    $join->on('bill.section_id', '=', 'ipd_registers.id')
+                        ->where('bill.section', '=', 'IPD');
+                })
+                    ->join('billing_details as bd', 'bd.billing_id', '=', 'bill.id')
+                    ->whereIn('bd.charge_id', $request->charge);
+            }
+            if (!empty($request->from_date)) {
+                $baseQuery->whereDate('ipd_registers.admission_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $baseQuery->whereDate('ipd_registers.admission_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Clone once for reuse
+            $cloned = (clone $baseQuery);
+
+            // Totals grouped by department
+            $totalsByDept = (clone $cloned)
+                ->select(
+                    'd.department_name',
+                    DB::raw("SUM(CASE WHEN ipd_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                    DB::raw("SUM(CASE WHEN ipd_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+                )
+                ->groupBy('d.department_name')
+                ->get();
+
+            // Totals grouped by patent type
+            $totalsByTpa = (clone $cloned)
+                ->select(
+                    'tpa.tpa_name',
+                    DB::raw("COUNT(ipd_registers.id) as total_count")
+                )
+                ->groupBy('tpa.tpa_name')
+                ->get();
+
+            // All totals in one DB query instead of 8 separate ones
+            $genderTypeTotals = (clone $cloned)
+                ->select(
+                    DB::raw("SUM(CASE WHEN ipd_registers.admission_type = 'IPD' THEN 1 ELSE 0 END) as ipd"),
+                    DB::raw("SUM(CASE WHEN ipd_registers.admission_type = 'DAYCARE' THEN 1 ELSE 0 END) as daycare"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND ipd_registers.type = 'new' THEN 1 ELSE 0 END) as male_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND ipd_registers.type = 'old' THEN 1 ELSE 0 END) as male_old"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND ipd_registers.type = 'new' THEN 1 ELSE 0 END) as female_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND ipd_registers.type = 'old' THEN 1 ELSE 0 END) as female_old")
+                )
+                ->first();
+
+            // Datatable
+            $datatable = Datatables::of($baseQuery->orderBy('ipd_registers.discharge_at', 'DESC'))
+                ->addIndexColumn()
+                ->addColumn('cre_date', function ($row) {
+                    $dateBtn = dateFor($row->admission_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('dis_date', function ($row) {
+                    if ($row->discharge_at) {
+                        $disdateBtn = dateFor($row->discharge_at, true);
+                    } else {
+                        $disdateBtn = '';
+                    }
+                    return $disdateBtn;
+                })
+                ->rawColumns(['cre_date', 'dis_date']);
+
+            return $datatable->with([
+                'totals' => [
+                    'admission_type' => [(int)$genderTypeTotals->ipd, (int)$genderTypeTotals->daycare],
+                    'male_new' => $genderTypeTotals->male_new,
+                    'male_old' => $genderTypeTotals->male_old,
+                    'female_new' => $genderTypeTotals->female_new,
+                    'female_old' => $genderTypeTotals->female_old,
+                ],
+                'totalsByDept' => $totalsByDept,
+                'totalsByTpa' => $totalsByTpa
+            ])->make(true);
+        }
+        $data = compact('department', 'doctor', 'referral', 'provider', 'market_by', 'tpa', 'wards', 'charges');
+        return view('reports.ipd')->with($data);
+    }
+
+    public function dialysis_reports(Request $request)
+    {
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $referral = Referral::where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+        $tpa = TpaManagement::where('status', '0')->get();
+        $wards = Ward::where('status', '0')->get();
+
+        if ($request->ajax()) {
+            $baseQuery = DialysisRegister::select('dialysis_registers.id', 'dialysis_registers.patient_id', 'dialysis_registers.type', 'dialysis_registers.admission_date', 'dialysis_registers.dialysis_type', 'p.name as patient_name', 'p.phone', 'p.gender', 'p.dob_year', 'p.dob_month', 'p.dob_day', 'p.guardian_name', 'u.name as doctor_name', 'd.department_name', 'w.ward_name', 'b.bed_name', 'tpa.tpa_name')
+                ->join('users as u', 'u.id', '=', 'dialysis_registers.doctor_id')
+                ->join('departments as d', 'd.id', '=', 'dialysis_registers.department_id')
+                ->join('patients as p', 'p.id', '=', 'dialysis_registers.patient_id')
+                ->join('wards as w', 'w.id', '=', 'dialysis_registers.ward_id')
+                ->join('beds as b', 'b.id', '=', 'dialysis_registers.bed_id')
+                ->join('tpa_managements as tpa', 'tpa.id', '=', 'dialysis_registers.insurance_id')
+                ->where('dialysis_registers.is_active', '1')
+                ->where('dialysis_registers.is_delete', '0');
+
+            // Apply filters
+            foreach (['visit_type' => 'type', 'dialysis_type' => 'dialysis_type', 'patient_type' => 'insurance_id', 'ward' => 'ward_id', 'department' => 'department_id', 'doctor' => 'doctor_id', 'referral' => 'referred_by', 'market_by' => 'market_by', 'provider' => 'provider'] as $input => $column) {
+                if (!empty($request->$input)) {
+                    $baseQuery->where("dialysis_registers.$column", $request->$input);
+                }
+            }
+            if (!empty($request->from_date)) {
+                $baseQuery->whereDate('dialysis_registers.admission_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $baseQuery->whereDate('dialysis_registers.admission_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Clone once for reuse
+            $cloned = (clone $baseQuery);
+
+            // Totals grouped by department
+            $totalsByDept = (clone $cloned)
+                ->select(
+                    'd.department_name',
+                    DB::raw("SUM(CASE WHEN dialysis_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                    DB::raw("SUM(CASE WHEN dialysis_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+                )
+                ->groupBy('d.department_name')
+                ->get();
+
+            // All totals in one DB query instead of 8 separate ones
+            $genderTypeTotals = (clone $cloned)
+                ->select(
+                    DB::raw("SUM(CASE WHEN dialysis_registers.dialysis_type = 'DIRECT' THEN 1 ELSE 0 END) as direct"),
+                    DB::raw("SUM(CASE WHEN dialysis_registers.dialysis_type = 'IPD' THEN 1 ELSE 0 END) as ipd"),
+                    DB::raw("SUM(CASE WHEN dialysis_registers.dialysis_type = 'EMG' THEN 1 ELSE 0 END) as emg"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND dialysis_registers.type = 'new' THEN 1 ELSE 0 END) as male_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' AND dialysis_registers.type = 'old' THEN 1 ELSE 0 END) as male_old"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND dialysis_registers.type = 'new' THEN 1 ELSE 0 END) as female_new"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' AND dialysis_registers.type = 'old' THEN 1 ELSE 0 END) as female_old")
+                )
+                ->first();
+
+            // Datatable
+            return Datatables::of($baseQuery->orderBy('dialysis_registers.id', 'DESC'))
+                ->addIndexColumn()
+                ->addColumn('cre_date', function ($row) {
+                    return dateFor($row->admission_date, true);
+                })
+                ->rawColumns(['cre_date'])
+                ->with([
+                    'totals' => [
+                        'dialysis_type' => [(int)$genderTypeTotals->direct, (int)$genderTypeTotals->ipd, (int)$genderTypeTotals->emg],
+                        'male_new' => $genderTypeTotals->male_new,
+                        'male_old' => $genderTypeTotals->male_old,
+                        'female_new' => $genderTypeTotals->female_new,
+                        'female_old' => $genderTypeTotals->female_old,
+                    ],
+                    'totalsByDept' => $totalsByDept
+                ])
+                ->make(true);
+
+        }
+        $data = compact('department', 'doctor', 'referral', 'provider', 'market_by', 'tpa', 'wards');
+        return view('reports.dialysis')->with($data);
+    }
+
+    public function birth_report(Request $request)
+    {
+        if ($request->ajax()) {
+            $baseQuery = Childcare::select('childcares.id', 'childcares.name', 'childcares.gender', 'childcares.address', 'childcares.district', 'childcares.state', 'childcares.pin_code', 'childcares.guardian_name', 'u.name as doctor_name', 'childcares.date_of_birth', 'childcares.weight', 'childcares.diagnosis', 'childcares.operation', 'childcares.delivery_mode')
+                ->leftjoin('users as u', 'u.id', '=', 'childcares.doctor_id')
+                ->where('childcares.is_active', '1')
+                ->where('childcares.is_delete', '0');
+
+            // Filter by data
+            if (!empty($request->gender)) {
+                $baseQuery->where('childcares.gender', $request->gender);
+            }
+            if (!empty($request->delivery_mode)) {
+                $baseQuery->where('childcares.delivery_mode', $request->delivery_mode);
+            }
+            if (!empty($request->from_date)) {
+                $baseQuery->whereDate('childcares.date_of_birth', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $baseQuery->whereDate('childcares.date_of_birth', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Clone once for reuse
+            $cloned = (clone $baseQuery);
+
+            // Totals grouped by delivery mode
+            $totalsByMode = (clone $cloned)
+                ->select(
+                    'childcares.delivery_mode',
+                    DB::raw("COUNT(childcares.id) as total_count")
+                )
+                ->groupBy('childcares.delivery_mode')
+                ->get();
+
+            // All totals in one DB query instead of 8 separate ones
+            $genderTypeTotals = (clone $cloned)
+                ->select(
+                    DB::raw("SUM(CASE WHEN childcares.gender = 'Male' THEN 1 ELSE 0 END) as male"),
+                    DB::raw("SUM(CASE WHEN childcares.gender = 'Female' THEN 1 ELSE 0 END) as female")
+                )
+                ->first();
+
+            // Datatable
+            $datatable = Datatables::of($baseQuery->orderBy('childcares.id', 'DESC'))
+                ->addIndexColumn()
+                ->addColumn('cre_date', function ($row) {
+                    $dateBtn = dateFor($row->date_of_birth, true);
+                    return $dateBtn;
+                })
+                ->rawColumns(['cre_date']);
+
+            return $datatable->with([
+                'totals' => [
+                    'gender' => [(int)$genderTypeTotals->male, (int)$genderTypeTotals->female],
+                ],
+                'totalsByMode' => $totalsByMode
+            ])->make(true);
+        }
+        return view('reports.birth');
+    }
+
+    public function death_report(Request $request)
+    {
+        if ($request->ajax()) {
+            $baseQuery = DischargeReport::select('discharge_reports.discharge_date', 'discharge_reports.discharge_type', 'p.name as patient_name', 'p.gender', 'ir.admission_date', 'u.name as doctor_name', 'ir.patient_id')
+                ->join('ipd_registers as ir', 'ir.id', '=', 'discharge_reports.section_id')
+                ->join('patients as p', 'p.id', '=', 'ir.patient_id')
+                ->join('users as u', 'u.id', '=', 'ir.doctor_id')
+                ->where('discharge_reports.save_type', '2')
+                ->where('discharge_reports.discharge_type', 'Death')
+                ->where('ir.is_active', '1')
+                ->where('ir.is_delete', '0');
+
+            // Filter by data
+            if (!empty($request->from_date)) {
+                $baseQuery->whereDate('discharge_reports.discharge_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $baseQuery->whereDate('discharge_reports.discharge_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Clone once for reuse
+            $cloned = (clone $baseQuery);
+
+            // Totals grouped by delivery mode
+            $totalsByDoctor = (clone $cloned)
+                ->select(
+                    'u.name',
+                    DB::raw("COUNT(discharge_reports.id) as total_count")
+                )
+                ->groupBy('u.name')
+                ->get();
+
+            // All totals in one DB query instead of 8 separate ones
+            $genderTypeTotals = (clone $cloned)
+                ->select(
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' THEN 1 ELSE 0 END) as male"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' THEN 1 ELSE 0 END) as female")
+                )
+                ->first();
+
+            // Datatable
+            $datatable = Datatables::of($baseQuery->orderBy('discharge_reports.id', 'DESC'))
+                ->addIndexColumn()
+                ->addColumn('adm_date', function ($row) {
+                    $dateBtn = dateFor($row->admission_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('dis_date', function ($row) {
+                    $dateBtn = dateFor($row->discharge_date, true);
+                    return $dateBtn;
+                })
+                ->rawColumns(['adm_date', 'dis_date']);
+
+            return $datatable->with([
+                'totals' => [
+                    'gender' => [(int)$genderTypeTotals->male, (int)$genderTypeTotals->female],
+                ],
+                'totalsByDoctor' => $totalsByDoctor
+            ])->make(true);
+        }
+        return view('reports.death');
+    }
+
+    public function discharge_report(Request $request)
+    {
+        if ($request->ajax()) {
+            $baseQuery = DischargeReport::select('discharge_reports.section_id', 'ir.admission_date', 'discharge_reports.discharge_date', 'discharge_reports.discharge_type', 'p.name as patient_name', 'p.gender', 'ir.patient_id','bill.uid','bill.id as bill_id')
+                ->join('ipd_registers as ir', 'ir.id', '=', 'discharge_reports.section_id')
+                ->join('billings as bill', 'bill.section_id', '=', 'discharge_reports.section_id')
+                ->join('patients as p', 'p.id', '=', 'ir.patient_id')
+                ->where('discharge_reports.save_type', '2')
+                ->where('bill.section', 'IPD')
+                ->where('ir.is_active', '1')
+                ->where('ir.is_delete', '0');
+
+            // Filter by data
+            if (!empty($request->discharge_status)) {
+                $baseQuery->where('discharge_reports.discharge_type', $request->discharge_status);
+            }
+            if (!empty($request->from_date)) {
+                $baseQuery->whereDate('discharge_reports.discharge_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $baseQuery->whereDate('discharge_reports.discharge_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Clone once for reuse
+            $cloned = (clone $baseQuery);
+
+            // Totals grouped by delivery mode
+            $totalsByType = (clone $cloned)
+                ->select(
+                    'discharge_reports.discharge_type',
+                    DB::raw("COUNT(discharge_reports.id) as total_count")
+                )
+                ->groupBy('discharge_reports.discharge_type')
+                ->get();
+
+            // All totals in one DB query instead of 8 separate ones
+            $genderTypeTotals = (clone $cloned)
+                ->select(
+                    DB::raw("SUM(CASE WHEN p.gender = 'Male' THEN 1 ELSE 0 END) as male"),
+                    DB::raw("SUM(CASE WHEN p.gender = 'Female' THEN 1 ELSE 0 END) as female")
+                )
+                ->first();
+
+            // Datatable
+            $datatable = Datatables::of($baseQuery->orderBy('discharge_reports.id', 'DESC'))
+                ->addIndexColumn()
+                ->addColumn('adm_date', function ($row) {
+                    $dateBtn = dateFor($row->admission_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('dis_date', function ($row) {
+                    $dateBtn = dateFor($row->discharge_date, true);
+                    return $dateBtn;
+                })
+                ->addColumn('billBtn', function ($row) {
+                    $billBtn = '<a href="' . route('bill.billing-details', ['ipd', ed($row->bill_id, true)]) . '">'.$row->uid.'</a>';
+                    return $billBtn;
+                })
+                ->rawColumns(['adm_date', 'dis_date','billBtn']);
+
+            return $datatable->with([
+                'totals' => [
+                    'gender' => [(int)$genderTypeTotals->male, (int)$genderTypeTotals->female],
+                ],
+                'totalsByType' => $totalsByType
+            ])->make(true);
+        }
+        return view('reports.discharge');
+    }
+
+    public function commission_report(Request $request)
+    {
+        // dd($request->all());
+
+        $title = 'Commission Report';
+        $action = route('reports.commission-report');
+
+        // Get doctors with charge_id
+        $market_by = Referral::select('id', 'referral_name as name', 'total_percentage', 'lab_percentage')
+            ->where('type', 'market_by')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+
+        $provider = Referral::select('id', 'referral_name as name', 'total_percentage', 'lab_percentage')
+            ->where('type', 'provider')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+
+        $referral = Referral::select('id', 'referral_name as name', 'total_percentage', 'lab_percentage')
+            ->where('type', 'referral')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+
+        // Prepare request data
+        $request_data = [
+            'from_date' => $request->from_date ?? now()->subMonth()->toDateString(),
+            'to_date' => $request->to_date ?? now()->toDateString(),
+            'section' => $request->section ?? '',
+            'marketBy' => $request->market_by ?? [],
+            'provider' => $request->provider ?? [],
+            'referral' => $request->referral ?? [],
+        ];
+
+        $bill_and_patient_report = [];
+
+        $chargeCategoryIds = [10, 11, 12];
+        $marketByIds = $request->market_by ?? [];
+        $providerIds = $request->provider ?? [];
+        $referredByIds = $request->referral ?? [];
+        $response = [];
+
+        DB::statement("SET sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))");
+
+        if( !empty($marketByIds) || !empty($providerIds) || !empty($referredByIds) ){
+
+            // dd($marketByIds);
+            $from = Carbon::parse($request->from_date)->startOfDay();
+            $to   = Carbon::parse($request->to_date)->endOfDay();
+
+            // No billing_details; get everything from charge_commission_masters
+            $query = DB::table('billings as b')
+                ->join('patients as p', 'p.id', '=', 'b.patient_id')
+                ->leftJoin('charge_commission_masters as ccm', 'ccm.bill_id', '=', 'b.id')   // 1–1 (or latest) per bill
+                ->leftJoin('referrals as market',   'market.id',   '=', 'b.market_by')
+                ->leftJoin('referrals as provider', 'provider.id', '=', 'b.provider')
+                ->leftJoin('referrals as refer',    'refer.id',    '=', 'b.referred_by')
+
+                // Date range + optional filters
+                ->whereBetween('b.bill_date', [$from, $to])
+                ->when(!empty($marketByIds),   fn($q) => $q->whereIn('market.id', $marketByIds))
+                ->when(!empty($providerIds),   fn($q) => $q->whereIn('provider.id', $providerIds))
+                ->when(!empty($referredByIds), fn($q) => $q->whereIn('refer.id', $referredByIds))
+
+                // Select EVERYTHING from ccm + key bill/patient/referral fields
+                ->select([
+                    'ccm.id as master_id',                       // all columns from charge_commission_masters
+                    'ccm.approved_by as master_approved_by',
+                    'ccm.paid_by as master_paid_by',
+                    'b.id as billing_id',
+                    'b.uid',
+                    'b.patient_id',
+                    'b.bill_date',
+                    'b.section',
+                    'b.total',
+                    'b.sub_total',
+                    'p.name as patient_name',
+                    'market.id as market_by_id',
+                    'provider.id as provider_id',
+                    'refer.id as referred_by_id',
+                ]);
+
+            $response = $query->get();
+
+        }
+
+        $uid = Auth::user()->id;
+        // dd($response);
+
+        return view('reports.commission-report', compact('title', 'action', 'market_by', 'provider', 'referral',
+            'request_data', 'response', 'chargeCategoryIds', 'uid'));
+    }
+
+    public function commission_patient_charge(Request $request){
+
+        $bill_id = $request->bill_id;
+        $user_type = $request->user_type;
+        $type_id = $request->type_id;
+
+        if( $user_type == 'referred_by' ){
+            $user_type = 'b.referred_by';
+        } else if( $user_type == 'market_by' ){
+            $user_type = 'b.market_by';
+        } else{
+            $user_type = 'b.provider';
+        }
+
+        $rows = DB::table('billing_details as bd')
+                ->join('billings as b', 'b.id', '=', 'bd.billing_id')
+                ->join('charges as c', 'c.id', '=', 'bd.charge_id')
+                ->where('bd.billing_id', $bill_id)
+                ->where($user_type, $type_id)
+                // ->whereIn('bd.charge_category_id', [10,11,12])
+                ->whereIn('bd.is_delete', [0,1])
+                ->select(['bd.billing_id', 'c.charge_name', 'bd.amount', 'b.patient_id', 'c.id as charge_id'])
+                ->get();
+
+        if( $rows->count() > 0 ){
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Data retrieved successfully',
+                'data'    => $rows
+            ]);
+        } else {
+            return response()->json([
+                'status'  => 'fail',
+                'message' => 'No Data found!'
+            ]);
+        }
+
+    }
+
+    public function commission_discount(Request $request){
+
+        // dd($request->all());
+
+        $n = count($request->charge_id);
+        $uid = Auth::user()->id;
+
+        DB::beginTransaction();
+        try {
+
+            $insertId = DB::table('charge_commission_masters')->insertGetId([
+                'bill_id'                 => (int) $request->bill_id,
+                'patient_id'              => (int) $request->patient_id,
+                'referred_by'             => $request->type === 'referred_by' ? (int) $request->type_id : 0,
+                'market_by'               => $request->type === 'market_by'   ? (int) $request->type_id : 0,
+                'provider'                => $request->type === 'provider'    ? (int) $request->type_id : 0,
+                'created_by'              => (int) $uid,
+                'commission_total_amount' => (string) $request->commission_total_amount
+            ]);
+
+            $rows = [];
+            for ($i = 0; $i < $n; $i++) {
+                $rows[] = [
+                    'charge_commission_master_id'       => $insertId,
+                    'charge_id'                         => (int) ($request->charge_id[$i] ?? 0),
+                    'charge_amount'                     => (float) ($request->total_amount[$i] ?? 0),
+                    'discount'                          => $request->discount[$i],
+                    'discount_amount'                   => (float) ($request->discount_amount[$i] ?? 0),
+                ];
+            }
+
+            // Save in one go
+            DB::table('charge_commission')->insert($rows);
+
+        DB::commit();
+        } catch (Exception $e) {
+            DB::rollback();
+        }
+
+        return response()->json(['status' => 1, 'message' => 'OK', 'count' => count($rows)]);
+
+    }
+
+    public function commission_report_view($master_id){
+
+        $results = DB::table('charge_commission as cc')
+            ->join('charge_commission_masters  as ccm',        'ccm.id',        '=', 'cc.charge_commission_master_id')
+            ->leftJoin('patients  as p',        'p.id',        '=', 'ccm.patient_id')
+            ->leftJoin('charges   as c',        'c.id',        '=', 'cc.charge_id')
+            ->leftJoin('referrals as r_ref',    'r_ref.id',    '=', 'ccm.referred_by')
+            ->leftJoin('referrals as r_mkt',    'r_mkt.id',    '=', 'ccm.market_by')
+            ->leftJoin('referrals as r_prov',   'r_prov.id',   '=', 'ccm.provider')
+            ->leftJoin('billings  as b',        'b.id',        '=', 'ccm.bill_id') // optional (for UID)
+            ->where('cc.charge_commission_master_id', $master_id) // optional filter
+            ->select([
+                // keep these if you want to reference rows; remove if you truly want only names
+                'cc.id as commission_id',
+                'ccm.bill_id',
+                'b.uid as bill_uid',
+                'cc.charge_amount',
+                'cc.discount',
+                'cc.discount_amount',
+                // just the names
+                'p.name as patient_name',
+                'c.charge_name',
+                'r_ref.referral_name  as referred_by_name',
+                'r_mkt.referral_name  as market_by_name',
+                'r_prov.referral_name as provider_name',
+            ])
+            ->get();
+
+        return view('reports.commission-info', compact('results', 'master_id'));
+
+    }
+
+    public function commission_report_print($master_id)
+    {
+        $results = DB::table('charge_commission as cc')
+            ->join('charge_commission_masters  as ccm',        'ccm.id',        '=', 'cc.charge_commission_master_id')
+            ->leftJoin('patients  as p',        'p.id',        '=', 'ccm.patient_id')
+            ->leftJoin('charges   as c',        'c.id',        '=', 'cc.charge_id')
+            ->leftJoin('referrals as r_ref',    'r_ref.id',    '=', 'ccm.referred_by')
+            ->leftJoin('referrals as r_mkt',    'r_mkt.id',    '=', 'ccm.market_by')
+            ->leftJoin('referrals as r_prov',   'r_prov.id',   '=', 'ccm.provider')
+            ->leftJoin('billings  as b',        'b.id',        '=', 'ccm.bill_id') // optional (for UID)
+            ->where('cc.charge_commission_master_id', $master_id) // optional filter
+            ->select([
+                // keep these if you want to reference rows; remove if you truly want only names
+                'cc.id as commission_id',
+                'ccm.bill_id',
+                'b.uid as bill_uid',
+                'cc.charge_amount',
+                'cc.discount',
+                'cc.discount_amount',
+                // just the names
+                'p.name as patient_name',
+                'c.charge_name',
+                'r_ref.referral_name  as referred_by_name',
+                'r_mkt.referral_name  as market_by_name',
+                'r_prov.referral_name as provider_name',
+            ])
+            ->get();
+
+        $header_image = Header::where('header_name', 'opd_prescription')->first();
+        $back = route('reports.commission-report-view', $master_id);
+
+        $data = compact('results', 'header_image', 'back');
+        // dd($data);
+        return view('reports.print.print-commission-report')->with($data);
+    }
+
+    public function commission_report_approved(Request $request)
+    {
+        // if( Auth::user()->id == 2 ){
+
+            $master_id = $request->master_id;
+            $user_id = Auth::user()->id;
+            ChargeCommissionMaster::where('id', $master_id)->update(['approved_by' => $user_id, 'approved_at' => now()]);
+            return response()->json(['status' => 1, 'message' => 'OK']);
+
+        // }else{
+        //     return response()->json(['status' => 0, 'message' => 'Error']);
+        // }
+
+    }
+
+    public function commission_report_paid(Request $request)
+    {
+        // if( Auth::user()->id == 2 ){
+
+            $master_id = $request->master_id;
+            $user_id = Auth::user()->id;
+            ChargeCommissionMaster::where('id', $master_id)->update(['paid_by' => $user_id, 'paid_at' => now()]);
+            return response()->json(['status' => 1, 'message' => 'OK']);
+
+        // }else{
+        //     return response()->json(['status' => 0, 'message' => 'Error']);
+        // }
+
+    }
+
+}

@@ -1,0 +1,829 @@
+<?php
+
+namespace App\Http\Controllers\Reports;
+
+use App\Http\Controllers\Controller;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
+use Yajra\Datatables\DataTables;
+use Illuminate\Http\Request;
+use App\Models\Payment;
+use App\Models\User;
+use App\Models\Billing;
+use App\Models\BillingDetail;
+use App\Models\PatientCraditAmount;
+use App\Models\Setting;
+use Carbon\CarbonPeriod;
+use Carbon\Carbon;
+use App\Models\TpaManagement;
+use Illuminate\Support\Facades\DB;
+
+class CollectionController extends Controller
+{
+    private const JMN_USER_ID = 602;
+    public function collection(Request $request)
+    {
+        $result = $dateArray = $request_data = [];
+        $title = 'Collection';
+        $action = route('reports.collection');
+        $users = User::select('id', 'empId', 'salutation', 'name')->where('user_type', 'user')->get();
+        $tds_amount = Setting::where('id', 10)->first(['value'])->value ?? 0;
+        $jmnResult = $kghResult = [];
+
+        if ($request->isMethod('post')) {
+            $request->validate([
+                'from_date' => 'required',
+                'to_date' => 'required',
+            ]);
+            $request_data = $request->only(['from_date', 'to_date']);
+            $collectionData = $this->buildCollectionReportData($request->from_date, $request->to_date);
+            $result = $collectionData['result'];
+            $dateArray = $collectionData['dateArray'];
+        }
+        // dd($result);
+
+        $jmnResult = $this->filterCollectionByBranchResults($result, self::JMN_USER_ID);
+        $kghResult = $this->filterCollectionByBranchResults($result, self::JMN_USER_ID, true);
+        $data = compact('result', 'dateArray', 'users', 'request_data', 'action', 'title', 'tds_amount', 'jmnResult', 'kghResult');
+        return view('reports.collection')->with($data);
+    }
+
+    public function collection_export(Request $request, string $format)
+    {
+        $format = strtolower($format);
+        if (!in_array($format, ['pdf', 'excel'])) {
+            abort(404);
+        }
+
+        $request->validate([
+            'from_date' => 'required',
+            'to_date' => 'required',
+        ]);
+
+        $request_data = $request->only(['from_date', 'to_date']);
+        $collectionData = $this->buildCollectionReportData($request->from_date, $request->to_date);
+        $data = array_merge($collectionData, [
+            'request_data' => $request_data,
+            'title' => 'Collection',
+        ]);
+
+        $fromForFilename = Carbon::createFromFormat('d-m-Y', $request->from_date)->format('Ymd');
+        $toForFilename = Carbon::createFromFormat('d-m-Y', $request->to_date)->format('Ymd');
+        $filename = "collection-report-{$fromForFilename}-{$toForFilename}";
+
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('reports.collection-export', $data);
+            return $pdf->download("{$filename}.pdf");
+        }
+
+        $content = view('reports.collection-export', $data)->render();
+        return response($content, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}.xls\"",
+        ]);
+    }
+
+    private function buildCollectionReportData(string $fromDate, string $toDate): array
+    {
+        $result = $dateArray = [];
+
+        $period = CarbonPeriod::create(
+            Carbon::createFromFormat('d-m-Y', $fromDate),
+            Carbon::createFromFormat('d-m-Y', $toDate)
+        );
+
+        $dateArray = array_map(function ($date) {
+            return $date->format('d-m-Y');
+        }, $period->toArray());
+
+        foreach ($dateArray as $date) {
+            $formattedDate = Carbon::createFromFormat('d-m-Y', $date)->format('Y-m-d');
+            $payment_refund = PatientCraditAmount::whereDate('date', $formattedDate)
+                ->where('type', 'debit')
+                ->where('remarks', 'refund')
+                ->sum('amount') ?? 0;
+            $payments = Payment::select('section', 'payment_amount', 'tds_amount', 'payment_mode', 'payment_date', 'payment_recived_by')
+                ->whereDate('payment_date', $formattedDate)
+                ->get()
+                ->map(function ($payment) {
+                    return [
+                        'section' => $payment->section,
+                        'payment_amount' => $payment->payment_amount,
+                        'tds_amount' => $payment->tds_amount,
+                        'payment_mode' => $payment->payment_mode,
+                        'payment_date' => $payment->payment_date,
+                        'payment_recived_by' => $payment->payment_recived_by,
+                    ];
+                });
+
+            $result[$date] = [
+                'payments' => $payments,
+                'payment_refund' => $payment_refund,
+            ];
+        }
+
+        return compact('result', 'dateArray');
+    }
+
+    private function filterCollectionByBranchResults(array $result, ?int $userId, bool $exclude = false): array
+    {
+        $filtered = [];
+
+        foreach ($result as $date => $data) {
+            $paymentsForBranch = $data['payments']->filter(function ($payment) use ($userId, $exclude) {
+                $paymentUserId = $payment['payment_recived_by'] ?? null;
+
+                if (is_null($userId)) {
+                    return !$exclude;
+                }
+
+                if ($exclude) {
+                    return $paymentUserId != $userId;
+                }
+
+                return $paymentUserId == $userId;
+            });
+
+            if ($paymentsForBranch->isEmpty()) {
+                continue;
+            }
+
+            $filtered[$date] = [
+                'payments' => $paymentsForBranch->values(),
+                'payment_refund' => $this->getBranchRefundAmountForDate($date, $userId, $exclude),
+            ];
+        }
+
+        return $filtered;
+    }
+
+    private function getBranchRefundAmountForDate(string $date, ?int $userId, bool $exclude = false): float
+    {
+        $formattedDate = Carbon::createFromFormat('d-m-Y', $date)->format('Y-m-d');
+
+        $query = PatientCraditAmount::whereDate('date', $formattedDate)
+            ->where('type', 'debit')
+            ->where('remarks', 'refund');
+
+        if (!is_null($userId)) {
+            if ($exclude) {
+                $query->where(function ($q) use ($userId) {
+                    $q->where('generated_by', '!=', $userId)
+                        ->orWhereNull('generated_by');
+                });
+            } else {
+                $query->where('generated_by', $userId);
+            }
+        }
+
+        return (float) $query->sum('amount');
+    }
+
+    public function my_collection(Request $request)
+    {
+        $result = collect();
+        $request_data = [];
+        $payment_refund = 0;
+
+        if ($request->isMethod('post')) {
+            $request->validate([
+                'from_date' => 'required',
+                'to_date' => 'required',
+            ]);
+            $request_data = $request->all();
+            $collectionData = $this->buildMyCollectionData($request->from_date, $request->to_date);
+            $result = $collectionData['result'];
+            $payment_refund = $collectionData['payment_refund'];
+        } else {
+            $today = Carbon::now()->format('d-m-Y');
+            $collectionData = $this->buildMyCollectionData($today, $today);
+            $result = $collectionData['result'];
+            $payment_refund = $collectionData['payment_refund'];
+        }
+
+        return view('reports.my-collection')->with(compact('result', 'request_data', 'payment_refund'));
+    }
+
+    public function my_collection_export(Request $request, string $format)
+    {
+        $format = strtolower($format);
+        if (!in_array($format, ['pdf', 'excel'])) {
+            abort(404);
+        }
+
+        $request->validate([
+            'from_date' => 'required',
+            'to_date' => 'required',
+        ]);
+
+        $collectionData = $this->buildMyCollectionData($request->from_date, $request->to_date);
+        $viewData = array_merge($collectionData, [
+            'request_data' => $request->only(['from_date', 'to_date']),
+        ]);
+
+        $fromForFilename = Carbon::parse($request->from_date)->format('Ymd');
+        $toForFilename = Carbon::parse($request->to_date)->format('Ymd');
+        $filename = 'my-collection-' . $fromForFilename . '-' . $toForFilename;
+
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('reports.my-collection-export', $viewData);
+            return $pdf->download("{$filename}.pdf");
+        }
+
+        $content = view('reports.my-collection-export', $viewData)->render();
+        return response($content, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '.xls"',
+        ]);
+    }
+
+    private function buildMyCollectionData(string $fromDate, string $toDate): array
+    {
+        $from = date('Y-m-d', strtotime($fromDate));
+        $to = date('Y-m-d', strtotime($toDate . ' +1 day'));
+
+        $result = Payment::select('section', 'payment_amount', 'payment_mode', 'payment_date')
+            ->whereBetween('payment_date', [$from, $to])
+            ->where('payment_recived_by', Auth::user()->id)
+            ->get();
+
+        $payment_refund = PatientCraditAmount::where('generated_by', Auth::user()->id)
+            ->whereBetween('date', [$from, $to])
+            ->where('type', 'debit')
+            ->where('remarks', 'refund')
+            ->sum('amount') ?? 0;
+
+        return compact('result', 'payment_refund');
+    }
+
+    public function users_collection(Request $request)
+    {
+        // $result = $dateArray = $request_data = [];
+        // $title = 'Users Collection';
+        // $action = route('reports.users-collection');
+        // $users = User::select('id','empId','salutation','name')->where('user_type','user')->get();
+        // $dateArray = Payment::select('payments.payment_recived_by', 'users.salutation', 'users.name')
+        //     ->join('users', 'users.id', '=', 'payments.payment_recived_by')
+        //     ->distinct('payments.payment_recived_by')
+        //     ->get();
+        // foreach($dateArray as $date){
+        //     if ($request->isMethod('post')) {
+        //         $request->validate([
+        //             'from_date' => 'required',
+        //             'to_date' => 'required',
+        //         ]);
+        //         $request_data = $request->all();
+        //         $result[$date->salutation.' '.$date->name]['payments'] = Payment::select('section', 'payment_amount', 'payment_mode', 'payment_date')
+        //             ->whereBetween('payment_date', [date('Y-m-d', strtotime($request->from_date)), date('Y-m-d', strtotime($request->to_date))])
+        //             ->where('payment_recived_by', $date->payment_recived_by)
+        //             ->get();
+        //         $result[$date->salutation.' '.$date->name]['payment_refund'] = PatientCraditAmount::where('generated_by', $date->payment_recived_by)
+        //             ->whereBetween('date', [date('Y-m-d', strtotime($request->from_date)), date('Y-m-d', strtotime($request->to_date))])
+        //             ->where('type','debit')
+        //             ->where('remarks','refund')
+        //             ->sum('amount') ?? 0;
+        //     }else{
+        //         $result[$date->salutation.' '.$date->name]['payments'] = Payment::select('section', 'payment_amount', 'payment_mode', 'payment_date')
+        //             ->whereDate('payment_date', date('Y-m-d'))
+        //             ->where('payment_recived_by', $date->payment_recived_by)
+        //             ->get();
+        //         $result[$date->salutation.' '.$date->name]['payment_refund'] = PatientCraditAmount::where('generated_by', $date->payment_recived_by)
+        //             ->whereDate('date', date('Y-m-d'))
+        //             ->where('type','debit')
+        //             ->where('remarks','refund')
+        //             ->sum('amount') ?? 0;
+        //     }
+        // }
+        // $data = compact('result','dateArray','users','request_data','action','title');
+        // return view('reports.collection')->with($data);
+        $result = $request_data = [];
+        $title = 'Users Collection';
+        $action = route('reports.users-collection');
+        $users = User::select('id', 'empId', 'salutation', 'name')
+            ->where('user_type', 'user')
+            ->get();
+        $tds_amount = Setting::where('id', 10)->first(['value'])->value ?? 0;
+
+        $dateArray = Payment::select('payments.payment_recived_by', 'users.salutation', 'users.name')
+            ->join('users', 'users.id', '=', 'payments.payment_recived_by')
+            ->distinct('payments.payment_recived_by')
+            ->get();
+
+        foreach ($dateArray as $date) {
+            $userName = $date->salutation . ' ' . $date->name;
+
+            if ($request->isMethod('post')) {
+                $request->validate([
+                    'from_date' => 'required',
+                    'to_date' => 'required',
+                ]);
+
+                $request_data = $request->all();
+
+                $payments = Payment::select('section', 'payment_amount', 'payment_mode', 'payment_date', 'payment_recived_by')
+                    ->whereBetween('payment_date', [
+                        date('Y-m-d', strtotime($request->from_date)),
+                        date('Y-m-d', strtotime($request->to_date . ' +1 day'))
+                    ])
+                    ->where('payment_recived_by', $date->payment_recived_by)
+                    ->get();
+
+                if ($payments->isNotEmpty()) {
+                    $refund = PatientCraditAmount::where('generated_by', $date->payment_recived_by)
+                        ->whereBetween('date', [
+                            date('Y-m-d', strtotime($request->from_date)),
+                            date('Y-m-d', strtotime($request->to_date . ' +1 day'))
+                        ])
+                        ->where('type', 'debit')
+                        ->where('remarks', 'refund')
+                        ->sum('amount') ?? 0;
+
+                    $result[$userName] = [
+                        'payments' => $payments,
+                        'payment_refund' => $refund,
+                        'user_id' => $date->payment_recived_by,
+                    ];
+                }
+            } else {
+                $payments = Payment::select('section', 'payment_amount', 'payment_mode', 'payment_date', 'payment_recived_by')
+                    ->whereDate('payment_date', date('Y-m-d'))
+                    ->where('payment_recived_by', $date->payment_recived_by)
+                    ->get();
+
+                if ($payments->isNotEmpty()) {
+                    $refund = PatientCraditAmount::where('generated_by', $date->payment_recived_by)
+                        ->whereDate('date', date('Y-m-d'))
+                        ->where('type', 'debit')
+                        ->where('remarks', 'refund')
+                        ->sum('amount') ?? 0;
+
+                    $result[$userName] = [
+                        'payments' => $payments,
+                        'payment_refund' => $refund,
+                        'user_id' => $date->payment_recived_by,
+                    ];
+                }
+            }
+        }
+
+        $jmnUserId = 602;
+        $jmnResult = [];
+        $kghResult = [];
+
+        foreach ($result as $userName => $dataRow) {
+            $userId = $dataRow['user_id'] ?? ($dataRow['payments'][0]->payment_recived_by ?? null);
+            if ($userId === $jmnUserId) {
+                $jmnResult[$userName] = $dataRow;
+            } else {
+                $kghResult[$userName] = $dataRow;
+            }
+        }
+
+        $data = compact('result', 'dateArray', 'users', 'request_data', 'action', 'title', 'tds_amount');
+        $data['jmnResult'] = $jmnResult;
+        $data['kghResult'] = $kghResult;
+        return view('reports.collection')->with($data);
+    }
+    public function total_collection_view(Request $request)
+    {
+        $section = $request->section;
+        $branchKey = $request->branch;
+        $branchTitle = $request->branch_title;
+        $collectedUser = $request->collected_user;
+
+        if ($section == 'IPD' || $section == 'DAYCARE') {
+            $main_section = 'ipd';
+        } else {
+            $main_section = strtolower($section);
+        }
+
+        $paymentsQuery = Payment::select('payments.billing_id', 'billings.uid', 'patients.name', 'patients.uhid as patient_uhid', 'payments.patient_id', 'payments.payment_amount', 'payments.payment_date', 'payments.payment_mode', 'payments.payment_bank')
+            ->join('patients', 'patients.id', '=', 'payments.patient_id')
+            ->leftJoin('billings', 'billings.id', '=', 'payments.billing_id')
+            ->whereBetween('payments.payment_date', $this->buildDateRange($request->row_date, $request->from_date, $request->to_date))
+            ->when($section, function ($query) use ($section) {
+                return $query->where('payments.section', $section);
+            });
+
+        $user = null;
+        if (!empty($collectedUser)) {
+            $paymentsQuery->where('payments.payment_recived_by', $collectedUser);
+            $user = User::select('name')->where('id', $collectedUser)->first();
+        } elseif ($branchKey === 'jmn') {
+            $paymentsQuery->where('payments.payment_recived_by', self::JMN_USER_ID);
+            $user = (object) ['name' => $branchTitle ?? 'JMN Collection'];
+        } elseif ($branchKey === 'kgh') {
+            $paymentsQuery->where('payments.payment_recived_by', '!=', self::JMN_USER_ID);
+            $user = (object) ['name' => $branchTitle ?? 'KGH Collection'];
+        }
+
+        $payments = $paymentsQuery->get();
+
+        $data = compact('section', 'main_section', 'payments', 'user');
+        $data['branch_title'] = $branchTitle;
+        $data['report_date'] = $request->row_date;
+        return view('reports.collection-view')->with($data);
+    }
+
+    public function cash_bnak_collection_view(Request $request)
+    {
+        $branchKey = $request->branch;
+        $branchTitle = $request->branch_title;
+
+        $dateRange = $this->buildDateRange($request->row_date, $request->from_date, $request->to_date);
+        $payments = Payment::select(
+            'payments.billing_id',
+            'billings.uid',
+            'billings.section',
+            'patients.name',
+            'patients.uhid as patient_uhid',
+            'payments.patient_id',
+            'payments.payment_amount',
+            'payments.payment_date',
+            'payments.payment_mode',
+            'payments.payment_bank'
+        )
+            ->join('patients', 'patients.id', '=', 'payments.patient_id')
+            ->leftJoin('billings', 'billings.id', '=', 'payments.billing_id')
+            ->whereDate('payments.payment_date', '>=', date('Y-m-d', strtotime($request->from_date)))
+            ->whereBetween('payments.payment_date', $dateRange)
+            ->when($request->filled('collect_amount_type'), function ($q) use ($request) {
+                if ($request->collect_amount_type === 'Cash') {
+                    $q->where('payments.payment_mode', 'Cash');          // only Cash
+                } else {
+                    $q->where('payments.payment_mode', '!=', 'Cash');    // all Non-Cash
+                }
+            })
+            ->when($branchKey === 'jmn', function ($q) {
+                $q->where('payments.payment_recived_by', self::JMN_USER_ID);
+            })
+            ->when($branchKey === 'kgh', function ($q) {
+                $q->where('payments.payment_recived_by', '!=', self::JMN_USER_ID);
+            })
+            ->get();
+
+        $data = compact('payments');
+        $data['branch_title'] = $branchTitle;
+        $data['report_date'] = $request->row_date;
+        return view('reports.cash-bank-collection-view')->with($data);
+    }
+
+    public function doctor_payout(Request $request)
+    {
+        $title = 'Doctor Payout';
+        $action = route('reports.doctor-payout');
+
+        // Get doctors with charge_id
+        $doctors = User::select('id', 'empId', 'salutation', 'name', 'doctor_fees', 'commission_type', 'commission_amount', 'charge_id')
+            ->where('user_type', 'doctor')
+            ->where('charge_id', '>', 0)
+            ->get();
+
+        $charges = $doctors->pluck('charge_id')->toArray();
+
+        // Prepare request data
+        $request_data = [
+            'from_date' => $request->from_date ?? now()->subMonth()->toDateString(),
+            'to_date' => $request->to_date ?? now()->toDateString(),
+            'section' => $request->section ?? 'OPD',
+            'doctor' => $request->doctor ?? [],
+        ];
+
+        // Query billing details for selected doctors
+        $response = BillingDetail::select(
+            'billing_details.billing_id',
+            'billings.uid',
+            'patients.name',
+            'patients.uhid as patient_uhid',
+            'billings.patient_id',
+            'billing_details.amount',
+            'billings.bill_date',
+            'billings.section',
+            'users.name as doctor_name',
+            'users.doctor_fees',
+            'users.commission_type',
+            'users.commission_amount',
+            'billing_details.charge_id'
+        )
+            ->join('billings', 'billings.id', '=', 'billing_details.billing_id')
+            ->join('patients', 'patients.id', '=', 'billings.patient_id')
+            ->leftJoin('users', 'users.charge_id', '=', 'billing_details.charge_id')
+            ->whereBetween('billings.bill_date', [
+                date('Y-m-d', strtotime($request_data['from_date'])),
+                date('Y-m-d', strtotime($request_data['to_date']  . ' +1 day'))
+            ])
+            ->where('billings.section', trim(strtoupper($request_data['section'])))
+            ->whereIn('billing_details.charge_id', $request_data['doctor'])
+            ->get();
+
+        return view('reports.doctor-payout', compact('title', 'action', 'doctors', 'request_data', 'response'));
+    }
+    public function due_reports(Request $request)
+    {
+        $tpa = TpaManagement::where('status', '0')->get();
+        $title = 'Due Reports';
+        $action = route('reports.due-reports');
+        $request_data = [
+            'section' => $request->get('section'),
+            'insurance_type' => $request->get('insurance_type'),
+            'from_date' => $request->get('from_date'),
+            'to_date' => $request->get('to_date'),
+        ];
+
+        $result = $this->buildDueReportQuery($request_data)->get();
+
+        $sumNet  = (clone $result)->sum('grand_total');
+        $sumPaid = (clone $result)->sum('total_payment');
+        $sumDue  = (clone $result)->sum('due_amount');
+
+        return view('reports.due-report', compact('title', 'result','action','request_data', 'sumNet', 'sumPaid', 'sumDue', 'tpa'));
+    }
+
+    public function due_reports_export(Request $request, string $format)
+    {
+        if (strtolower($format) !== 'excel') {
+            abort(404);
+        }
+
+        $title = 'Due Reports';
+        $request_data = [
+            'section' => $request->get('section'),
+            'insurance_type' => $request->get('insurance_type'),
+            'from_date' => $request->get('from_date'),
+            'to_date' => $request->get('to_date'),
+        ];
+
+        $result = $this->buildDueReportQuery($request_data)->get();
+        $fromForFile = $this->formatDateForFilename($request_data['from_date'] ?? null);
+        $toForFile = $this->formatDateForFilename($request_data['to_date'] ?? null) ?? $fromForFile;
+        $filenameParts = array_filter(['due-reports', $fromForFile, $toForFile]);
+        $filename = implode('-', $filenameParts) ?: 'due-reports';
+
+        $content = view('reports.due-report-export', compact('title', 'result', 'request_data'))->render();
+
+        return response($content, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '.xls"',
+        ]);
+    }
+
+    private function buildDueReportQuery(array $request_data)
+    {
+        $fromDate = $this->parseDateString($request_data['from_date'] ?? null);
+        $toDate = $this->parseDateString($request_data['to_date'] ?? null) ?? $fromDate;
+
+        /*return Billing::query()
+            ->select('billings.*', 'users.name', 'patients.name as patient_name')
+            ->join('users', 'users.id', '=', 'billings.created_by')
+            ->join('patients', 'patients.id', '=', 'billings.patient_id')
+            // Join IPD register to access discharge_status (adjust join keys/table name if needed)
+            ->leftJoin('ipd_registers', function ($join) {
+                $join->on('ipd_registers.id', '=', 'billings.section_id');
+                $join->on('ipd_registers.admission_type', '=', 'billings.section');
+            })
+            ->leftJoin('dialysis_registers', function ($join) {
+                $join->on('dialysis_registers.id', '=', 'billings.section_id');
+                $join->on('billings.section'. '=', 'DIALYSIS');
+            })
+            ->leftJoin('tpa_managements', function ($join) {
+                $join->on('tpa_managements.id', '=', 'ipd_registers.insurance_id');
+                $join->OrOn('tpa_managements.id', '=', 'dialysis_registers.insurance_id');
+            })
+            // Always require due_amount > 0
+            ->where('billings.due_amount', '>', 0)
+            // For IPD/DAYCARE rows, also require discharge_status = 1
+            ->where(function ($q) {
+                $q->whereNotIn('billings.section', ['IPD', 'DAYCARE'])
+                ->orWhere(function ($q) {
+                    $q->whereIn('billings.section', ['IPD', 'DAYCARE'])
+                        ->where('ipd_registers.discharge_status', '=', 1);
+                });
+            })
+            ->when($request_data['section'] ?? null, function($q) use ($request_data) {
+                $q->where('billings.section', $request_data['section']);
+            })
+            ->when($fromDate, function ($q) use ($fromDate, $toDate) {
+                $q->whereBetween('billings.bill_date', [$fromDate, $toDate]);
+            })
+            ->orderBy('billings.bill_date','DESC');*/
+
+
+
+
+        return Billing::query()
+            ->select([
+                'billings.*',
+                'users.name as created_by_name',
+                'patients.name as patient_name',
+                'patients.uhid as patient_uhid',
+                DB::raw('COALESCE(ipd_tpa.tpa_name, dialysis_tpa.tpa_name) as tpa_name'),
+            ])
+            ->join('users', 'users.id', '=', 'billings.created_by')
+            ->join('patients', 'patients.id', '=', 'billings.patient_id')
+
+            // IPD / DAYCARE register join
+            ->leftJoin('ipd_registers', function ($join) {
+                $join->on('ipd_registers.id', '=', 'billings.section_id')
+                    ->on('ipd_registers.admission_type', '=', 'billings.section');
+            })
+
+            // Dialysis register join
+            ->leftJoin('dialysis_registers', function ($join) {
+                $join->on('dialysis_registers.id', '=', 'billings.section_id')
+                    ->where('billings.section', '=', 'DIALYSIS');
+            })
+
+            // TPA join for IPD / DAYCARE only
+            ->leftJoin('tpa_managements as ipd_tpa', function ($join) {
+                $join->on('ipd_tpa.id', '=', 'ipd_registers.insurance_id')
+                    ->whereIn('billings.section', ['IPD', 'DAYCARE']);
+            })
+
+            // TPA join for DIALYSIS only
+            ->leftJoin('tpa_managements as dialysis_tpa', function ($join) {
+                $join->on('dialysis_tpa.id', '=', 'dialysis_registers.insurance_id')
+                    ->where('billings.section', '=', 'DIALYSIS');
+            })
+
+            ->where('billings.due_amount', '>', 0)
+
+            // IPD / DAYCARE only after discharge
+            ->where(function ($q) {
+                $q->whereNotIn('billings.section', ['IPD', 'DAYCARE'])
+                ->orWhere(function ($subQ) {
+                    $subQ->whereIn('billings.section', ['IPD', 'DAYCARE'])
+                        ->where('ipd_registers.discharge_status', 1);
+                });
+            })
+
+            // Section filter
+            ->when($request_data['section'] ?? null, function ($q) use ($request_data) {
+                $q->where('billings.section', $request_data['section']);
+            })
+
+            // Insurance filter
+            ->when($request_data['insurance_type'] ?? null, function ($q) use ($request_data) {
+                $insuranceId = $request_data['insurance_type'];
+
+                $q->where(function ($subQ) use ($insuranceId) {
+                    $subQ->where(function ($q1) use ($insuranceId) {
+                            $q1->whereIn('billings.section', ['IPD', 'DAYCARE'])
+                            ->where('ipd_registers.insurance_id', $insuranceId);
+                        })
+                        ->orWhere(function ($q2) use ($insuranceId) {
+                            $q2->where('billings.section', 'DIALYSIS')
+                            ->where('dialysis_registers.insurance_id', $insuranceId);
+                        });
+                });
+            })
+
+            // Date filter
+            ->when($fromDate && $toDate, function ($q) use ($fromDate, $toDate) {
+                $q->whereBetween('billings.bill_date', [$fromDate, $toDate]);
+            })
+
+            ->orderBy('billings.bill_date', 'DESC');
+
+    }
+
+    private function formatDateForFilename(?string $date): ?string
+    {
+        $parsed = $this->parseDateString($date);
+
+        return $parsed ? str_replace('-', '', $parsed) : null;
+    }
+
+    private function parseDateString(?string $date): ?string
+    {
+        if (!$date) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('d-m-Y', $date)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function buildDateRange(?string $rowDate, ?string $fromDate, ?string $toDate, bool $addEndDay = true): array
+    {
+        if (!empty($rowDate)) {
+            try {
+                $date = Carbon::createFromFormat('d-m-Y', $rowDate);
+            } catch (\Throwable $e) {
+                $date = Carbon::now();
+            }
+
+            $start = $date->format('Y-m-d');
+            $end = $addEndDay ? $date->copy()->addDay()->format('Y-m-d') : $date->format('Y-m-d');
+            return [$start, $end];
+        }
+
+        $start = $this->parseDateString($fromDate) ?? Carbon::now()->format('Y-m-d');
+        $end = $this->parseDateString($toDate) ?? Carbon::now()->format('Y-m-d');
+        $endCarbon = Carbon::parse($end);
+        if ($addEndDay) {
+            $endCarbon = $endCarbon->addDay();
+        }
+
+        return [$start, $endCarbon->format('Y-m-d')];
+    }
+
+    public function revenue_report(Request $request)
+    {
+        $request_data = $request->only(['from_date', 'to_date']);
+        $sections = ['OPD', 'EMG', 'IPD', 'DAYCARE', 'DIALYSIS', 'INVESTIGATION'];
+
+        $fromDate = $this->parseDateString($request_data['from_date'] ?? null);
+        $toDate = $this->parseDateString($request_data['to_date'] ?? null);
+
+        if (!$fromDate && !$toDate) {
+            $fromDate = Carbon::today()->toDateString();
+            $toDate = $fromDate;
+        } elseif (!$fromDate) {
+            $fromDate = $toDate;
+        } elseif (!$toDate) {
+            $toDate = $fromDate;
+        }
+
+        $start = Carbon::parse($fromDate);
+        $end = Carbon::parse($toDate);
+
+        if ($start->gt($end)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        $period = CarbonPeriod::create($start, $end);
+        $dates = collect($period)->map(fn ($date) => $date->format('d-m-Y'))->toArray();
+
+        $billingRecords = Billing::select('section', 'total', 'bill_date')
+            ->whereDate('bill_date', '>=', $start->format('Y-m-d'))
+            ->whereDate('bill_date', '<=', $end->format('Y-m-d'))
+            ->whereIn('section', $sections)
+            ->get()
+            ->filter(fn ($billing) => !is_null($billing->bill_date));
+
+        $billingsByDate = $billingRecords->groupBy(function ($billing) {
+            return $billing->bill_date->format('d-m-Y');
+        });
+
+        $rows = [];
+        $sectionTotals = [];
+        foreach ($sections as $section) {
+            $sectionTotals[$section] = ['amount' => 0, 'count' => 0];
+        }
+
+        $summaryTotals = [
+            'grand_total' => 0,
+            'count_total' => 0,
+        ];
+
+        foreach ($dates as $displayDate) {
+            $dayBillings = $billingsByDate[$displayDate] ?? collect();
+            $sectionData = [];
+            $daySectionTotal = 0;
+            $daySectionCount = 0;
+
+            foreach ($sections as $section) {
+                $sectionTotal = $dayBillings->where('section', $section)->sum('total');
+                $sectionCount = $dayBillings->where('section', $section)->count();
+
+                $sectionTotals[$section]['amount'] += $sectionTotal;
+                $sectionTotals[$section]['count'] += $sectionCount;
+
+                $sectionData[$section] = [
+                    'amount' => $sectionTotal,
+                    'count' => $sectionCount,
+                ];
+
+                $daySectionTotal += $sectionTotal;
+                $daySectionCount += $sectionCount;
+            }
+
+            $summaryTotals['grand_total'] += $daySectionTotal;
+            $summaryTotals['count_total'] += $daySectionCount;
+
+            $rows[] = [
+                'date' => $displayDate,
+                'sections' => $sectionData,
+                'total' => $daySectionTotal,
+                'count' => $daySectionCount,
+            ];
+        }
+
+        $title = "Total Revenue";
+        $action = route('reports.revenue-report');
+
+        return view('reports.revenue-report', compact(
+            'title',
+            'request_data',
+            'action',
+            'rows',
+            'sections',
+            'sectionTotals',
+            'summaryTotals'
+        ));
+    }
+
+}

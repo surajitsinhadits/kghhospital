@@ -1,0 +1,854 @@
+/* blood bank dashboard */
+
+/* Main Content */
+.main-content {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #fef7f7 0%, #fdf2f8 100%);
+    min-height: 100vh;
+    color: #374151;
+    padding: 2rem 0;
+    padding-top: 95px;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s;
+}
+
+.stat-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-content {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.stat-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 0.5rem;
+}
+
+.stat-change {
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.stat-change.positive {
+    color: #16a34a;
+}
+
+.stat-change.negative {
+    color: #dc2626;
+}
+
+.change-text {
+    color: #6b7280;
+}
+
+.stat-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+}
+
+.stat-icon.blue { background: #3b82f6; }
+.stat-icon.red { background: #ef4444; }
+.stat-icon.green { background: #22c55e; }
+.stat-icon.purple { background: #a855f7; }
+
+/* Content Grid */
+.content-grid {
+    /* display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem; */
+    margin-bottom: 2rem;
+}
+
+/* Cards */
+.card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    padding: 1.5rem 1.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 1.5rem;
+}
+
+.card-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.subtitle {
+    font-weight: 400;
+    color: #6b7280;
+}
+
+.urgent-title {
+    color: #dc2626;
+}
+
+.card-content {
+    padding: 0 1.5rem 1.5rem;
+}
+
+/* Blood Inventory */
+.blood-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.blood-type {
+    padding: 1rem;
+    border: 1px solid #3c7af6;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+}
+
+.blood-type:hover {
+    border-color: #ef4444;
+    background: #fef7f7;
+}
+
+.blood-type-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.blood-type-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.blood-count {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #16a34a;
+}
+
+.blood-count.low {
+    color: #f59e0b;
+}
+
+.blood-count.critical {
+    color: #dc2626;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 0.75rem;
+    background: #f3f4f6;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #22c55e;
+    border-radius: 0.375rem;
+    transition: width 0.3s;
+}
+
+.progress-fill.low {
+    background: #f59e0b;
+}
+
+.progress-fill.critical {
+    background: #dc2626;
+}
+
+.blood-type-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.percentage {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 500;
+}
+
+.status-badge.low {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.status-badge.critical {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Urgent Requests */
+.request-item {
+    padding: 1rem;
+    border: 1px solid #f3f4f6;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.2s;
+}
+
+.request-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.request-item:last-child {
+    margin-bottom: 0;
+}
+
+.request-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.request-header h4 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #111827;
+}
+
+.urgency-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.urgency-badge.critical {
+    background: #dc2626;
+    color: white;
+}
+
+.urgency-badge.high {
+    background: #f59e0b;
+    color: white;
+}
+
+.urgency-badge.medium {
+    background: #eab308;
+    color: white;
+}
+
+.request-info {
+    margin-bottom: 0.75rem;
+}
+
+.blood-need {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.request-details {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.detail-item i {
+    font-size: 0.625rem;
+}
+
+.fulfill-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.fulfill-btn:hover {
+    background: #b91c1c;
+}
+
+/* Bottom Grid */
+.bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+/* Recent Donations */
+.donation-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    transition: background 0.2s;
+    margin-bottom: 1rem;
+}
+
+.donation-item:hover {
+    background: #f9fafb;
+}
+
+.donation-item:last-child {
+    margin-bottom: 0;
+}
+
+.donor-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    background: linear-gradient(45deg, #ef4444, #dc2626);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.donation-info {
+    flex: 1;
+}
+
+.donor-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #111827;
+    margin-bottom: 0.25rem;
+}
+
+.donation-details {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.donation-status {
+    text-align: right;
+}
+
+.status-badge.completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-badge.processing {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.donation-time {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+/* Analytics Chart */
+.chart-section {
+    margin-bottom: 2rem;
+}
+
+.chart-section:last-child {
+    margin-bottom: 0;
+}
+
+.chart-section h4 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.75rem;
+}
+
+.chart-placeholder {
+    height: 12rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    background: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.chart-bars {
+    display: flex;
+    align-items: end;
+    gap: 0.5rem;
+    height: 8rem;
+    margin-bottom: 0.5rem;
+}
+
+.chart-bar {
+    flex: 1;
+    background: #ef4444;
+    border-radius: 0.25rem 0.25rem 0 0;
+    min-height: 1rem;
+}
+
+.chart-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.distribution-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+
+.distribution-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #374151;
+}
+
+.color-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+}
+
+.color-dot.red { background: #ef4444; }
+.color-dot.orange { background: #f97316; }
+.color-dot.yellow { background: #eab308; }
+.color-dot.green { background: #22c55e; }
+.color-dot.blue { background: #3b82f6; }
+.color-dot.purple { background: #8b5cf6; }
+.color-dot.pink { background: #ec4899; }
+.color-dot.gray { background: #6b7280; }
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bottom-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        height: auto;
+        gap: 1rem;
+        padding: 1rem 0;
+    }
+
+    .search-section {
+        order: 3;
+        margin: 0;
+        width: 100%;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+
+    .blood-types-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    .distribution-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 0.5rem;
+    }
+
+    .main-content {
+        padding: 1rem 0;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .blood-types-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* vaccination dashboard  */
+
+/* Dashboard Container */
+/* All dashboard styles are now scoped under .vaccination for better modularity */
+
+.vaccination .dashboard {
+    min-height: 100vh;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-top: 95px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f9fafb;
+    color: #374151;
+    line-height: 1.6;
+}
+
+/* Stats Grid */
+.vaccination .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.vaccination .stats-card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s;
+}
+
+.vaccination .stats-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.vaccination .stats-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.vaccination .stats-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.vaccination .stats-icon {
+    color: #9ca3af;
+}
+
+.vaccination .stats-content {
+    margin-top: 16px;
+}
+
+.vaccination .stats-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.vaccination .stats-change {
+    font-size: 12px;
+    margin: 0;
+}
+
+.vaccination .stats-change.positive {
+    color: #059669;
+}
+
+.vaccination .stats-change.negative {
+    color: #dc2626;
+}
+
+.vaccination .stats-change.neutral {
+    color: #6b7280;
+}
+
+/* Card Styles */
+.vaccination .card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 32px;
+}
+
+.vaccination .card-header {
+    padding: 24px 24px 0;
+}
+
+.vaccination .card-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vaccination .card-description {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.vaccination .card-content {
+    padding: 24px;
+}
+
+/* Vaccination Goals */
+.vaccination .vaccination-goals {
+    margin-bottom: 32px !important;
+}
+
+.vaccination .goals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+}
+
+.vaccination .goal-item {
+    margin-bottom: 12px;
+}
+
+.vaccination .goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.vaccination .goal-name {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.vaccination .goal-percentage {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.vaccination .progress-bar {
+    height: 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.vaccination .progress-fill {
+    height: 100%;
+    background: #3b82f6;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* Charts */
+.vaccination .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+/* Bottom Section */
+.vaccination .bottom-section {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+@media (min-width: 1024px) {
+    .vaccination .bottom-section {
+        grid-template-columns: 2fr 1fr;
+    }
+}
+
+/* Recent Vaccinations Table */
+.vaccination .recent-vaccinations {
+    margin-bottom: 0;
+}
+
+.vaccination .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.vaccination .data-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-weight: 500;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.vaccination .data-table td {
+    padding: 16px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.vaccination .data-table tr:hover {
+    background: #f9fafb;
+}
+
+.vaccination .font-medium {
+    font-weight: 500;
+}
+
+.vaccination .badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.vaccination .badge.completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.vaccination .badge.scheduled {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+/* Sidebar Stats */
+.vaccination .sidebar-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.vaccination .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.vaccination .stat-row:not(:last-child) {
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.vaccination .text-muted {
+    color: #6b7280;
+}
+
+.vaccination .font-bold {
+    font-weight: 600;
+}
+
+.vaccination .positive {
+    color: #059669;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .vaccination .dashboard {
+        padding: 16px;
+    }
+
+    .vaccination .header-content {
+        align-items: stretch;
+    }
+
+    .vaccination .header-actions {
+        flex-wrap: wrap;
+    }
+
+    .vaccination .search-input {
+        width: 200px;
+    }
+
+    .vaccination .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .vaccination .goals-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .vaccination .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .vaccination .data-table {
+        font-size: 12px;
+    }
+
+    .vaccination .data-table th,
+    .vaccination .data-table td {
+        padding: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .vaccination .dashboard {
+        padding: 12px;
+    }
+
+    .vaccination .header-text h1 {
+        font-size: 24px;
+    }
+
+    .vaccination .stats-card {
+        padding: 16px;
+    }
+
+    .vaccination .card-content {
+        padding: 16px;
+    }
+
+    .vaccination .search-input {
+        width: 150px;
+    }
+}

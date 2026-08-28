@@ -1,0 +1,766 @@
+<?php
+
+namespace App\Http\Controllers\IPD;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Yajra\Datatables\DataTables;
+use Illuminate\Http\Request;
+use App\Models\Package;
+use App\Models\TpaManagement;
+use App\Models\CaseReference;
+use App\Models\PatientDoctorStatus;
+use App\Models\PatientBedHistory;
+use App\Models\PatientCraditAmount;
+use App\Models\DialysisRegister;
+use App\Models\IpdRegister;
+use App\Models\DischargeReport;
+use App\Models\State;
+use App\Models\Diagonase;
+use App\Models\Ward;
+use App\Models\Bed;
+use App\Models\Referral;
+use App\Models\User;
+use App\Models\Patient;
+use App\Models\Billing;
+use App\Models\OtRegistration;
+use App\Models\Payment;
+use Exception;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+
+class IPDController extends Controller
+{
+    public function index(Request $request)
+    {
+        $doctor = User::where('user_type', 'doctor')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+
+        if ($request->ajax()) {
+
+            $data = IpdRegister::select(
+                'ipd_registers.id',
+                'ipd_registers.admission_type',
+                'ipd_registers.package_type',
+                'ipd_registers.type',
+                'ipd_registers.discharge_status',
+                'ipd_registers.patient_id',
+                'ipd_registers.admission_date',
+                'p.name as patient_name',
+                'p.phone',
+                'p.gender',
+                'p.dob_year',
+                'p.dob_month',
+                'p.dob_day',
+                'u1.name as doctor_name',
+                'u2.name as other_doctor_name',
+                'd.department_name',
+                'tpa.tpa_name',
+                'w.ward_name',
+                'dr.discharge_date',
+                'dr.discharge_type',
+                'b.bed_name',
+                DB::raw('MAX(bi.id) as billing_id'),
+                // Aggregate billing data
+                DB::raw('(SELECT COALESCE(SUM(due_amount),0) FROM billings WHERE patient_id = ipd_registers.patient_id) as overall_due'),
+                // DB::raw('COALESCE(SUM(bi.due_amount),0) as overall_due'),
+                DB::raw('COALESCE(SUM(bi.cradit_amount),0) as overall_cradit'),
+                DB::raw('COALESCE(SUM(bi.refund_amount),0) as overall_refund')
+            )
+                ->join('patients as p', 'p.id', '=', 'ipd_registers.patient_id')
+                ->leftJoin('billings as bi', function ($join) {
+                    $join->on('bi.section_id', '=', 'ipd_registers.id')
+                        ->whereIn('bi.section', ['IPD', 'DAYCARE']);
+                })
+                ->leftJoin('discharge_reports as dr', function ($join) {
+                    $join->on('dr.section_id', '=', 'ipd_registers.id')
+                        ->whereIn('dr.section', ['IPD', 'DAYCARE']);
+                })
+                ->join('users as u1', 'u1.id', '=', 'ipd_registers.doctor_id')
+                ->leftJoin('users as u2', 'u2.id', '=', 'ipd_registers.other_doctor_id')
+                ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+                ->leftJoin('tpa_managements as tpa', 'tpa.id', '=', 'ipd_registers.insurance_id')
+                ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+                ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+                ->groupBy(
+                    'ipd_registers.id',
+                    'p.name',
+                    'p.phone',
+                    'p.gender',
+                    'p.dob_year',
+                    'p.dob_month',
+                    'p.dob_day',
+                    'u1.name',
+                    'u2.name',
+                    'd.department_name',
+                    'dr.discharge_date',
+                    'dr.discharge_type',
+                    'tpa.tpa_name',
+                    'w.ward_name',
+                    'b.bed_name',
+                    'ipd_registers.admission_type',
+                    'ipd_registers.package_type',
+                    'ipd_registers.discharge_status',
+                    'ipd_registers.type',
+                    'ipd_registers.patient_id',
+                    'ipd_registers.admission_date'
+                )
+                ->where('ipd_registers.is_delete', 0);
+
+            // Filter based on field_name and field_value
+            if (!empty($request->field_name) && !empty($request->field_value)) {
+                if ($request->field_name === 'ipd_registers.doctor_id') {
+                    $data->where('ipd_registers.doctor_id', $request->field_value);
+                } else {
+                    $data->where($request->field_name, 'LIKE', '%' . $request->field_value . '%');
+                }
+            }
+            if ($request->status_value == '1') {
+                $data->where('ipd_registers.discharge_status', $request->status_value);
+                $data->orderByRaw('DATE(ipd_registers.discharge_at) DESC');
+                // Filter by date range
+                if (!empty($request->from_date)) {
+                    $data->whereDate('ipd_registers.discharge_at', '>=', date('Y-m-d', strtotime($request->from_date)));
+                }
+                if (!empty($request->to_date)) {
+                    $data->whereDate('ipd_registers.discharge_at', '<=', date('Y-m-d', strtotime($request->to_date)));
+                }
+            } elseif ($request->status_value == 0) {
+                $data->where('ipd_registers.discharge_status', 0);
+                $data->orderBy('ipd_registers.id', 'DESC');
+                // Filter by date range
+                if (!empty($request->from_date)) {
+                    $data->whereDate('ipd_registers.admission_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+                }
+                if (!empty($request->to_date)) {
+                    $data->whereDate('ipd_registers.admission_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+                }
+            } elseif ($request->from_date && $request->to_date) {
+                $data->where('ipd_registers.discharge_status', 0);
+                $data->orderBy('ipd_registers.id', 'DESC');
+                // Filter by date range
+                if (!empty($request->from_date)) {
+                    $data->whereDate('ipd_registers.admission_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+                }
+                if (!empty($request->to_date)) {
+                    $data->whereDate('ipd_registers.admission_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+                }
+            } else {
+                $data->where(function ($query) {
+                    $query->where('ipd_registers.discharge_status', 0)
+                        ->orWhere(function ($q) {
+                            $q->where('ipd_registers.discharge_status', 1)
+                                ->whereDate('ipd_registers.discharge_at', \Carbon\Carbon::today());
+                        });
+                });
+                $data->orderBy('ipd_registers.id', 'DESC');
+            }
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('patient', function ($row) {
+                    $patientBtn = '<a href="' . route('hr.patient-profile-details', ed($row->patient_id, true)) . '" data-placement="left" data-toggle="tooltip" title="Click here for patient details" style="cursor: pointer !important" data-original-title="Click here for patient details">
+                    ' . $row->patient_name . ' (' . $row->patient_id . ')
+                    <br>
+                    <i class="fa fa-venus-mars text-blue"></i> ' . $row->gender . '
+                    <i class="fa fa-calendar-plus-o text-blue ml-1"></i> ' . $row->dob_year . 'Y ' . $row->dob_month . 'M ' . $row->dob_day . 'D
+                    <span class="badge badge-gradient-primary mt-2 ml-1">' . $row->type . '</span>
+                </a><br>';
+                    $patientBtn .= '<i class="fa fa-phone text-primary"></i> ' . $row->phone . '
+                    <i class="fas fa-comment-dots mx-2"></i>
+                </a>';
+                    return $patientBtn;
+                })
+                ->addColumn('doctor', function ($row) {
+                    $doctorBtn = '<i class="fa fa-user-md text-primary"></i> <b>Under Doct: </b> ' . $row->doctor_name;
+                    if ($row->other_doctor_name) {
+                        $doctorBtn .= '<br><i class="fa fa-user-md text-primary"></i> <b>Other Under Doct: </b> ' . $row->other_doctor_name;
+                    }
+                    return $doctorBtn;
+                })
+                ->addColumn('details', function ($row) {
+                    $detailsBtn = '<i class="fa fa-calendar-alt text-primary"></i> <b>Adm Dt: </b>' . dateFor($row->admission_date, true) . ' <br>
+                    <i class="fa fa-rainbow text-primary"></i> <b>Dept: </b> ' . $row->department_name . ' <br>
+                    <i class="fa fa-circle text-primary"></i> <b>Package Type: </b> ' . $row->package_type . ' <br>
+                    <i class="fas fa-clinic-medical text-primary"></i> <b>Patient Type: </b>' . $row->tpa_name;
+                    if ($row->discharge_type) {
+                        $detailsBtn .= '<br><i class="fa fa-calendar-alt text-primary"></i> <b> Dis Dt: </b>' . dateFor($row->discharge_date, true) . ' <br>
+                    <i class="fa fa-cube text-primary"></i><b> Dis Status: </b> ' . $row->discharge_type;
+                    }
+                    return $detailsBtn;
+                })
+                ->addColumn('bed', function ($row) {
+                    $bedBtn = '<i class="fa fa-bed"></i> <b>Bed:</b> ' . $row->bed_name . ' <br>
+                    <i class="fas fa-yin-yang"></i> <b>Ward:</b> ' . $row->ward_name;
+                    return $bedBtn;
+                })
+                ->addColumn('overall', function ($row) {
+                    $overallBtn = ($row->overall_due > 0) ? '<span class="text-danger font-weight-bolder">Due : ₹' . $row->overall_due . '</span><br>' : '';
+                    $overallBtn .= ($row->overall_cradit > 0) ? '<span class="text-primary font-weight-bolder">Credit : ₹' . $row->overall_cradit . '</span><br>' : '';
+                    $overallBtn .= ($row->overall_refund > 0) ? '<span class="text-success font-weight-bolder">Refund : ₹' . $row->overall_refund . '</span><br>' : '';
+                    return $overallBtn;
+                })
+                ->addColumn('due_status', function ($row) {
+                    $due_status = ($row->overall_due > 0) ? 1 : 0;
+                    return $due_status;
+                })
+                ->addColumn('action', function ($row) {
+                    if ($row->billing_id) {
+                        $actionBtn = '<a href="' . route('bill.billing-details', ['ipd', ed($row->billing_id, true)]) . '" class="btn btn-primary btn-sm mx-1" title="Click here to show bill details"><i class="fa fa-eye"></i> View</a>';
+                    } else {
+                        $actionBtn = '<a href="' . route('ipd.ipd-info', ed($row->id, true)) . '" class="btn btn-primary btn-sm mx-1" title="Click here to show bill details"><i class="fa fa-eye"></i> View</a>';
+                    }
+                    return $actionBtn;
+                })
+                ->rawColumns(['action', 'patient', 'doctor', 'details', 'bed', 'overall', 'due_status'])
+                ->make(true);
+        }
+
+        $data = compact('doctor');
+        return view('ipd.ipd')->with($data);
+    }
+
+    public function ipd_info($id)
+    {
+        $id = ed($id, false);
+        $tpa = TpaManagement::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $info = IpdRegister::select('ipd_registers.*', 'u1.name as doctor_name', 'u1.salutation', 'u1.qualification', 'u1.experience', 'u1.specialization', 'u2.name as other_doctor_name', 'd.department_name', 'tpa.tpa_name', 'w.ward_name', 'b.bed_name', 'di.diagonasis_name')
+            ->join('users as u1', 'u1.id', '=', 'ipd_registers.doctor_id')
+            ->leftjoin('users as u2', 'u2.id', '=', 'ipd_registers.other_doctor_id')
+            ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+            ->join('tpa_managements as tpa', 'tpa.id', '=', 'ipd_registers.insurance_id')
+            ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+            ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+            ->leftjoin('diagonases as di', 'di.id', '=', 'ipd_registers.diagnosis_id')
+            ->where('ipd_registers.id', $id)
+            ->first();
+        $info->patient_info = Patient::select('patients.*', 's.name as state_name', 'd.name as district_name')
+            ->leftjoin('districts as d', 'd.id', '=', 'patients.district')
+            ->leftjoin('states as s', 's.id', '=', 'patients.state')
+            ->where('patients.id', $info->patient_id)
+            ->first();
+        $info->referral_name = Referral::select('referral_name as name')->where('id', $info->referred_by)->first();
+        $info->provider_name = Referral::select('referral_name as name')->where('id', $info->provider)->first();
+        $info->market_by_name = Referral::select('referral_name as name')->where('id', $info->market_by)->first();
+        $data = compact('tpa', 'doctor', 'info');
+        // dd($data);
+        return view('ipd.ipd-info')->with($data);
+    }
+
+    public function edit_admission($ipd_id)
+    {
+        $ipd_id = ed($ipd_id, false);
+        $packages = Package::where('status', '0')->get();
+        $tpa = TpaManagement::where('status', '0')->get();
+        $states = State::where('country_id', '1')->get();
+        $diagonases = Diagonase::where('status', '0')->get();
+        $wards = Ward::where('ward_name', '!=', 'DIALYSIS')->where('status', '0')->get();
+        $referral = Referral::where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        $info = IpdRegister::select('ipd_registers.*', 'b.bed_name')
+            ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+            ->where('ipd_registers.id', $ipd_id)
+            ->first();
+        $info->patient_info = Patient::select('patients.*')
+            ->where('patients.id', $info->patient_id)
+            ->first();
+        $data = compact('packages', 'tpa', 'states', 'diagonases', 'wards', 'referral', 'provider', 'market_by', 'doctor', 'info');
+        // dd($data);
+        return view('ipd.ipd-edit')->with($data);
+    }
+
+    public function bed_history($ipd_id)
+    {
+        $section_id = ed($ipd_id, false);
+        $section = 'ipd';
+        $wards = Ward::where('ward_name', '!=', 'DIALYSIS')->where('status', '0')->get();
+        $history = PatientBedHistory::select('patient_bed_histories.*', 'beds.bed_name', 'wards.ward_name')
+            ->join('beds', 'beds.id', '=', 'patient_bed_histories.bed_id')
+            ->join('wards', 'wards.id', '=', 'beds.ward_id')
+            ->where('section', 'IPD')
+            ->where('section_id', $section_id)
+            ->orderBy('id', 'DESC')
+            ->get();
+        $data = compact('section', 'section_id', 'wards', 'history');
+        // dd($data);
+        return view('ipd.bed-history')->with($data);
+    }
+
+    public function ipd_register()
+    {
+        $packages = Package::where('status', '0')->get();
+        $tpa = TpaManagement::where('status', '0')->get();
+        $states = State::where('country_id', '1')->get();
+        $diagonases = Diagonase::where('status', '0')->get();
+        $wards = Ward::where('ward_name', '!=', 'DIALYSIS')->where('status', '0')->get();
+        $referral = Referral::where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $data = compact('packages', 'tpa', 'states', 'diagonases', 'wards', 'referral', 'provider', 'market_by', 'doctor');
+        // dd($data);
+        return view('ipd.ipd-register')->with($data);
+    }
+
+    public function discharge_patient($section, $section_id)
+    {
+        if($section == 'daycare') {
+            $section = 'IPD';
+        }
+        $section_id = ed($section_id, false);
+        $discharge = DischargeReport::where('section', strtoupper($section))->where('section_id', $section_id)->first();
+        $data = compact('section_id', 'discharge','section');
+        // dd($data);
+        return view('ipd.discharge')->with($data);
+    }
+
+    public function update_bed(Request $request)
+    {
+        $request->validate([
+            'section_id' => 'required',
+            'new_date' => 'required',
+            'ward' => 'required',
+            'bed' => 'required',
+        ]);
+        $model = "App\\Models\\" . ucwords($request->section) . "Register";
+        //UPDATE in SECTION Details
+        $old_section = $model::find($request->section_id);
+        $section = $model::find($request->section_id);
+        $section->ward_id = $request->ward;
+        $section->bed_id = $request->bed;
+        $section->save();
+
+        //UPDATE in BED STATUS
+        Bed::where('id', $old_section->bed_id)->update(['is_used' => 'no']);
+        Bed::where('id', $request->bed)->update(['is_used' => 'yes']);
+
+        //UPDATE in PATIENT BED HISTORY
+        $patientBedUpdate = PatientBedHistory::where('patient_id', $old_section->patient_id)->where('section', strtoupper($request->section))->where('section_id', $request->section_id)->orderBy('id', 'DESC')->first();
+        $patientBedUpdate->to_date = date('Y-m-d H:i:s');
+        $patientBedUpdate->save();
+
+        //SAVE in PATIENT BED HISTORY
+        $patientBedHistory = new PatientBedHistory();
+        $patientBedHistory->patient_id = $old_section->patient_id;
+        $patientBedHistory->bed_id = $request->bed;
+        $patientBedHistory->from_date = date('Y-m-d H:i:s');
+        $patientBedHistory->section = strtoupper($request->section);
+        $patientBedHistory->section_id = $request->section_id;
+        $patientBedHistory->department_id = User::where('id', $old_section->doctor_id)->first()->department_id;
+        $patientBedHistory->cons_doctor_id = $old_section->doctor_id;
+        $patientBedHistory->save();
+
+        return redirect()->back()->with('success', 'Bed Shift Sucessfully');
+    }
+
+    public function update_ipd_register(Request $request)
+    {
+        // dd($request->all());
+
+        $request->validate([
+            'admission_type' => 'required',
+            'admission_date' => 'required',
+            'patient_package_type' => 'required',
+            'insurance_type' => 'required',
+            'name' => 'required',
+            'gender' => 'required',
+            'phone' => 'required|digits:10',
+            'guardian_name' => 'required',
+            'relation' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'under_doctor' => 'required',
+            'bed_category' => 'required',
+            'bed' => 'required',
+            'referred_by' => 'required',
+            'uhid' => 'nullable|exists:patients,id',
+        ]);
+        DB::beginTransaction();
+        try {
+            //Check IPD
+            $check_ipd = IpdRegister::where('patient_id', $request->uhid)->where('discharge_status', 0)->first();
+            if ($check_ipd) {
+                return redirect()->back()->with('error', 'This Patient is already admitted in IPD');
+            }
+
+            //SAVE in Patient
+            $request->uhid ? $patient = Patient::find($request->uhid) : $patient = new Patient();
+            $patient->name = ucwords($request->name);
+            $patient->phone = $request->phone;
+            $patient->gender = $request->gender;
+            $patient->marital_status = $request->marital_status;
+            $patient->guardian_name = $request->guardian_name;
+            $patient->guardian_realation = $request->relation;
+            $patient->guardian_contact_no = $request->guardian_contact_no;
+            $patient->date_of_birth = $request->date_of_birth;
+            $patient->dob_year = $request->date_of_birth_year;
+            $patient->dob_month = $request->date_of_birth_month;
+            $patient->dob_day = $request->date_of_birth_day;
+            $patient->address = $request->address;
+            $patient->state = $request->state;
+            $patient->district = is_numeric($request->district) ? $request->district : null;
+            $patient->pin_code = $request->pin_code;
+            $patient->identification_name = 'Aadhar Card';
+            $patient->identification_number = $request->aadhar_card_no;
+            $patient->save();
+            $patient_id = $patient->id;
+
+            //SAVE in IPD Details
+            $ipd = new IpdRegister();
+            $ipd->admission_type = $request->admission_type;
+            $ipd->admission_date = $request->admission_date ? date('Y-m-d H:i:s', strtotime($request->admission_date)) : null;
+            $ipd->patient_id = $patient_id;
+            $ipd->package_type = $request->patient_package_type;
+            // $ipd->package_id = $request->patient_package_type;
+            // $ipd->package_name = Package::where('id',$request->patient_package_type)->first()->package_name;
+            // $ipd->package_amount = Package::where('id',$request->patient_package_type)->first()->package_amount;
+            $ipd->insurance_id = $request->insurance_type;
+            $ipd->insurance_no = $request->insurance_no;
+            $ipd->type = $request->uhid ? 'old' : 'new';
+            $ipd->symptoms = $request->symptoms;
+            $ipd->diagnosis_id = $request->icd_code_at_the_time_of_admission;
+            $ipd->department_id = User::where('id', $request->under_doctor)->first()->department_id;
+            $ipd->doctor_id = $request->under_doctor;
+            $ipd->other_doctor_id = $request->other_under_doctor;
+            $ipd->ward_id = $request->bed_category;
+            $ipd->bed_id = $request->bed;
+            $ipd->referred_by = $request->referred_by;
+            $ipd->provider = $request->provider;
+            $ipd->market_by = $request->market_by;
+            $ipd->history_alcoholism = $request->history_alcoholism;
+            $ipd->medical_surgical_history = $request->medical_surgical_history;
+            $ipd->family_history_diagnosis = $request->family_history_diagnosis;
+            $ipd->responsible_person = $request->responsible_person;
+            $ipd->responsible_person_relation = $request->responsible_person_relation;
+            $ipd->responsible_person_ph_no = $request->responsible_person_ph_no;
+            $ipd->responsible_person_age = $request->responsible_person_age;
+            $ipd->responsible_person_address = $request->responsible_person_address;
+            $ipd->generate_by = Auth::user()->id;
+            $ipd->save();
+            $ipd_id = $ipd->id;
+
+             // //OT Registration UPDATE
+            $ot_registration = OtRegistration::where('patient_id', $patient_id)->where('is_admitted', '!=', 'no')->first();
+            if ($ot_registration) {
+                $ot_registration->ipd_id = $ipd_id;
+                $ot_registration->is_admitted = 'yes';
+                $ot_registration->save();
+            }
+
+            //SAVE in CASE Reference
+            $caseReference = new CaseReference;
+            $caseReference->patient_id = $patient_id;
+            $caseReference->section = $request->admission_type;
+            $caseReference->section_id = $ipd_id;
+            $caseReference->save();
+
+            //SAVE in PATIENT DOCTOR STATUS
+            $checkStatus = PatientDoctorStatus::where('doctor_id', $request->under_doctor)->where('patient_id', $patient_id)->first();
+            $checkStatus ? $patient_type = 'old' : $patient_type = 'new';
+            $doctorPatientStatus = new PatientDoctorStatus();
+            $doctorPatientStatus->section = $request->admission_type;
+            $doctorPatientStatus->section_id = $ipd_id;
+            $doctorPatientStatus->doctor_id = $request->under_doctor;
+            $doctorPatientStatus->patient_id = $patient_id;
+            $doctorPatientStatus->patient_type = $patient_type;
+            $doctorPatientStatus->date = $request->admission_date ? date('Y-m-d', strtotime($request->admission_date)) : null;
+            $doctorPatientStatus->save();
+
+            //UPDATE in BED STATUS
+            Bed::where('id', $request->bed)->update(['is_used' => 'yes']);
+
+            //SAVE in PATIENT BED HISTORY
+            $patientBedHistory = new PatientBedHistory();
+            $patientBedHistory->patient_id = $patient_id;
+            $patientBedHistory->bed_id = $request->bed;
+            $patientBedHistory->from_date = date('Y-m-d H:i:s');
+            $patientBedHistory->section = $request->admission_type;
+            $patientBedHistory->section_id = $ipd_id;
+            $patientBedHistory->case_id = $caseReference->id;
+            $patientBedHistory->department_id = User::where('id', $request->under_doctor)->first()->department_id;
+            $patientBedHistory->cons_doctor_id = $request->under_doctor;
+            $patientBedHistory->save();
+
+            // if ($request->payment_amount > 0) {
+            //     //SAVE in Payment
+            //     $payment = new Payment();
+            //     $payment->patient_id = $patient_id;
+            //     $payment->section = 'IPD';
+            //     $payment->payment_amount = $request->payment_amount;
+            //     $payment->payment_mode = $request->payment_mode;
+            //     $payment->payment_bank = $request->payment_mode == 'Cash' ? null : $request->bank_name;
+            //     $payment->payment_recived_by = Auth::user()->id;
+            //     $payment->payment_date = date('Y-m-d H:i');
+            //     $payment->save();
+
+            //     //SAVE in Advance
+            //     $credit = new PatientAdvanceAmount();
+            //     $credit->patient_id = $patient_id;
+            //     $credit->section_id = $ipd_id;
+            //     $credit->amount = $request->payment_amount;
+            //     $credit->def_amount = $request->payment_amount;
+            //     $credit->generated_by = Auth::user()->id;
+            //     $credit->save();
+            // }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+        return redirect()->route('ipd.ipd')->with('success', 'IPD Registration Sucessfully');
+    }
+    public function update_admission($ipd_id, Request $request)
+    {
+        // dd($ipd_id, $request);
+        $request->validate([
+            'admission_type' => 'required',
+            'admission_date' => 'required',
+            'patient_package_type' => 'required',
+            'insurance_type' => 'required',
+            'name' => 'required',
+            'gender' => 'required',
+            'phone' => 'required|digits:10',
+            'guardian_name' => 'required',
+            'relation' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'under_doctor' => 'required',
+            'bed_category' => 'required',
+            'bed' => 'required',
+            'referred_by' => 'required',
+            'uhid' => 'nullable|exists:patients,id',
+        ]);
+        DB::beginTransaction();
+        try {
+            //SAVE in Patient
+            $request->uhid ? $patient = Patient::find($request->uhid) : $patient = new Patient();
+            $patient->name = ucwords($request->name);
+            $patient->phone = $request->phone;
+            $patient->gender = $request->gender;
+            $patient->marital_status = $request->marital_status;
+            $patient->guardian_name = $request->guardian_name;
+            $patient->guardian_realation = $request->relation;
+            $patient->guardian_contact_no = $request->guardian_contact_no;
+            $patient->date_of_birth = $request->date_of_birth;
+            $patient->dob_year = $request->date_of_birth_year;
+            $patient->dob_month = $request->date_of_birth_month;
+            $patient->dob_day = $request->date_of_birth_day;
+            $patient->address = $request->address;
+            $patient->state = $request->state;
+            $patient->district = is_numeric($request->district) ? $request->district : null;
+            $patient->pin_code = $request->pin_code;
+            $patient->identification_name = 'Aadhar Card';
+            $patient->identification_number = $request->aadhar_card_no;
+            $patient->save();
+            $patient_id = $patient->id;
+
+            //SAVE in IPD Details
+            $old_ipd = IpdRegister::find($ipd_id);
+            $ipd = IpdRegister::find($ipd_id);
+            $ipd->admission_type = $request->admission_type;
+            $ipd->admission_date = $request->admission_date ? date('Y-m-d H:i:s', strtotime($request->admission_date)) : null;
+            $ipd->patient_id = $patient_id;
+            $ipd->package_type = $request->patient_package_type;
+            // $ipd->package_id = $request->patient_package_type;
+            // $ipd->package_name = Package::where('id',$request->patient_package_type)->first()->package_name;
+            // $ipd->package_amount = Package::where('id',$request->patient_package_type)->first()->package_amount;
+            $ipd->insurance_id = $request->insurance_type;
+            $ipd->insurance_no = $request->insurance_no;
+            $ipd->type = $request->uhid ? 'old' : 'new';
+            $ipd->symptoms = $request->symptoms;
+            $ipd->diagnosis_id = $request->icd_code_at_the_time_of_admission;
+            $ipd->department_id = User::where('id', $request->under_doctor)->first()->department_id;
+            $ipd->doctor_id = $request->under_doctor;
+            $ipd->other_doctor_id = $request->other_under_doctor;
+            $ipd->ward_id = $request->bed_category;
+            $ipd->bed_id = $request->bed;
+            $ipd->referred_by = $request->referred_by;
+            $ipd->provider = $request->provider;
+            $ipd->market_by = $request->market_by;
+            $ipd->history_alcoholism = $request->history_alcoholism;
+            $ipd->medical_surgical_history = $request->medical_surgical_history;
+            $ipd->family_history_diagnosis = $request->family_history_diagnosis;
+            $ipd->responsible_person = $request->responsible_person;
+            $ipd->responsible_person_relation = $request->responsible_person_relation;
+            $ipd->responsible_person_ph_no = $request->responsible_person_ph_no;
+            $ipd->responsible_person_age = $request->responsible_person_age;
+            $ipd->responsible_person_address = $request->responsible_person_address;
+            $ipd->edit_by = Auth::user()->id;
+            $ipd->edit_at = date('y-m-d H:i:s');
+            $ipd->update();
+            $ipd_id = $ipd->id;
+
+            if ($old_ipd->doctor_id != $request->under_doctor) {
+                //SAVE in PATIENT DOCTOR STATUS
+                $checkStatus = PatientDoctorStatus::where('doctor_id', $request->under_doctor)->where('patient_id', $patient_id)->first();
+                $checkStatus ? $patient_type = 'old' : $patient_type = 'new';
+                $doctorPatientStatus = new PatientDoctorStatus();
+                $doctorPatientStatus->section = $request->admission_type;
+                $doctorPatientStatus->section_id = $ipd_id;
+                $doctorPatientStatus->doctor_id = $request->under_doctor;
+                $doctorPatientStatus->patient_id = $patient_id;
+                $doctorPatientStatus->patient_type = $patient_type;
+                $doctorPatientStatus->date = $request->admission_date ? date('Y-m-d', strtotime($request->admission_date)) : null;
+                $doctorPatientStatus->save();
+            }
+
+            if ($old_ipd->bed_id != $request->bed) {
+                //UPDATE in BED STATUS
+                Bed::where('id', $old_ipd->bed_id)->update(['is_used' => 'no']);
+                Bed::where('id', $request->bed)->update(['is_used' => 'yes']);
+
+                //UPDATE in PATIENT BED HISTORY
+                $patientBedUpdate = PatientBedHistory::where('patient_id', $patient_id)->where('section', 'IPD')->where('section_id', $ipd_id)->orderBy('id', 'DESC')->first();
+                // $patientBedUpdate->to_date = date('Y-m-d H:i:s');
+                $patientBedUpdate->to_date = Carbon::now();
+                $patientBedUpdate->save();
+
+                //SAVE in PATIENT BED HISTORY
+                $patientBedHistory = new PatientBedHistory();
+                $patientBedHistory->patient_id = $patient_id;
+                $patientBedHistory->bed_id = $request->bed;
+                $patientBedHistory->from_date = date('Y-m-d H:i:s');
+                $patientBedHistory->section = $request->admission_type;
+                $patientBedHistory->section_id = $ipd_id;
+                $patientBedHistory->department_id = User::where('id', $request->under_doctor)->first()->department_id;
+                $patientBedHistory->cons_doctor_id = $request->under_doctor;
+                $patientBedHistory->save();
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+        return redirect()->back()->with('success', 'Admission Updated Sucessfully');
+    }
+    public function update_ipd_doctor(Request $request)
+    {
+        $request->validate([
+            'ipd_id' => 'required',
+            'under_doctor' => 'required',
+        ]);
+        $data = IpdRegister::find($request->ipd_id);
+        $data->doctor_id = $request->under_doctor;
+        $data->save();
+        return redirect()->back()->with('success', 'Doctor Updated Sucessfully');
+    }
+    public function update_ipd_insurance(Request $request)
+    {
+        $request->validate([
+            'ipd_id' => 'required',
+            'patient_type' => 'required',
+        ]);
+        $data = IpdRegister::find($request->ipd_id);
+        $data->insurance_id = $request->patient_type;
+        $data->insurance_no = $request->insurance_no;
+        $data->save();
+        return redirect()->back()->with('success', 'Insurance Updated Sucessfully');
+    }
+    public function insert_discharge(Request $request, $section)
+    {
+        // dd($request->all(), $section);
+        if($section == 'daycare') {
+            $section = 'ipd';
+        }
+        $request->validate([
+            'section_id' => 'required',
+            'discharge_date' => 'required',
+            'discharge_status' => 'required',
+        ]);
+        if($section == 'ipd'){
+            $data = IpdRegister::find($request->section_id);
+			$billStatus = Billing::where('section', $data->admission_type)->where('section_id', $request->section_id)->first();
+        }elseif($section == 'dialysis'){
+            $data = DialysisRegister::find($request->section_id);
+			$billStatus = Billing::where('section', 'DIALYSIS')->where('section_id', $request->section_id)->first();
+        }
+
+        $request->upid ? $dischage = DischargeReport::find($request->upid) : $dischage = new DischargeReport();
+        $path = public_path('assets/attachments/discharge_patient');
+        if ($request->file('attach_document')) {
+            $extension = $request->file('attach_document')->getClientOriginalExtension();
+            $attach_document = 'discharge-document-' . uniqid() . '.' . $extension;
+            $request->file('attach_document')->move($path, $attach_document);
+        } else {
+            $attach_document = $request->input('old_attach_document');
+        }
+        $dischage->section = strtoupper($section);
+        $dischage->section_id = $request->section_id;
+        $dischage->discharge_date = $request->discharge_date;
+        $dischage->discharge_type = $request->discharge_status;
+        $dischage->refferal_hospital_name = $request->refferal_hospital_name;
+        $dischage->next_appointment_date = $request->next_appointment_date;
+        $dischage->icd_code = $request->icd_code;
+        $dischage->complaiints_duraiton = $request->complaiints_duraiton;
+        $dischage->presenting_illness = $request->presenting_illness;
+        $dischage->physical_examinaiton_at_admission = $request->physical_examinaiton_at_admission;
+        $dischage->summary_inves_during_hos = $request->summary_inves_during_hos;
+        $dischage->course_complications = $request->course_complications;
+        $dischage->dischage_advice = $request->dischage_advice;
+        $dischage->attach_document = $attach_document;
+        $dischage->save_type = $request->save_type;
+        if ($dischage->save()) {
+            if ($request->save_type == '2') {
+                if($billStatus->bill_status == 2){
+                    $data->discharge_status = 1;
+                    $data->discharge_by = Auth::user()->id;
+                    $data->discharge_at = date('Y-m-d H:i:s');
+                    $data->save();
+
+                    Bed::where('id', $data->bed_id)->update(['is_used' => 'no']);
+                    PatientBedHistory::where('patient_id', $data->patient_id)
+                        ->where('bed_id', $data->bed_id)
+                        ->latest('id')
+                        ->limit(1)
+                        ->update(['to_date' => now()]);
+
+                    return redirect()->back()->with('success', 'Discharged Sucessfully');
+                }else{
+                    return redirect()->back()->with('error', 'Please Approve Bill then Discharge');
+                }
+            } else {
+                return redirect()->back()->with('success', 'Discharge Report Saved Sucessfully');
+            }
+        } else {
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+    }
+
+    public function get_advance($ipd_id)
+    {
+        $section_id = ed($ipd_id, false);
+        $section = 'ipd';
+
+        $ipd_details = IpdRegister::where('id', $section_id)->first();
+        $data = compact('section', 'section_id', 'ipd_details');
+        return view('ipd.get-advance-amount')->with($data);
+    }
+
+    public function save_advance(Request $request)
+    {
+        if ($request->payment_amount != null || $request->payment_amount != 0 || $request->payment_amount != '') {
+            // ====================== add payment =======================================
+            $payment = new Payment();
+            $payment->patient_id = $request->patient_id;
+            $payment->section = ucwords($request->section);
+            $payment->section_id =  $request->section_id;
+            $payment->payment_amount = $request->payment_amount;
+            $payment->payment_date =  date('Y-m-d H:i', strtotime($request->payment_date));
+            $payment->payment_recived_by = Auth::user()->id;
+            $payment->payment_mode = $request->payment_mode;
+            $payment->payment_bank = $request->bank_name;
+            $payment->save();
+
+
+            return redirect()->route('ipd.ipd-info', ed(@$request->section_id, true))->with('success', 'Advance Taken Sucessfully');
+        }
+    }
+}

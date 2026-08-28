@@ -1,0 +1,464 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Ward;
+use App\Models\Billing;
+use App\Models\Bed;
+use App\Models\District;
+use App\Models\IpdRegister;
+use App\Models\PatientBedHistory;
+use App\Models\ChargesCatagory;
+use App\Models\OpdRegister;
+use App\Models\Payment;
+use App\Models\EmgRegister;
+use App\Models\InvestigationRegister;
+use App\Models\DialysisRegister;
+use App\Models\OpdEnquiry;
+use App\Models\Childcare;
+use App\Models\StRequisition;
+use App\Models\StRequisitionItem;
+use App\Models\User;
+use Carbon\Carbon;
+use DB;
+use Illuminate\Support\Facades\Cache;
+
+class HomeController extends Controller
+{
+    public function index()
+    {
+
+        $data = Cache::remember('dashboard_data', 300, function () {
+            $today = Carbon::now()->format('Y-m-d');
+
+            // OPD Details
+            $opd_details = OpdRegister::select(
+                'opd_registers.doctor_id',
+                'u.name as doctor_name',
+                'u.salutation as salutation',
+                'u.empId as empid',
+                DB::raw('COUNT(opd_registers.id) as visit_count'),
+                DB::raw('SUM(CASE WHEN opd_registers.type = "old" THEN 1 ELSE 0 END) as old_count'),
+                DB::raw('SUM(CASE WHEN opd_registers.type = "new" THEN 1 ELSE 0 END) as new_count')
+            )
+                ->join('users as u', 'u.id', '=', 'opd_registers.doctor_id')
+                ->where('opd_registers.is_delete', 0)
+                ->whereDate('appointment_date', $today)
+                ->groupBy('u.name', 'u.salutation', 'u.empId', 'opd_registers.doctor_id')
+                ->orderByDesc(DB::raw('COUNT(opd_registers.id)'))
+                ->get();
+
+            // EMG Details
+            $emg_details = EmgRegister::select(
+                'emg_registers.doctor_id',
+                'u.name as doctor_name',
+                'u.salutation as salutation',
+                'u.empId as empid',
+                DB::raw('COUNT(emg_registers.id) as visit_count'),
+                DB::raw('SUM(CASE WHEN emg_registers.type = "old" THEN 1 ELSE 0 END) as old_count'),
+                DB::raw('SUM(CASE WHEN emg_registers.type = "new" THEN 1 ELSE 0 END) as new_count')
+            )
+                ->join('users as u', 'u.id', '=', 'emg_registers.doctor_id')
+                ->where('emg_registers.is_delete', 0)
+                ->whereDate('appointment_date', $today)
+                ->groupBy('u.name', 'u.salutation', 'u.empId', 'emg_registers.doctor_id')
+                ->orderByDesc(DB::raw('COUNT(emg_registers.id)'))
+                ->get();
+
+            // IPD Details
+            $ipd_details = IpdRegister::select(
+                'ipd_registers.doctor_id',
+                'u.name as doctor_name',
+                'u.salutation as salutation',
+                'u.empId as empid',
+                DB::raw('COUNT(ipd_registers.id) as visit_count'),
+                DB::raw('SUM(CASE WHEN ipd_registers.type = "old" THEN 1 ELSE 0 END) as old_count'),
+                DB::raw('SUM(CASE WHEN ipd_registers.type = "new" THEN 1 ELSE 0 END) as new_count')
+            )
+                ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+                ->where('ipd_registers.is_delete', 0)
+                ->where('ipd_registers.admission_type', 'IPD')
+                ->whereDate('admission_date', $today)
+                ->groupBy('u.name', 'u.salutation', 'u.empId', 'ipd_registers.doctor_id')
+                ->orderByDesc(DB::raw('COUNT(ipd_registers.id)'))
+                ->get();
+
+            // Daycare Details
+            $daycare_details = IpdRegister::select(
+                'ipd_registers.doctor_id',
+                'u.name as doctor_name',
+                'u.salutation as salutation',
+                'u.empId as empid',
+                DB::raw('COUNT(ipd_registers.id) as visit_count'),
+                DB::raw('SUM(CASE WHEN ipd_registers.type = "old" THEN 1 ELSE 0 END) as old_count'),
+                DB::raw('SUM(CASE WHEN ipd_registers.type = "new" THEN 1 ELSE 0 END) as new_count')
+            )
+                ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+                ->where('ipd_registers.is_delete', 0)
+                ->where('ipd_registers.admission_type', 'DAYCARE')
+                ->whereDate('admission_date', $today)
+                ->groupBy('u.name', 'u.salutation', 'u.empId', 'ipd_registers.doctor_id')
+                ->orderByDesc(DB::raw('COUNT(ipd_registers.id)'))
+                ->get();
+
+            // All Doctors and Active Doctor Calculation
+            $all_doctor = User::where('user_type', 'doctor')->get();
+            $active_doctor = [];
+            $datar = [];
+
+            foreach ($all_doctor as $value) {
+                $minMaxTimes = DB::table('time_schedules')
+                    ->where('date', $today)
+                    ->where('doctor_id', $value->id)
+                    ->select(DB::raw('MIN(from_time) as min_from_time'), DB::raw('MAX(to_time) as max_to_time'))
+                    ->first();
+
+                if (!empty($minMaxTimes->min_from_time != null)) {
+                    $in_out = DB::table('patient_doctor_statuses')
+                        ->where('doctor_id', $value->id)
+                        ->where('date', $today)
+                        ->latest()
+                        ->first();
+
+                    $s = '';
+                    $color = '#dbdbdb';
+                    if (@$in_out->status == '1') {
+                        $s = 'In';
+                        $color = '#b9d8ff';
+                    } elseif (@$in_out->status == '0') {
+                        $s = 'Out';
+                        $color = '#94e6ff';
+                    } elseif (@$in_out->status == '2') {
+                        $s = 'Unavailable';
+                        $color = '#ffb9b2';
+                    } else {
+                        $s = '';
+                        $color = '#dbdbdb';
+                    }
+
+                    $datar[] = [
+                        'doctor_id' => $value->id,
+                        'name' => $value->name,
+                        'details' => $value->specialization . ' // ' . $value->qualification,
+                        'avilable_time1' => $minMaxTimes->min_from_time,
+                        'avilable_time' => $minMaxTimes->min_from_time != '' ? date('h:i A', strtotime($minMaxTimes->min_from_time)) . ' -- ' . date('h:i A', strtotime($minMaxTimes->max_to_time)) : '',
+                        'in_out_status' => $s,
+                        'in_out_details' => $in_out,
+                        'color' => $color,
+                    ];
+                    $active_doctor = collect($datar)->sortBy('avilable_time1')->values()->all();
+                }
+            }
+
+            return compact('opd_details', 'emg_details', 'ipd_details', 'daycare_details', 'active_doctor');
+        });
+
+        return view('dashboard')->with($data);
+    }
+    public function doctor_out($id)
+    {
+        $doctor = User::findOrFail(ed($id, false));
+        if ($doctor) {
+            $in_out = DB::table('patient_doctor_statuses')->where('doctor_id', $doctor->id)->where('date', Carbon::now()->format('Y-m-d'))->latest()->first();
+            if ($in_out && $in_out->status == '1') {
+                DB::table('patient_doctor_statuses')->where('doctor_id', $doctor->id)->update([
+                    'status' => '0',
+                    'out_time' => Carbon::now()->format('H:i'),
+                    'updated_at' => now(),
+                ]);
+                return redirect()->back()->with('success', 'Doctor Out successfully.');
+            } else {
+                return redirect()->back()->with('error', 'Doctor is already Out or Unavailable.');
+            }
+        }
+        return redirect()->back()->with('error', 'Doctor not found.');
+    }
+    public function bed_status()
+    {
+        $wards = Ward::select('id', 'ward_name')->where('status', 0)->get();
+        $beds = Bed::select('id', 'bed_name', 'is_used', 'ward_id')
+            ->where('status', 0)
+            ->when(request()->has('bed'), function ($query) {
+                $query->where('bed_name', 'LIKE', '%' . request('bed') . '%');
+            })
+
+            ->get();
+        $wards = collect($wards)->map(function ($item) use ($beds) {
+            $beds = collect($beds->where('ward_id', $item->id))->map(function ($itm) use ($item) {
+                if ($itm->is_used == 'yes') {
+                    $check = PatientBedHistory::select('section', 'section_id')
+                        ->where('bed_id', $itm->id)
+                        ->whereNull('to_date')
+                        ->orderBy('id', 'DESC')
+                        ->first();
+                    if ($item->ward_name == 'DIALYSIS') {
+                        if ($check) {
+                            $ipd = DialysisRegister::select(
+                                'dialysis_registers.id',
+                                'dialysis_registers.dialysis_type',
+                                'dialysis_registers.admission_date',
+                                'p.name as patient_name',
+                                'p.id as patient_id',
+                                'p.uhid as patient_uhid',
+                                'p.gender',
+                                'p.dob_year',
+                                'p.dob_month',
+                                'p.dob_day'
+                            )
+                                ->join('patients as p', 'p.id', '=', 'dialysis_registers.patient_id')
+                                ->where('dialysis_registers.id', $check->section_id)
+                                ->first();
+
+                            if ($ipd) {
+                                $age = ($ipd->dob_year ? $ipd->dob_year . 'Y' : '') . ' ' . ($ipd->dob_month ? $ipd->dob_month . 'M' : '') . ' ' . ($ipd->dob_day ? $ipd->dob_day . 'D' : '');
+                                $itm->info = 'DIALYSIS || ' . $ipd->patient_name . ' ( ' . ($ipd->patient_uhid ?? $ipd->patient_id) . ' ) || ' . $ipd->gender . ' || ' . $age . ' || ' . dateFor($ipd->admission_date, true);
+                                $itm->type = $ipd->dialysis_type;
+                                $itm->route = route('ipd.dialysis-info', ed($ipd->id, true));
+                            }
+                        }
+                    }else{
+                        if ($check) {
+                            $ipd = IpdRegister::select(
+                                'ipd_registers.id',
+                                'ipd_registers.admission_type',
+                                'ipd_registers.admission_date',
+                                'p.name as patient_name',
+                                'p.id as patient_id',
+                                'p.uhid as patient_uhid',
+                                'p.gender',
+                                'p.dob_year',
+                                'p.dob_month',
+                                'p.dob_day'
+                            )
+                                ->join('patients as p', 'p.id', '=', 'ipd_registers.patient_id')
+                                ->where('ipd_registers.id', $check->section_id)
+                                ->first();
+
+                            if ($ipd) {
+                                $age = ($ipd->dob_year ? $ipd->dob_year . 'Y' : '') . ' ' . ($ipd->dob_month ? $ipd->dob_month . 'M' : '') . ' ' . ($ipd->dob_day ? $ipd->dob_day . 'D' : '');
+                                $itm->info = $ipd->admission_type . ' || ' . $ipd->patient_name . ' ( ' . ($ipd->patient_uhid ?? $ipd->patient_id) . ' ) || ' . $ipd->gender . ' || ' . $age . ' || ' . dateFor($ipd->admission_date, true);
+                                $itm->type = $ipd->admission_type;
+                                $itm->route = route('ipd.ipd-info', ed($ipd->id, true));
+                            }
+                        }
+                    }
+                }
+                return $itm;
+            });
+            $item->beds = $beds;
+            return $item;
+        });
+
+        $data = compact('wards');
+        // dd($data);
+        return view('bed-status')->with($data);
+    }
+    public function status_update($id, $table, $col)
+    {
+        $record = DB::table($table)->where('id', $id)->first();
+        if ($record) {
+            $newStatus = $record->$col ? 0 : 1;
+            $test = DB::table($table)->where('id', $id)->update([$col => $newStatus]);
+            return $test;
+        }
+        return false;
+    }
+    public function get_district(Request $request)
+    {
+        $districts = District::where('state_id', $request->state_id)->get();
+        return response()->json([
+            'success' => true,
+            'districts' => $districts,
+        ]);
+    }
+    public function get_sub_category(Request $request)
+    {
+        $category = ChargesCatagory::where('parent_id', $request->parent_id)->where('status', 0)->get();
+        return response()->json([
+            'success' => true,
+            'category' => $category,
+        ]);
+    }
+    public function get_beds(Request $request)
+    {
+        $beds = Bed::where('ward_id', $request->ward_id)->where('is_used', 'no')->where('status', 0)->get();
+        return response()->json([
+            'success' => true,
+            'beds' => $beds,
+        ]);
+    }
+    public function find_credit_amount(Request $request)
+    {
+        $response = Billing::select('id', 'uid', 'cradit_amount')->where('patient_id', $request->patient_id)->where('cradit_amount', '>', 0)->get();
+        return response()->json([
+            'success' => true,
+            'results' => $response,
+        ]);
+
+        // $response = Billing::select('id', 'cradit_amount as amount')
+        //     ->where('patient_id', $request->patient_id)
+        //     ->where('cradit_amount', '>', 0)
+        //     ->get()
+        //     ->map(function ($item) {
+        //         $item->type = 'billing';
+        //         return $item;
+        //     });
+
+        // $response2 = PatientAdvanceAmount::select('id', 'amount')
+        //     ->where('patient_id', $request->patient_id)
+        //     ->where('amount', '>', 0)
+        //     ->get()
+        //     ->map(function ($item) {
+        //         $item->type = 'advance';
+        //         return $item;
+        //     });
+
+        // $merged = $response->merge($response2);
+    }
+    public function dashboard_data()
+    {
+        $opd['total_patient'] = OpdRegister::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $opd['new_patient'] = OpdRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $opd['old_patient'] = OpdRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $emergency['total_patient'] = EmgRegister::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $emergency['new_patient'] = EmgRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $emergency['old_patient'] = EmgRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $ipd['total_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'IPD')
+            ->where('discharge_status', '0')
+            // ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $ipd['new_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'IPD')
+            ->where('type', 'new')
+            ->where('discharge_status', '0')
+            ->count();
+        $ipd['old_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'IPD')
+            ->where('type', 'old')
+            ->where('discharge_status', '0')
+            ->count();
+
+        $daycare['total_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'DAYCARE')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $daycare['new_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'DAYCARE')
+            ->where('type', 'new')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $daycare['old_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'DAYCARE')
+            ->where('type', 'old')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $investigation['total_patient'] = InvestigationRegister::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $investigation['new_patient'] = InvestigationRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $investigation['old_patient'] = InvestigationRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $dialysis['total_patient'] = DialysisRegister::where('is_delete', 0)
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $dialysis['new_patient'] = DialysisRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $dialysis['old_patient'] = DialysisRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        if (Auth::user()->role_id > 5) {
+            $opd['income'] = Payment::where('section', 'OPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $emergency['income'] = Payment::where('section', 'EMG')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $ipd['income'] = Payment::where('section', 'IPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $daycare['income'] = Payment::where('section', 'DAYCARE')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $investigation['income'] = Payment::where('section', 'INVESTIGATION')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $dialysis['income'] = Payment::where('section', 'DIALYSIS')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+        } else {
+            $opd['income'] = Payment::where('section', 'OPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $emergency['income'] = Payment::where('section', 'EMG')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $ipd['income'] = Payment::where('section', 'IPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $daycare['income'] = Payment::where('section', 'DAYCARE')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $investigation['income'] = Payment::where('section', 'INVESTIGATION')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $dialysis['income'] = Payment::where('section', 'DIALYSIS')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+        }
+
+        $enquiry = OpdEnquiry::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $nursery = Childcare::where('is_delete', 0)
+            ->whereDate('date_of_birth', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $data = compact('opd', 'emergency', 'ipd', 'daycare', 'investigation', 'dialysis', 'enquiry', 'nursery');
+        return response()->json($data);
+    }
+    public function vendor_dashboard()
+    {
+        $requisition = StRequisition::where('is_delete', 0)->orderBy('id', 'DESC')->get();
+
+        $data = compact('requisition');
+        return view('vendor-dashboard')->with($data);
+    }
+}

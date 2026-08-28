@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Bill</title>
+    <link href="{{ asset('public/assets/plugins/datatable/css/buttons.bootstrap4.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/plugins/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/css/icons.css') }}" rel="stylesheet" />
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+            / change the margins as you want them to be. /
+        }
+
+        @media print {
+            html,
+            body {
+                width: 100%;
+                height: auto;
+                margin: 0 !important;
+                padding: 5px !important;
+                overflow: visible !important;
+                font-family: 'verdana';
+            }
+            #printButton {
+                display: none;
+            }
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #ffffff;
+            margin: 0 auto;
+            height: 33cm;
+            ;
+            width: 100%;
+        }
+
+        table,
+        th,
+        td {
+
+            border-collapse: collapse;
+        }
+
+        tr {
+            width: 100%;
+            height: auto;
+        }
+
+        @media print {
+            #printButton {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div style="padding: 0px 7px 0px 7px;">
+        @if ($bill->bill_status == '1')
+            <style>
+                body::before {
+                    content: "";
+                    background-image: url("{{ asset('public/assets/images/draft.png') }}");
+                    background-size: 20%;
+                    background-repeat: no-repeat;
+                    background-position: center center;
+                    opacity: 0.3;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 9999;
+                }
+            </style>
+        @elseif ($bill->bill_status == '2')
+            <style>
+                body::before {
+                    content: "";
+                    background-image: url("{{ asset('public/assets/images/approved.png') }}");
+                    background-size: 20%;
+                    background-repeat: no-repeat;
+                    background-position: center center;
+                    opacity: 0.3;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 9999;
+                }
+            </style>
+        @elseif ($bill->bill_status == '3')
+            <style>
+                body::before {
+                    content: "";
+                    background-image: url("{{ asset('public/assets/images/canceled.png') }}");
+                    background-size: 20%;
+                    background-repeat: no-repeat;
+                    background-position: center center;
+                    opacity: 0.3;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 9999;
+                }
+            </style>
+        @endif
+
+        <div style="margin: 10px 0px 0px 503px" id="printButton">
+            <button class="btn btn-primary btn-sm" onclick="printpage()"><i class="fa fa-print"></i> Print</button>
+            <button class="btn btn-danger btn-sm" onclick="window.close()">
+                <i class="fa fa-times"></i> Close
+            </button>
+        </div>
+
+        <!-- =============================logo section================= -->
+        <table style="margin:0px 0px 0px 0px; width:100%;">
+            <tr>
+                <td style="">
+                    <img src="{{ asset('public/assets/images/header') }}/{{ $header_image->logo }}" alt="logo"
+                        style="width: 850px;">
+                </td>
+            </tr>
+        </table>
+
+        @if (($bill->section == 'IPD') || ($bill->section == 'DAYCARE'))
+
+            <table style="width: 97%; border-collapse: collapse;margin-top: 1%;margin: 10px 0px 0px 13px;">
+                <tbody>
+                    <tr>
+                        <td colspan="2" style="text-align: center;font-size: 19px; font-weight: bold; color:#0072b7">
+                            <b>Bill Details ( {{ $bill->section }} Patient )</b>
+                        </td>
+                    </tr>
+                    <tr style="border:1px solid #000">
+                        <td style="width:50%;font-size:17px;border-right:1px solid #000;vertical-align:top;">
+                            <table style="width: 100%; line-height: 1 !important;" cellpadding="3">
+                                <tbody>
+                                    <tr style="">
+                                        <td>
+                                            <b style="font-size:25px;"> Patient Name : {{ @$patient_details->name }}</b>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>UHID: </b> {{ @$patient_details->id }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Age :</b>
+                                            {{ @$patient_details->dob_year == null ? '' : @$patient_details->dob_year . 'Y' }}
+                                            {{ @$patient_details->dob_month == null ? '' : @$patient_details->dob_month . 'M' }}
+                                            {{ @$patient_details->dob_day == null ? '' : @$patient_details->dob_day . 'D' }}
+
+                                            &nbsp;&nbsp;&nbsp;&nbsp; <b>Sex :</b> {{ @$patient_details->gender }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Address :</b> {{ @$patient_details->address }},{{ @$patient_details->district_name }},{{ @$patient_details->state_name }}{{ @$patient_details->pin_code }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Mobile No:</b> {{ @$patient_details->phone }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                        <td style="width:50%;font-size:17px;vertical-align:top;padding-left:2%">
+                            <table style="width: 100%; line-height: 1 !important;" cellpadding="3" align="right">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <b>Bill No. &amp; Date: </b> {{ @$bill->uid }}
+                                            <b>&nbsp; &amp; </b> {{ dateFor($bill->bill_date, true) }}
+                                            <b>&nbsp;</b>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Admission No:</b> {{ @$bill->section_id }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Under Doct:</b> {{ @$doctor_info->salutation }} {{ @$doctor_info->name }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Admn. Date &amp; Time:</b> {{ dateFor(@$section_info->admission_date, true) }}
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Bed Details :</b> {{ @$section_info->bed_name }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Patient Type : </b> {{ @$section_info->tpa_name }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <b>Package Type : </b> {{ @$section_info->package_type }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+        @else
+
+            <!-- =============================first header================= -->
+            <table cellspacing="0" border="1" width="97%"
+                style="text-align:center;margin: 0 11px;margin-top: 30px;margin-right: 17px;">
+                <tr style="font-size: 13px;font-weight:800;line-height:normal;color: black;">
+                    <th
+                        style="padding:0px 0px 0px 5px;text-align:left;font-size: 15px;font-weight: 800;width: 10%;border-left: 1px solid #000;border-right: none;border-bottom: none;">
+                        BILL/RECEIPT: <br>
+
+                    </th>
+                    <td
+                        style="padding:0px 0px 0px 0px;font-size: 15px;font-weight: 800;width: 20%;border-left: none;border-bottom: none;">
+                        {{ $section == 'op' ? "OPTICAL" : strtoupper($section) }}<br>
+
+                    </td>
+                    <th style="padding:0px 0px 0px 5px;text-align:left;font-size: 13px;font-weight: 800;width: 10%;border-left: 1px solid #000;border-right: none;border-bottom: none;width: 200px;"
+                        colspan="2">
+                        Bill NO : {{ @$bill->uid }} <br>
+                        @if (@$section_id != null)
+                            SECTION NO : {{ @$bill->section_id }}
+                        @endif
+                    </th>
+
+                    <td
+                        style="border-left: 1px solid #000; border-right: 1px solid #000;padding: 7px;width: 120px;height: 50px;">
+
+                        @php
+                            $generatorPNG = new Picqer\Barcode\BarcodeGeneratorPNG();
+                        @endphp
+                        <img src="data:image/png;base64,{{ base64_encode($generatorPNG->getBarcode('$bill->id', $generatorPNG::TYPE_CODE_128)) }}"
+                            style="width: 110px;height: 40px;">
+                    </td>
+                    <th
+                        style="padding:0px 0px 0px 5px;text-align:left;font-size: 13px;font-weight:800;width: %;border-right: none;">
+                        Date:<br>
+                        @if (@$section_info->ticket_no)
+                            TOKEN NO :
+                        @endif
+                    </th>
+                    <td
+                        style="padding:0px 0px 0px 0px;font-size: 13px;text-align:left;font-weight: 800;width:17%;border-left: none;">
+                        {{ dateFor($bill->bill_date, true) }}
+                        <br>
+                        @if (@$section_info->ticket_no)
+                            {{ @$section_info->ticket_no }}
+                        @endif
+                    </td>
+                </tr>
+            </table>
+
+            <!-- =======================second header============== -->
+            <table style="width: 97%; border-collapse: collapse;margin: 10px 0px 0px 11px;">
+                <td style="border:2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                    <span style="padding:20px 0px 0px 5px; margin-bottom: 10px;">UHID NO : <b
+                            style="font-weight:800;">{{ @$patient_details->id }}</b></span><br>
+                    <span style="padding:20px 0px 0px 5px;">PATIENT NAME : <b style="font-weight:800;">
+                            {{ @$patient_details->name }} </b></span><br>
+                    <span style="padding:20px 10px 10px 5px;line-height: 20px;">GENDER : <b
+                            style="font-weight:800;">{{ @$patient_details->gender }}</b> || AGE : <b
+                            style="font-weight:800;">
+                            {{ @$patient_details->dob_year == null ? '' : @$patient_details->dob_year . 'Y' }}
+                            {{ @$patient_details->dob_month == null ? '' : @$patient_details->dob_month . 'M' }}
+                            {{ @$patient_details->dob_day == null ? '' : @$patient_details->dob_day . 'D' }}</b></span><br>
+                    <span style="padding:20px 0px 0px 5px;">MOB NO : <b style="font-weight:800;">
+                            {{ @$patient_details->phone }}</b></span><br>
+                    <span style="padding:20px 10px 10px 5px;line-height: 20px;">Address :
+                        {{ @$patient_details->address }},{{ @$patient_details->district_name }},{{ @$patient_details->state_name }}{{ @$patient_details->pin_code }}</span><br>
+                </td>
+                @if ($bill->doctor_id)
+                    <td style="border: 2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                        <span style="padding:0px 10px 10px 15px;font-weight:800; "><b
+                                style="font-weight:800;">CONSULTANT
+                                DOCTOR : </b></span><br>
+                        <span style="padding:0px 10px 10px 15px;font-weight:800;"><b style="font-weight:800;">
+                                {{ @$doctor_info->salutation }} {{ @$doctor_info->name }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">{{ @$doctor_info->specialization }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">{{ @$doctor_info->qualification }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">Department -
+                                {{ @$doctor_info->department_name }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">REG NO - {{ @$doctor_info->empId }}</b></span><br>
+                    </td>
+                @endif
+                @if ($bill->referred_by)
+                    <td style="border: 2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                        <span style="padding:0px 10px 10px 15px;font-weight:800; "><b style="font-weight:800;">REFERRED
+                                BY : </b></span>
+                        <span style="padding:0px 10px 10px 15px;font-weight:800;"><b style="font-weight:800;">
+                                {{ @$bill->referral_name }} </b></span>
+                    </td>
+                @endif
+            </table>
+
+        @endif
+
+        <!-- =======================third header section=============== -->
+        @if ($bill->section == 'IPD')
+
+            @foreach ($unique_categories as $cat)
+                <table style="width: 97%; border-collapse: collapse;margin-top: 1%;margin: 10px 0px 0px 13px; ">
+                    <thead>
+                        <tr style="border: 1px solid #000">
+                            <td style="font-weight:bold;padding:5px;background-color: #d2d2d2; font-size:13px;"
+                                colspan="7">{{ $cat }} </td>
+                        </tr>
+                        <tr style="font-weight: bold; background-color: #eaecec;font-size:12px;border: 1px solid #000">
+                            <td style="text-align:left;width:25px;border-bottom:1px solid #000 !important;padding:5px;">#</td>
+                            <td style="text-align:left;border-bottom:1px solid #000 !important;padding:5px;">Date</td>
+                            <td style="text-align:left;border-bottom:1px solid #000 !important;padding:5px;">Particulars</td>
+                            <td style="text-align:right;border-bottom:1px solid #000 !important;padding:5px;">Qty</td>
+                            <td style="text-align:right;border-bottom:1px solid #000 !important;padding:5px;">Rate</td>
+                            <td style="text-align:right;border-bottom:1px solid #000 !important;padding:5px;">Dis.</td>
+                            <td style="text-align:right;border-bottom:1px solid #000 !important;padding:5px;">Amount</td>
+                        </tr>
+                    </thead>
+                    <tbody style="border: 1px solid #000">
+                        @php $subtotal = 0; @endphp
+                        @foreach ($bill_info->where('charges_catagories_name', $cat) as $chargesDetails)
+                            <tr>
+                                <td style="text-align: left;font-size: 10px; padding: 3px;font-weight:500;">
+                                    {{ $loop->iteration }}</td>
+                                <td style="text-align: left;font-size: 10px; padding: 3px;">
+                                    {{ dateFor($chargesDetails->date) }} </td>
+                                <td style="text-align: left;font-size: 10px; padding: 3px;">
+                                    {{ $chargesDetails->charge_name }} </td>
+                                <td style="text-align: end;font-size: 10px; padding: 3px;">
+                                    {{ $chargesDetails->qty }}</td>
+                                <td style="text-align: end;font-size: 10px; padding: 3px;">
+                                    {{ $chargesDetails->standard_charges }}</td>
+                                <td style="text-align: end;font-size: 10px; padding: 3px;">
+                                    {{ @$chargesDetails->discount_amount > 0 ? $chargesDetails->discount_amount . ' Rs' : (@$chargesDetails->discount_percentage > 0 ? $chargesDetails->discount_percentage . ' %' : 0) }}
+                                </td>
+                                <td style="text-align: end;font-size: 10px; padding: 3px;">
+                                    {{ $chargesDetails->amount }}</td>
+                            </tr>
+                            @php $subtotal = $subtotal + $chargesDetails->amount; @endphp
+                        @endforeach
+                    </tbody>
+                    <tfoot style="border: 1px solid #000">
+                        <tr>
+                            <th colspan="6" style="text-align: end;font-size: 11px; padding: 3px;font-weight:600;">
+                                Sub Total</th>
+                            <th style="text-align: end;font-size: 11px; padding: 3px;">{{ $subtotal }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            @endforeach
+
+            @if (count($payment_details) > 0)
+                <table class="AccGrid" id="grvRPDetails" style="width:97%;border:1px solid black;margin-top: 1%;margin: 10px 0px 0px 13px;">
+                    <tbody>
+                        <tr>
+                            <td style="width: 97%; vertical-align:top; background-color: #d2d2d2;padding:5px;border-bottom:1px solid black"
+                                colspan="5">
+                                <b>Receipt Details:</b>
+                            </td>
+                        </tr>
+                        <tr style="border:1px solid black;background-color: #eaecec;font-size:12px">
+                            <th scope="col" style="text-align:left">SL.NO</th>
+                            <th scope="col" style="text-align:left">Date</th>
+                            <th scope="col" style="text-align:left">TRN ID</th>
+                            <th scope="col" style="text-align:left">Mode</th>
+                            <th scope="col" style="text-align:right">Amount</th>
+                        </tr>
+                        @foreach ($payment_details as $details)
+                            <tr style="border:1px solid black;font-size:11px">
+                                <td style="text-align:left">{{ $loop->iteration }}</td>
+                                <td style="text-align:left">{{ dateFor($details->payment_date) }}</td>
+                                <td style="text-align:left">{{ $details->id }} </td>
+                                <td style="text-align:left">{{ $details->payment_mode }} </td>
+                                <td style="text-align:right">{{ $details->payment_amount }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td style="text-align:right;font-size: 12px;font-weight:bold;" colspan="4">TOTAL PAID AMOUNT :</td>
+                            <td style="text-align:right">{{ $bill->total_payment }} </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            @endif
+
+            <table class="TotAmount" style="width: 97%; font-size: 14px;margin-top: 1%;margin: 10px 0px 0px 13px;">
+                <tbody>
+                    <tr style="height: fit-content;">
+                        <td colspan="2" style="width: 50%; vertical-align:top; ">
+                            <table style="width: 100%">
+                                <tbody>
+                                    <tr></tr>
+                                    <tr></tr>
+                                </tbody>
+                            </table>
+                        </td>
+                        <td colspan="2" rowspan="2" style="width: 50%; vertical-align:top">
+                            <table style="width: 100%;">
+                                <tbody>
+                                    @if ($bill->miscellaneous_amount > 0)
+                                        <tr>
+                                            <td align="left"
+                                                style="width: 60%; font-size: 12px; font-weight: bold !important;">
+                                                TOTAL : </td>
+                                            <td nowrap="nowrap"
+                                                style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                                <span id="FigureAmt"> ₹{{ @$bill->sub_total }} </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td align="left"
+                                                style="width: 60%; font-size: 12px; font-weight: bold !important;">
+                                                MISCELLANEOUS : </td>
+                                            <td nowrap="nowrap"
+                                                style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                                <span id="FigureAmt"> ₹{{ @$bill->miscellaneous_amount }} </span>
+                                            </td>
+                                        </tr>
+                                    @else
+                                        <tr>
+                                            <td align="left"
+                                                style="width: 60%; font-size: 12px; font-weight: bold !important;">
+                                                TOTAL : </td>
+                                            <td nowrap="nowrap"
+                                                style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                                ₹<span id="SubAmt">{{ @$bill->total }}</span>
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    <tr>
+                                        <td align="left"
+                                            style="width: 60%; font-size: 12px; font-weight: bold !important;"> NET
+                                            AMOUNT : </td>
+                                        <td nowrap="nowrap"
+                                            style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                            <span id="FigureAmt"> ₹{{ @$bill->total }} </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="left"
+                                            style="width: 60%; font-size: 12px; font-weight: bold !important;">
+                                            DISCOUNT : </td>
+                                        <td nowrap="nowrap"
+                                            style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                            <span id="FigureAmt"> ₹{{ @$bill->discount_amount }} </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="left"
+                                            style="width: 60%; font-size: 12px; font-weight: bold !important;"> TOTAL
+                                            PAYABLE AMOUNT : </td>
+                                        <td nowrap="nowrap"
+                                            style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                            <span id="FigureAmt"> ₹{{ @$bill->grand_total }} </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="left"
+                                            style="width: 60%; font-size: 12px; font-weight: bold !important;"> TOTAL
+                                            PAID AMOUNT : </td>
+                                        <td nowrap="nowrap"
+                                            style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                            <span id="FigureAmt"> ₹{{ @$bill->total_payment }} </span>
+                                        </td>
+                                    </tr>
+                                    @if ($bill->refund_amount > 0)
+                                        <tr style="color: #067206">
+                                            <td align="left"
+                                                style="width: 60%; font-size: 12px; font-weight: bold !important;"> REFUND
+                                                AMOUNT : </td>
+                                            <td nowrap="nowrap"
+                                                style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                                <span id="FigureAmt"> ₹{{ @$bill->refund_amount }} </span>
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    @if ($bill->due_amount > 0)
+                                        <tr style="color: #dc1414">
+                                            <td align="left"
+                                                style="width: 60%; font-size: 12px; font-weight: bold !important;"> DUE
+                                                AMOUNT : </td>
+                                            <td nowrap="nowrap"
+                                                style="width: 40%; font-weight: bold; text-align: right; font-size: 12px; border-bottom: 1px solid #000 !important;">
+                                                <span id="FigureAmt"> ₹{{ @$bill->due_amount }} </span>
+                                            </td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+        @else
+            <table style="width: 97%; border-collapse: collapse;margin-top: 1%;margin: 10px 0px 0px 13px; ">
+
+                <tr style="background-color: rgb(228 228 228);">
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600; @if ($bill->section != 'OPD') line-height:0.1 @endif">
+                        SL.NO</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                        PARTICULARS</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                        RATE</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                        QTY</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                        DISCOUNT</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                        AMOUNT</td>
+
+                </tr>
+
+                @foreach ($bill_info as $chargesDetails)
+                    <tr @if ($bill->bill_status == '3') style="background-color:#ffdbdb" @endif>
+                        <td
+                            style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                            {{ $loop->iteration }}</td>
+                        <td
+                            style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                            {{ $chargesDetails->charge_name }} </td>
+                        <td
+                            style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                            {{ $chargesDetails->standard_charges }}</td>
+                        <td
+                            style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                            {{ $chargesDetails->qty }}</td>
+                        <td
+                            style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                            {{ @$chargesDetails->discount_amount > 0 ? $chargesDetails->discount_amount . ' Rs' : (@$chargesDetails->discount_percentage > 0 ? $chargesDetails->discount_percentage . ' %' : 0) }}
+                        </td>
+                        <td
+                            style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;@if ($bill->section != 'OPD') line-height:0.1 @endif">
+                            {{ $chargesDetails->amount }}</td>
+                    </tr>
+                @endforeach
+            </table>
+            <table style="border-collapse: collapse; width: 97%; margin: 10px 0px 0px 13px; ">
+                <tr>
+                    <td
+                        style="border:1px solid #000; border-right: none; font-size: 13px;padding: 5px 5px 5px 5px;font-weight: 800; ">
+                        <u>Payment Details</u></b>
+                        <table>
+
+                            @foreach ($payment_details as $details)
+                                <tr>
+                                    <td><span style="display: inline-block;"> {{ $details->payment_mode }} :
+                                            ₹{{ $details->payment_amount }}</span></td>
+                                </tr>
+                            @endforeach
+
+                            <tr>
+                                <td>
+                                    {{ @$bill->cradit_amount > 0 ? 'From Advance/credit Amount : ' . '₹' . $bill->cradit_amount : '' }}
+                                    {{ @$bill->refund_amount > 0 ? 'From Refund Amount : ' . '₹' . $bill->refund_amount : '' }}
+                                </td>
+                            </tr>
+                        </table>
+                        <span style="padding:20px 10px 10px 0px;line-height: 20px;">
+                            <u>BILL BY</u> :
+                            <b>{{ @$bill->created_name }}</b>
+                        </span><br>
+                        @if (@$bill->section == 'OPD')
+                            <span
+                                style="padding:20px 10px 10px 0px;line-height: 20px;font-weight:500;font-size:11px">N.B.
+                                :
+                                @if (@$doctor_info->name == 'DEB SANKAR GUIN')
+                                    Rs: {{ @$doctor_info->commission_amount }} for
+                                    {{ @$doctor_info->salutation }} {{ @$doctor_info->name }} and
+                                    Rs: {{ ((float)$doctor_info->doctor_fees ?? 0) - ((float)$doctor_info->commission_amount ?? 0) }}
+                                    as hospital charge
+                                @else
+                                    OPD Fees Collected by {{ hospital('title') }} Hospital on behalf of
+                                    <b>{{ @$doctor_info->salutation }} {{ @$doctor_info->name }}</b>
+                                @endif
+                            </span>
+                        @endif
+                    </td>
+
+                    <td
+                        style="border:1px solid #000; border-right: none; border-left:none;font-size: 13px;padding: 5px 5px 5px 5px; border-radius: 10%;">
+                        @if ($bill->due_amount == 0 && $bill->bill_status == '2')
+                            <img src="{{ asset('public/assets/images/paid.png') }}" style="height:80px;width:80px" />
+                        @endif
+                    </td>
+
+                    <td
+                        style="border:1px solid #000;border-left:none; font-size: 13px;padding: 5px 5px 5px 5px; font-weight:800;">
+                        {{-- @if (@$bill->section == 'IPD' || @$bill->section == 'DAYCARE')
+                            <span style="padding:20px 0px 0px 5px;">SUB TOTAL :
+                                <b>{{ @$bill->sub_total }}</b></span><br>
+                            @if ($bill->miscellaneous_charge > 0)
+                                <span style="padding:20px 0px 0px 5px;">MISCELLANEOUS :
+                                    <b>{{ @$bill->miscellaneous_charge }}
+                                        {{ @$bill->miscellaneous_charge == 'flat' ? '' : '%' }}</b></span><br>
+                            @endif
+                        @endif --}}
+                        @if (@$bill->discount_amount > 0)
+                            <span style="padding:20px 0px 0px 5px;">NET AMOUNT :
+                                <b>{{ @$bill->total }}</b></span><br>
+                            <span style="padding:20px 0px 0px 5px;">DISCOUNT :
+                                <b>{{ @$bill->discount_amount }}</b></span><br>
+                        @endif
+
+                        <span style="padding:20px 0px 0px 5px;">TOTAL AMOUNT:
+                            <b>{{ @$bill->grand_total }}</b></span><br>
+
+                        @if (@$bill->total_payment > 0)
+                            <span style="padding:20px 10px 10px 5px;line-height: 20px;">PAID AMOUNT:
+                                <b>{{ @$bill->total_payment }}</b></span><br>
+                        @endif
+                        @if (@$bill->due_amount > 0)
+                            <span style="padding:20px 0px 0px 5px;">DUE AMOUNT :
+                                <b>{{ @$bill->due_amount }}</b></span><br>
+                        @endif
+
+                        @if (@$bill->cradit_amount > 0)
+                            <span style="padding:20px 10px 10px 5px;line-height: 20px;">CREDIT AMOUNT:
+                                <b>{{ @$bill->cradit_amount }}</b></span><br>
+                        @endif
+
+                        @if (@$bill->refund_amount > 0)
+                            <span style="padding:20px 10px 10px 5px;line-height: 20px;">REFUND AMOUNT:
+                                <b>{{ @$bill->refund_amount }}</b></span><br>
+                        @endif
+                    </td>
+                </tr>
+            </table>
+
+        @endif
+
+        <span style="padding:20px 5px 10px 5px;line-height: 20px;font-weight:500;font-size:11px;float: left;">PREPARED
+            BY: {{ strtoupper($bill->created_name) }}</span>
+	<span style="padding:20px 5px 10px 5px;line-height: 20px;font-weight:500;font-size:11px;float: right;">Date: {{ date('d-m-Y h:i a') }}</span>
+        <!-- =================================================================================================== -->
+    </div>
+</body>
+<script>
+    // Disable the browser's back button
+    history.pushState(null, null, location.href);
+    window.addEventListener('popstate', function(event) {
+        history.pushState(null, null, location.href);
+    });
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 116 || (event.ctrlKey && event.keyCode === 82)) {
+            event.preventDefault();
+        }
+    });
+
+    window.print();
+    function printpage() {
+        window.print();
+    }
+</script>
+
+</html>

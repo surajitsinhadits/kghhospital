@@ -1,0 +1,139 @@
+<?php
+
+/**
+ * Created by Reliese Model.
+ */
+
+namespace App\Models;
+
+use App\Models\Concerns\HasOriginalFilterScope;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Class IpdRegister
+ *
+ * @property int $id
+ * @property string $admission_type
+ * @property Carbon $admission_date
+ * @property string|null $package_type
+ * @property int $patient_id
+ * @property int|null $package_id
+ * @property string|null $package_name
+ * @property float|null $package_amount
+ * @property int|null $insurance_id
+ * @property string|null $insurance_no
+ * @property string $type
+ * @property string|null $symptoms
+ * @property int|null $diagnosis_id
+ * @property int|null $department_id
+ * @property int|null $doctor_id
+ * @property int|null $other_doctor_id
+ * @property int|null $ward_id
+ * @property int|null $bed_id
+ * @property int|null $referred_by
+ * @property int|null $provider
+ * @property int|null $market_by
+ * @property string|null $history_alcoholism
+ * @property string|null $medical_surgical_history
+ * @property string|null $family_history_diagnosis
+ * @property string|null $responsible_person
+ * @property string|null $responsible_person_relation
+ * @property string|null $responsible_person_ph_no
+ * @property int|null $responsible_person_age
+ * @property string|null $responsible_person_address
+ * @property int|null $generate_by
+ * @property int $is_dialysis_moved
+ * @property int|null $edit_by
+ * @property Carbon|null $edit_at
+ * @property int $discharge_status
+ * @property int|null $discharge_by
+ * @property Carbon|null $discharge_at
+ * @property int $is_active
+ * @property int $is_delete
+ * @property bool $is_original
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ *
+ * @package App\Models
+ */
+class IpdRegister extends Model
+{
+    use HasOriginalFilterScope;
+
+	protected $table = 'ipd_registers';
+
+    protected static function booted(): void
+    {
+        static::applyOriginalFilterScope('ipd_registers.is_original');
+    }
+
+	protected $casts = [
+		'admission_date' => 'datetime',
+		'patient_id' => 'int',
+		'package_id' => 'int',
+		'package_amount' => 'float',
+		'insurance_id' => 'int',
+		'diagnosis_id' => 'int',
+		'department_id' => 'int',
+		'doctor_id' => 'int',
+		'other_doctor_id' => 'int',
+		'ward_id' => 'int',
+		'bed_id' => 'int',
+		'referred_by' => 'int',
+		'provider' => 'int',
+		'market_by' => 'int',
+		'responsible_person_age' => 'int',
+		'generate_by' => 'int',
+		'is_dialysis_moved' => 'int',
+		'edit_by' => 'int',
+		'edit_at' => 'datetime',
+		'discharge_status' => 'int',
+		'discharge_by' => 'int',
+		'discharge_at' => 'datetime',
+		'is_active' => 'int',
+		'is_delete' => 'int',
+		'is_original' => 'bool'
+	];
+
+	protected $fillable = [
+		'admission_type',
+		'admission_date',
+		'package_type',
+		'patient_id',
+		'package_id',
+		'package_name',
+		'package_amount',
+		'insurance_id',
+		'insurance_no',
+		'type',
+		'symptoms',
+		'diagnosis_id',
+		'department_id',
+		'doctor_id',
+		'other_doctor_id',
+		'ward_id',
+		'bed_id',
+		'referred_by',
+		'provider',
+		'market_by',
+		'history_alcoholism',
+		'medical_surgical_history',
+		'family_history_diagnosis',
+		'responsible_person',
+		'responsible_person_relation',
+		'responsible_person_ph_no',
+		'responsible_person_age',
+		'responsible_person_address',
+		'generate_by',
+		'is_dialysis_moved',
+		'edit_by',
+		'edit_at',
+		'discharge_status',
+		'discharge_by',
+		'discharge_at',
+		'is_active',
+		'is_delete',
+		'is_original'
+	];
+}

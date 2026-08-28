@@ -1,0 +1,44 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Reports\BillController;
+use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Reports\CollectionController;
+
+
+Route::middleware(['auth'])->prefix('reports')->group(function () {
+    Route::controller(BillController::class)->group(function () {
+        // bill reports
+        Route::get('/bill-list', 'bill_reports')->name('reports.bill');
+        Route::get('/receipt-list', 'receipt_reports')->name('reports.receipt');
+        Route::get('/refund-list', 'refund_reports')->name('reports.refund');
+        Route::get('/billing-reports', 'billing_reports')->name('reports.billing');
+        Route::get('/edit-bill-report', 'edit_bill_report')->name('reports.edit-bill');
+    });
+    Route::controller(CollectionController::class)->group(function () {
+        // collection reports
+        Route::any('/collection', 'collection')->name('reports.collection');
+        Route::any('/my-collection', 'my_collection')->name('reports.my-collection');
+        Route::any('/users-collection', 'users_collection')->name('reports.users-collection');
+        Route::any('/total-collection-view', 'total_collection_view')->name('reports.total-collection-view');
+        Route::any('/doctor-payout', 'doctor_payout')->name('reports.doctor-payout');
+        Route::any('/due-reports', 'due_reports')->name('reports.due-reports');
+    });
+    Route::controller(ReportController::class)->group(function () {
+        // other reports
+        Route::get('/opd-patients', 'opd_reports')->name('reports.opd');
+        Route::get('/emg-patients', 'emg_reports')->name('reports.emg');
+        Route::get('/ipd-patients', 'ipd_reports')->name('reports.ipd');
+        Route::get('/dialysis-patients', 'dialysis_reports')->name('reports.dialysis');
+        Route::get('/birth-report', 'birth_report')->name('reports.birth');
+        Route::get('/death-report', 'death_report')->name('reports.death');
+        Route::get('/discharge-report', 'discharge_report')->name('reports.discharge');
+
+        //commission report
+        Route::any('/commission-report', 'commission_report')->name('reports.commission-report');
+        Route::any('/commission-patient-charge', 'commission_patient_charge')->name('reports.commission-patient-charge');
+        Route::post('/commission-discount', 'commission_discount')->name('reports.commission-discount');
+        Route::get('/commission-report-view/{bill_id}', 'commission_report_view')->name('reports.commission-report-view');
+        Route::get('/commission-report-print/{bill_id}', 'commission_report_print')->name('reports.commission-report-print');
+    });
+});

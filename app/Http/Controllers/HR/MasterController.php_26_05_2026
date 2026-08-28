@@ -1,0 +1,1542 @@
+<?php
+
+namespace App\Http\Controllers\HR;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\ChargesCatagory;
+use App\Models\ChargesSection;
+use App\Models\RequisitionSection;
+use App\Models\Vial;
+use App\Models\MedUnit;
+use App\Models\MedCatagory;
+use App\Models\SampleType;
+use App\Models\TpaManagement;
+use App\Models\Ward;
+use App\Models\Bed;
+use App\Models\Header;
+use App\Models\Setting;
+use App\Models\State;
+use App\Models\Charge;
+use App\Models\ChargesHasNormal;
+use App\Models\ChargesHasSection;
+use App\Models\Package;
+use App\Models\PackageDetail;
+use App\Models\Notice;
+use App\Models\Referral;
+use App\Models\Billing;
+use App\Models\Payment;
+use App\Models\Patient;
+use App\Models\Diagonase;
+use App\Models\OtProcedure;
+use App\Models\OtProcedureName;
+use App\Models\OtRoom;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
+use Yajra\Datatables\DataTables;
+use DB;
+
+
+
+class MasterController extends Controller
+{
+    public function charges_catagory()
+    {
+        $title = 'Charges Category';
+        $t1 = 'Charges Category List';
+        $t2 = 'Add Charges Category';
+        $form = ['charges_categories_name', 'description'];
+        $head = ['Sl. No.', 'Category Name', 'Description', 'Action'];
+        $btn['name'] = 'Add Category';
+        $btn['action'] = Route('hr.update-charges-catagory');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-charges-catagory');
+        $edit['suburl'] = Route('hr.sub-categories');
+        $response = ChargesCatagory::where('parent_id', 0)->orderBy('id', 'desc')->get();
+        $table = "charges_catagories";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_charges_catagory($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.charges-catagory');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Charges Category';
+        $t1 = 'Charges Category List';
+        $t2 = 'Edit Charges Category';
+        $form = ['charges_categories_name', 'description'];
+        $head = ['Sl. No.', 'Category Name', 'Description', 'Action'];
+        $btn['name'] = 'Update Category';
+        $btn['action'] = Route('hr.update-charges-catagory', $id);
+        $edit['data'] =  ChargesCatagory::find($id);
+        $edit['reset'] = Route('hr.charges-catagory');
+        $edit['url'] = Route('hr.edit-charges-catagory');
+        $response = ChargesCatagory::where('parent_id', 0)->orderBy('id', 'desc')->get();
+        $table = "charges_catagories";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_charges_catagory(Request $request, $id = 0)
+    {
+        $request->validate([
+            'charges_categories_name' => 'required|max:100',
+            'description' => 'required|max:255',
+        ]);
+
+        $id ? $data = ChargesCatagory::find($id) : $data = new ChargesCatagory();
+        $data->charges_catagories_name = $request->charges_categories_name;
+        $data->description = $request->description;
+        $data->parent_id = @$request->parent_id ?? 0;
+        if ($data->save()) {
+            return redirect()->route('hr.charges-catagory')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.charges-catagory')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function parent_categories()
+    {
+        $categories = ChargesCatagory::where('parent_id', 0)->get();
+        return response()->json($categories);
+    }
+    public function sub_categories($id)
+    {
+        $id = ed($id, false);
+        $title = 'Charges Sub-Category';
+        $t1 = 'Charges Sub-Category List';
+        $t2 = 'Add Charges Category';
+        $form = ['charges_categories_name', 'description'];
+        $head = ['Sl. No.', 'Category Name', 'Description', 'Action'];
+        $btn['name'] = 'Add Category';
+        $btn['action'] = Route('hr.update-charges-catagory');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-charges-catagory');
+        $response = ChargesCatagory::where('parent_id', $id)->orderBy('id', 'desc')->get();
+        $table = "charges_catagories";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function charges_section()
+    {
+        $title = 'Charges Section';
+        $t1 = 'Charges Section List';
+        $t2 = 'Add Charges Section';
+        $form = ['charges_section_name'];
+        $head = ['Sl. No.', 'Charges Section Name'];
+        $btn['name'] = 'Add Charges Section';
+        $btn['action'] = Route('hr.update-charges-section');
+        $edit['data'] = null;
+        $response = ChargesSection::orderBy('id', 'desc')->get();
+        $table = 'charges_sections';
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    // public function edit_charges_section($id = 0)
+    // {
+    //     if(!$id){
+    //         return redirect()->route('hr.charges-section');
+    //     }
+    //     $id = ed($id, false);
+    //     $title = 'Edit Charges Section';
+    //     $t1 = 'Charges Section List';
+    //     $t2 = 'Edit Charges Section';
+    //     $form = ['charges_section_name'];
+    //     $head = ['Sl. No.', 'Charges Section Name','Action'];
+    //     $btn['name'] = 'Update Charges Section';
+    //     $btn['action'] = Route('hr.update-charges-section',$id);
+    //     $edit['data'] =  ChargesSection::find($id);
+    //     $edit['reset'] = Route('hr.charges-section');
+    //     $edit['url'] = Route('hr.edit-charges-section');
+    //     $response = ChargesSection::orderBy('id', 'desc')->get();
+    //     $data = compact('title','t1', 't2', 'form','head','btn','edit','response');
+    //     return view('hr.master-from')->with($data);
+    // }
+    public function update_charges_section(Request $request, $id = 0)
+    {
+        $request->validate([
+            'charges_section_name' => 'required|max:100',
+        ]);
+
+        $id ? $data = ChargesSection::find($id) : $data = new ChargesSection();
+        $data->charges_section_name = strtoupper($request->charges_section_name);
+        if ($data->save()) {
+            return redirect()->route('hr.charges-section')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.charges-section')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function requisition_section()
+    {
+        $title = 'Requisition Section';
+        $t1 = 'Requisition Section List';
+        $t2 = 'Add Requisition Section';
+        $form = ['requisition_section_name'];
+        $head = ['Sl. No.', 'Requisition Section Name', 'Action'];
+        $btn['name'] = 'Add Requisition Section';
+        $btn['action'] = Route('hr.update-requisition-section');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-requisition-section');
+        $response = RequisitionSection::orderBy('id', 'desc')->get();
+        $table = 'requisition_sections';
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_requisition_section($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.requisition-section');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Requisition Section';
+        $t1 = 'Requisition Section List';
+        $t2 = 'Edit Requisition Section';
+        $form = ['requisition_section_name'];
+        $head = ['Sl. No.', 'Requisition Section Name', 'Action'];
+        $btn['name'] = 'Update Requisition Section';
+        $btn['action'] = Route('hr.update-requisition-section', $id);
+        $edit['data'] =  RequisitionSection::find($id);
+        $edit['reset'] = Route('hr.requisition-section');
+        $edit['url'] = Route('hr.edit-requisition-section');
+        $response = RequisitionSection::orderBy('id', 'desc')->get();
+        $table = 'requisition_sections';
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_requisition_section(Request $request, $id = 0)
+    {
+        $request->validate([
+            'requisition_section_name' => 'required|max:100',
+        ]);
+
+        $id ? $data = RequisitionSection::find($id) : $data = new RequisitionSection();
+        $data->requisition_section_name = $request->requisition_section_name;
+        if ($data->save()) {
+            return redirect()->route('hr.requisition-section')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.requisition-section')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function vials()
+    {
+        $title = 'Vial';
+        $t1 = 'Vial List';
+        $t2 = 'Add Vial';
+        $form = ['vial_name'];
+        $head = ['Sl. No.', 'Vial Name', 'Action'];
+        $btn['name'] = 'Add Vial';
+        $btn['action'] = Route('hr.update-vials');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-vials');
+        $response = Vial::orderBy('id', 'desc')->get();
+        $table = "vials";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_vials($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.vials');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Vial';
+        $t1 = 'Vial List';
+        $t2 = 'Edit Vial';
+        $form = ['vial_name'];
+        $head = ['Sl. No.', 'Vial Name', 'Action'];
+        $btn['name'] = 'Update Vial';
+        $btn['action'] = Route('hr.update-vials', $id);
+        $edit['data'] =  Vial::find($id);
+        $edit['reset'] = Route('hr.vials');
+        $edit['url'] = Route('hr.edit-vials');
+        $response = Vial::orderBy('id', 'desc')->get();
+        $table = "vials";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_vials(Request $request, $id = 0)
+    {
+        $request->validate([
+            'vial_name' => 'required|max:100',
+        ]);
+
+        $id ? $data = Vial::find($id) : $data = new Vial();
+        $data->vial_name = $request->vial_name;
+        if ($data->save()) {
+            return redirect()->route('hr.vials')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.vials')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function sample_test()
+    {
+        $title = 'Sample Test';
+        $t1 = 'Sample Test List';
+        $t2 = 'Add Sample Test';
+        $form = ['sample_name'];
+        $head = ['Sl. No.', 'Sample Name', 'Action'];
+        $btn['name'] = 'Add Sample';
+        $btn['action'] = Route('hr.update-sample-test');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-sample-test');
+        $response = SampleType::orderBy('id', 'desc')->get();
+        $table = "sample_types";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_sample_test($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.sample-test');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Sample Test';
+        $t1 = 'Sample Test List';
+        $t2 = 'Edit Sample Test';
+        $form = ['sample_name'];
+        $head = ['Sl. No.', 'Sample Name', 'Action'];
+        $btn['name'] = 'Update Sample';
+        $btn['action'] = Route('hr.update-sample-test', $id);
+        $edit['data'] =  SampleType::find($id);
+        $edit['reset'] = Route('hr.sample-test');
+        $edit['url'] = Route('hr.edit-sample-test');
+        $response = SampleType::orderBy('id', 'desc')->get();
+        $table = "sample_types";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_sample_test(Request $request, $id = 0)
+    {
+        $request->validate([
+            'sample_name' => 'required|max:100',
+        ]);
+
+        $id ? $data = SampleType::find($id) : $data = new SampleType();
+        $data->sample_name = $request->sample_name;
+        if ($data->save()) {
+            return redirect()->route('hr.sample-test')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.sample-test')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function tpa_management()
+    {
+        $title = 'TPA Management';
+        $t1 = 'TPA Management List';
+        $t2 = 'Add TPA Management';
+        $form = ['tpa_name', 'contact_person_name', 'contact_person_ph_no'];
+        $head = ['Sl. No.', 'TPA Name', 'Contact Person Name', 'Contact Person Phone No', 'Action'];
+        $btn['name'] = 'Add TPA Management';
+        $btn['action'] = Route('hr.update-tpa-management');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-tpa-management');
+        $response = TpaManagement::orderBy('id', 'desc')->get();
+        $table = "tpa_managements";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_tpa_management($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.tpa-management');
+        }
+        $id = ed($id, false);
+        $title = 'Edit TPA Management';
+        $t1 = 'TPA Management List';
+        $t2 = 'Edit TPA Management';
+        $form = ['tpa_name', 'contact_person_name', 'contact_person_ph_no'];
+        $head = ['Sl. No.', 'TPA Name', 'Contact Person Name', 'Contact Person Phone No', 'Action'];
+        $btn['name'] = 'Update TPA Management';
+        $btn['action'] = Route('hr.update-tpa-management', $id);
+        $edit['data'] =  TpaManagement::find($id);
+        $edit['reset'] = Route('hr.tpa-management');
+        $edit['url'] = Route('hr.edit-tpa-management');
+        $response = TpaManagement::orderBy('id', 'desc')->get();
+        $table = "tpa_managements";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_tpa_management(Request $request, $id = 0)
+    {
+        $request->validate([
+            'tpa_name' => 'required|max:100',
+            'contact_person_name' => 'required|max:100',
+            'contact_person_ph_no' => 'required|digits:10',
+        ]);
+
+        $id ? $data = TpaManagement::find($id) : $data = new TpaManagement();
+        $data->tpa_name = $request->tpa_name;
+        $data->contact_person_name = $request->contact_person_name;
+        $data->contact_person_ph_no = $request->contact_person_ph_no;
+        if ($data->save()) {
+            return redirect()->route('hr.tpa-management')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.tpa-management')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function ward_details()
+    {
+        $title = 'Wards';
+        $t1 = 'Wards List';
+        $t2 = 'Add Ward';
+        $form = ['ward_name'];
+        $head = ['Sl. No.', 'Ward Name', 'Action'];
+        $btn['name'] = 'Add Ward';
+        $btn['action'] = Route('hr.update-ward-details');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-ward-details');
+        $response = Ward::orderBy('id', 'desc')->get();
+        $table = "wards";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_ward_details($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.ward-details');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Ward';
+        $t1 = 'Wards List';
+        $t2 = 'Edit Ward';
+        $form = ['ward_name'];
+        $head = ['Sl. No.', 'Ward Name', 'Action'];
+        $btn['name'] = 'Update Ward';
+        $btn['action'] = Route('hr.update-ward-details', $id);
+        $edit['data'] =  Ward::find($id);
+        $edit['reset'] = Route('hr.ward-details');
+        $edit['url'] = Route('hr.edit-ward-details');
+        $response = Ward::orderBy('id', 'desc')->get();
+        $table = "wards";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_ward_details(Request $request, $id = 0)
+    {
+        $request->validate([
+            'ward_name' => 'required|max:60',
+        ]);
+
+        $id ? $data = Ward::find($id) : $data = new Ward();
+        $data->ward_name = $request->ward_name;
+        if ($data->save()) {
+            return redirect()->route('hr.ward-details')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.ward-details')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function bed_details()
+    {
+        $title = 'Bed';
+        $t1 = 'Bed List';
+        $t2 = 'Add Bed';
+        $form = ['bed_name', 'ward_name'];
+        $head = ['Sl. No.', 'Bed Name', 'Ward Name', 'Action'];
+        $btn['name'] = 'Add Bed';
+        $btn['action'] = Route('hr.update-bed-details');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-bed-details');
+        $response = Bed::select('beds.*','wards.ward_name')->join('wards','wards.id','=','beds.ward_id')->orderBy('id', 'desc')->get();
+        $ward = Ward::where('status', 0)->orderBy('id', 'desc')->get();
+        $table = "beds";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'ward', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_bed_details($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.bed-details');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Bed';
+        $t1 = 'Bed List';
+        $t2 = 'Edit Bed';
+        $form = ['bed_name'];
+        $head = ['Sl. No.', 'Bed Name', 'Action'];
+        $btn['name'] = 'Update Bed';
+        $btn['action'] = Route('hr.update-bed-details', $id);
+        $edit['data'] =  Bed::find($id);
+        $ward = Ward::where('status', 0)->orderBy('id', 'desc')->get();
+        $edit['reset'] = Route('hr.bed-details');
+        $edit['url'] = Route('hr.edit-bed-details');
+        $response = Bed::orderBy('id', 'desc')->get();
+        $table = "beds";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'ward', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_bed_details(Request $request, $id = 0)
+    {
+        $request->validate([
+            'bed_name' => 'required|max:60|unique:beds,bed_name,' . $id,
+            'ward_id' => 'required',
+        ]);
+
+        $id ? $data = Bed::find($id) : $data = new Bed();
+        $data->bed_name = $request->bed_name;
+        $data->ward_id = $request->ward_id;
+        if ($data->save()) {
+            return redirect()->route('hr.bed-details')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.bed-details')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function diagonases()
+    {
+        $title = 'Diagonases';
+        $t1 = 'Diagonases List';
+        $t2 = 'Add Diagonase';
+        $form = ['diagonasis_name','icd_code'];
+        $head = ['Sl. No.', 'Diagonase', 'ICD Code', 'Action'];
+        $btn['name'] = 'Add Diagonase';
+        $btn['action'] = Route('hr.update-diagonases');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-diagonases');
+        $response = Diagonase::orderBy('id', 'desc')->get();
+        $table = "diagonases";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_diagonases($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.diagonases');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Diagonase';
+        $t1 = 'Diagonases List';
+        $t2 = 'Edit Diagonase';
+        $form = ['diagonasis_name','icd_code'];
+        $head = ['Sl. No.', 'Diagonase', 'ICD Code', 'Action'];
+        $btn['name'] = 'Update Diagonase';
+        $btn['action'] = Route('hr.update-diagonases', $id);
+        $edit['data'] =  Diagonase::find($id);
+        $edit['reset'] = Route('hr.diagonases');
+        $edit['url'] = Route('hr.edit-diagonases');
+        $response = Diagonase::orderBy('id', 'desc')->get();
+        $table = "diagonases";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_diagonases(Request $request, $id = 0)
+    {
+        $request->validate([
+            'diagonasis_name' => 'required|max:100',
+            'icd_code' => 'required|max:45',
+        ]);
+
+        $id ? $data = Diagonase::find($id) : $data = new Diagonase();
+        $data->diagonasis_name = $request->diagonasis_name;
+        $data->icd_code = $request->icd_code;
+        if ($data->save()) {
+            return redirect()->route('hr.diagonases')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.diagonases')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function all_header_listing()
+    {
+        $title = 'All Header';
+        $t1 = 'All Header';
+        $t2 = 'Add Header';
+        $btn['name'] = 'Add Header';
+        $btn['action'] = Route('hr.update-all-header-listing');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-all-header-listing');
+        $response = Header::orderBy('id', 'DESC')->get();
+        $data = compact('title', 't1', 't2', 'btn', 'edit', 'response');
+        return view('hr.header')->with($data);
+    }
+    public function edit_all_header_listing($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.all-header-listing');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Header';
+        $t1 = 'All Header';
+        $t2 = 'Edit Header';
+        $btn['name'] = 'Update Header';
+        $btn['action'] = Route('hr.update-all-header-listing', $id);
+        $edit['data'] =  Header::find($id);
+        $edit['reset'] = Route('hr.all-header-listing');
+        $edit['url'] = Route('hr.edit-all-header-listing');
+        $response = Header::orderBy('id', 'desc')->get();
+        $data = compact('title', 't1', 't2', 'btn', 'edit', 'response');
+        return view('hr.header')->with($data);
+    }
+    public function update_all_header_listing(Request $request, $id = 0)
+    {
+        if ($id) {
+            $request->validate([
+                'header_name' => 'required|max:100',
+            ]);
+        } else {
+            $request->validate([
+                'header_name' => 'required|max:100',
+                'logo' => 'required|image|mimes:jpeg,png,jpg'
+            ]);
+        }
+
+        $id ? $data = Header::find($id) : $data = new Header();
+
+        $path = public_path('assets/images/header');
+        if ($request->hasFile('logo')) {
+            if ($id && $data->logo && File::exists($path . '/' . $data->logo)) {
+                File::delete($path . '/' . $data->logo);
+            }
+            $logo = "logo-" . time() . "." . $request->file('logo')->getClientOriginalExtension();
+            $request->file('logo')->move($path, $logo);
+        } else {
+            $logo = $request->old_logo;
+        }
+
+        $data->header_name = $request->header_name;
+        $data->logo = $logo;
+        if ($data->save()) {
+            return redirect()->route('hr.all-header-listing')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.all-header-listing')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function general_setting_details()
+    {
+        $title = 'Settings';
+        $allState = State::where('country_id', 1)->get();
+        $data = compact('title', 'allState');
+        return view('hr.settings')->with($data);
+    }
+    public function update_general_setting_details(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required',
+            'email' => 'required',
+            'address' => 'required',
+            'phone_no' => 'required',
+            'state' => 'required',
+        ]);
+
+        $destination = 'assets/images/settings';
+        $path = public_path($destination);
+        if ($request->file('logo')) {
+            $extension = $request->file('logo')->getClientOriginalExtension();
+            $logo = 'logo.' . $extension;
+            $logoPath = $destination . '/' . $logo;
+            $request->file('logo')->move($path, $logo);
+        } else {
+            $logoPath = $request->input('old_logo');
+        }
+        if ($request->file('small_logo')) {
+            $extension = $request->file('small_logo')->getClientOriginalExtension();
+            $small_logo = 'small_logo.' . $extension;
+            $smalllogoPath = $destination . '/' . $small_logo;
+            $request->file('small_logo')->move($path, $small_logo);
+        } else {
+            $smalllogoPath = $request->input('old_small_logo');
+        }
+
+        Setting::where('id', 1)->update(['value' => trim($request->input('title'))]);
+        Setting::where('id', 2)->update(['value' => trim($request->input('email'))]);
+        Setting::where('id', 3)->update(['value' => trim($request->input('address'))]);
+        Setting::where('id', 4)->update(['value' => trim($request->input('hf_id'))]);
+        Setting::where('id', 5)->update(['value' => trim($request->input('hmis_id'))]);
+        Setting::where('id', 6)->update(['value' => trim($request->input('phone_no'))]);
+        Setting::where('id', 7)->update(['value' => $logoPath]);
+        Setting::where('id', 8)->update(['value' => $smalllogoPath]);
+        Setting::where('id', 9)->update(['value' => trim($request->input('state'))]);
+        Setting::where('id', 10)->update(['value' => trim($request->input('tds'))]);
+
+        return redirect()->back()->with('success', 'Successfully Saved!');
+    }
+    public function tds_management(Request $request)
+    {
+        // dd($request->all());
+
+        $title = 'TDS Management';
+        $sections = ChargesSection::orderBy('charges_section_name')->get();
+        $records = collect();
+        $tdsPercent = (float) (hospital('tds') ?? 0);
+        $hasPaymentTdsColumn = Schema::hasColumn('payments', 'tds_amount');
+
+        if ($request->filled('section') || $request->filled('bill_no')) {
+
+            $query = Payment::select(
+                'payments.*',
+                'billings.uid as billing_uid',
+                'billings.section as billing_section',
+                'billings.bill_date as billing_date',
+                'billings.tds_amount as billing_tds_amount',
+                'billings.grand_total as billing_grand_total',
+
+                // IPD Register fields (optional, add what you need)
+                'ipd_registers.admission_type',
+                'ipd_registers.admission_date',
+                'ipd_registers.insurance_id',
+                'ipd_registers.insurance_no',
+
+                // TPA fields
+                'tpa_managements.tpa_name',
+                'tpa_managements.contact_person_name',
+                'tpa_managements.contact_person_ph_no'
+            )
+            ->join('billings', 'billings.id', '=', 'payments.billing_id')
+
+            // ✅ Join IPD register with billing section_id + section
+            ->leftJoin('ipd_registers', function ($join) {
+                $join->on('ipd_registers.id', '=', 'billings.section_id')
+                    ->where('billings.section', '=', 'IPD');
+            })
+
+            // ✅ Join TPA with ipd_registers.insurance_id = tpa_managements.id
+            ->leftJoin('tpa_managements', 'tpa_managements.id', '=', 'ipd_registers.insurance_id')
+
+            ->where('payments.payment_mode', '!=', 'cash');
+
+            // filter by section (billing OR payment)
+            if ($request->filled('section')) {
+                $section = $request->section;
+                $query->where(function ($q) use ($section) {
+                    $q->where('billings.section', $section)
+                    ->orWhere('payments.section', $section);
+                });
+            }
+
+            // filter by bill no
+            if ($request->filled('bill_no')) {
+                $query->where('billings.uid', $request->bill_no);
+            }
+
+            $records = $query->orderBy('payments.id', 'desc')->get()
+                ->map(function ($item) use ($hasPaymentTdsColumn, $tdsPercent) {
+                    $item->payment_tds_amount = $hasPaymentTdsColumn ? ($item->tds_amount ?? 0) : 0;
+                    $item->billing_tds_amount = $item->billing_tds_amount ?? 0;
+                    $item->tds_applied        = $item->payment_tds_amount > 0;
+                    $item->tds_to_apply       = round((($item->payment_amount ?? 0) * $tdsPercent) / 100, 2);
+                    return $item;
+                });
+        }
+
+
+        $data = compact('title', 'sections', 'tdsPercent', 'records');
+        return view('hr.tds-management')->with($data);
+    }
+    public function apply_tds_management(Request $request)
+    {
+        $request->validate([
+            'selected_payments' => 'required|array|min:1',
+            'selected_payments.*' => 'integer',
+        ]);
+
+        $paymentIds = array_filter((array) $request->input('selected_payments'));
+        $billingIds = $request->input('billing_ids', []);
+        $paymentHasTdsColumn = Schema::hasColumn('payments', 'tds_amount');
+        $tdsPercent = (float) (hospital('tds') ?? 0);
+        $errors = [];
+        $savedCount = 0;
+
+        DB::beginTransaction();
+        try {
+            foreach ($paymentIds as $paymentId) {
+                $payment = Payment::find($paymentId);
+                $billingId = $billingIds[$paymentId] ?? null;
+                $billing = $billingId ? Billing::find($billingId) : null;
+
+                if (!$payment || !$billing) {
+                    $errors[] = "Payment #{$paymentId} is missing related billing data.";
+                    continue;
+                }
+
+                // if ($billing->tds_amount > 0) {
+                //     $errors[] = "TDS already applied for bill {$billing->uid}.";
+                //     continue;
+                // }
+
+                if ($paymentHasTdsColumn && $payment->tds_amount > 0) {
+                    $errors[] = "TDS already applied for payment #{$payment->id}.";
+                    continue;
+                }
+
+                $tdsAmount = round(($payment->payment_amount * $tdsPercent) / 100, 2);
+                if ($tdsAmount <= 0) {
+                    $errors[] = "Computed TDS is zero for payment #{$payment->id}.";
+                    continue;
+                }
+
+                $billing->tds_amount = $billing->tds_amount + $tdsAmount;
+                $billing->save();
+
+                if ($paymentHasTdsColumn) {
+                    $payment->tds_amount = $tdsAmount;
+                    $payment->save();
+                }
+
+                $savedCount++;
+            }
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to apply TDS. Please try again.');
+        }
+
+        if ($savedCount > 0) {
+            $message = "Applied TDS ({$tdsPercent}%) for {$savedCount} bill(s).";
+            if ($errors) {
+                $message .= ' ' . implode(' ', $errors);
+            }
+            return redirect()->back()->with('success', trim($message));
+        }
+
+        return redirect()->back()->with('error', implode(' ', $errors) ?: 'No valid payments were selected.');
+    }
+    public function charges(Request $request)
+    {
+        $title = 'Charges';
+        if ($request->ajax()) {
+            $data = Charge::select('cc.charges_catagories_name as category_name', 'charges.*')
+                ->leftJoin('charges_catagories as cc', 'cc.id', '=', 'charges.category_id')
+                ->orderBy('id', 'DESC');
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('hr.charge-info', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    $actionBtn .= '<a href="' . route('hr.edit-charges', ed($row->id, true)) . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                    return $actionBtn;
+                })
+                ->addColumn('statusBtn', function ($row) {
+                    $actionBtn = '<label class="switch">
+                        <input type="checkbox" '.($row->is_active == 1 ? 'checked' : '').'
+                            onchange=\'toggleStatus("'.$row->id.'", "charges", "is_active", this)\'>
+                        <span class="slider round"></span>
+                    </label>';
+                    return $actionBtn;
+                })
+                ->rawColumns(['action','statusBtn'])
+                ->make(true);
+        }
+        return view('hr.charge', compact('title'));
+    }
+    public function charges_add()
+    {
+        $title = 'Add Charges';
+        $t1 = 'ADD Charge';
+        $charge_category = ChargesCatagory::Where('parent_id',0)->where('status', 0)->orderBy('id', 'desc')->get();
+        $charge_subcategory = ChargesCatagory::where('parent_id', '!=', 0)->where('status', 0)->orderBy('id', 'desc')->get();
+        $requisition = RequisitionSection::where('status', 0)->orderBy('id', 'desc')->get();
+        $section = ChargesSection::where('status', 0)->orderBy('id', 'desc')->get();
+        $sample = SampleType::where('status', 0)->orderBy('id', 'desc')->get();
+        $vial = Vial::where('status', 0)->orderBy('id', 'desc')->get();
+        $btn['action'] = Route('hr.update-charges');
+        $edit = null;
+        // dd($section);
+        $data = compact('title', 't1', 'charge_category', 'btn', 'charge_subcategory', 'requisition', 'section', 'sample', 'vial', 'edit');
+        return view('hr.charge-form')->with($data);
+    }
+    public function edit_charges($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.charges');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Charges';
+        $t1 = 'Edit Charge';
+        $btn['name'] = 'Update Charge';
+        $charge_category = ChargesCatagory::Where('parent_id',0)->where('status', 0)->orderBy('id', 'desc')->get();
+        $charge_subcategory = ChargesCatagory::where('parent_id', '!=', 0)->where('status', 0)->orderBy('id', 'desc')->get();
+        $section = ChargesSection::where('status', 0)->orderBy('id', 'desc')->get();
+        $requisition = RequisitionSection::where('status', 0)->orderBy('id', 'desc')->get();
+        $sample = SampleType::where('status', 0)->orderBy('id', 'desc')->get();
+        $vial = Vial::where('status', 0)->orderBy('id', 'desc')->get();
+        $btn['action'] = Route('hr.update-charges',$id);
+        $edit['data'] =  Charge::where('id',$id)->first();
+        $edit['section'] = ChargesHasSection::select('charge_section_id as id','charge_amount as amount')->where('charge_id', $edit['data']->id)->get()->toArray();
+        $edit['normal'] =  ChargesHasNormal::where('charge_id',$edit['data']->id)->get();
+        $data = compact('title','t1','charge_category','btn','charge_subcategory','requisition','section','sample','vial','edit');
+        // dd($data);
+        return view('hr.charge-form')->with($data);
+    }
+    public function update_charges(Request $request, $id = 0)
+    {
+        $request->validate([
+            'charge_type'               => 'required',
+            'charge_section'            => 'required',
+            'category_id'               => 'required',
+            'sub_category_id'           => 'required',
+            'charge_name'               => 'required|unique:charges,charge_name,' . ($id ?? 'null'),
+        ]);
+
+        $id ? $data = Charge::find($id) : $data = new Charge();
+        $data->charge_type = $request->charge_type;
+        $data->charge_section = $request->charge_section;
+        $data->category_id = $request->category_id;
+        $data->sub_category_id = $request->sub_category_id;
+        $data->charge_name = $request->charge_name;
+        $data->requisition_section_id = $request->requisition_section_id;
+        $data->template = $request->template;
+        $data->note = $request->note;
+        $data->instrument_used = $request->instrument_used;
+        $data->sample_id = $request->sample_id;
+        $data->sample_required = $request->sample_required;
+        $data->vial_id = $request->vial_id;
+        if ($data->save()) {
+            if ($request->has('charge_section_id') && $request->has('charge_amount')) {
+                if ($id) {
+                    ChargesHasSection::where('charge_id', $data->id)->delete();
+                }
+                foreach ($request->charge_section_id as $key => $section_id) {
+                    ChargesHasSection::create([
+                        'charge_id' => $data->id,
+                        'charge_section_id' => $section_id,
+                        'charge_amount' => $request->charge_amount[$key] ?? 0,
+                    ]);
+                }
+            }
+
+            if (!empty($request->test)) {
+                foreach ($request->test as $key => $value) {
+                    $testId = @$request->test_id[$key] ?? null;
+                    // dd($testId);
+                    ($testId > 0) ? $chargeNormal = ChargesHasNormal::find($testId) : $chargeNormal = new ChargesHasNormal();
+                    $chargeNormal->charge_id       = $data->id;
+                    $chargeNormal->lebel           = $request->test_for[$key] ?? null;
+                    $chargeNormal->grp_cd          = $request->grp_cd[$key] ?? null;
+                    $chargeNormal->test_parameter  = $request->test[$key] ?? null;
+                    $chargeNormal->seq_no          = $request->seq_no[$key] ?? null;
+                    $chargeNormal->comments        = $request->comments[$key] ?? null;
+                    $chargeNormal->unit            = $request->unit[$key] ?? null;
+                    $chargeNormal->m_ll            = $request->m_ll[$key] ?? null;
+                    $chargeNormal->m_ul            = $request->m_ul[$key] ?? null;
+                    $chargeNormal->f_ll            = $request->f_ll[$key] ?? null;
+                    $chargeNormal->f_ul            = $request->f_ul[$key] ?? null;
+                    $chargeNormal->c_ll            = $request->c_ll[$key] ?? null;
+                    $chargeNormal->c_ul            = $request->c_ul[$key] ?? null;
+                    $chargeNormal->method          = $request->methode[$key] ?? null;
+                    $chargeNormal->ins_used        = $request->ins_used[$key] ?? null;
+                    $chargeNormal->lis_cd          = $request->liscd[$key] ?? null;
+                    $chargeNormal->formula         = $request->formula[$key] ?? null;
+                    $chargeNormal->save();
+                }
+            }
+
+            return redirect()->route('hr.charges')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.charges')->with('error', 'Something went wrong, try again!');
+        }
+    }
+    public function charge_info($id)
+    {
+        $id = ed($id, false);
+        $charge = Charge::where('id', $id)->first();
+        $chargeSections = ChargesHasSection::join('charges_sections', 'charges_has_sections.charge_section_id', '=', 'charges_sections.id')
+            ->where('charges_has_sections.charge_id', $charge->id)
+            ->select('charges_has_sections.*', 'charges_sections.charges_section_name')
+            ->get();
+        $charge_category = ChargesCatagory::Where('parent_id', 0)->where('id', $charge->category_id)->first();
+        $charge_subcategory = ChargesCatagory::where('parent_id', '!=', 0)->where('id', $charge->sub_category_id)->first();
+        $sample = SampleType::where('id', $charge->sample_id)->first();
+        $vial = Vial::where('id', $charge->vial_id)->first();
+        $normal = ChargesHasNormal::where('charge_id', $charge->id)->get();
+        $data = compact('charge', 'chargeSections', 'charge_category', 'charge_subcategory', 'sample', 'vial', 'normal');
+        return view('hr.charge-info')->with($data);
+    }
+    public function create_package()
+    {
+        $title = 'Package';
+        $t1 = 'Packages List';
+        $t2 = 'Add Package';
+        $btn['action'] = Route('hr.update-create-package');
+        $btn['name'] = 'Add Package';
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-create-package');
+        $response = Package::orderBy('id', 'desc')->get();
+        $charges = Charge::orderBy('id', 'desc')->where('is_active', 1)->where('is_delete', 0)->get();
+        $packages = Package::join('package_details', 'packages.id', '=', 'package_details.package_id')
+            ->join('charges', 'package_details.charge_id', '=', 'charges.id')
+            ->select('packages.*', 'package_details.charge_id', 'package_details.rate', 'charges.charge_name')
+            ->get();
+        $data = compact('title', 't1', 't2', 'btn', 'response', 'charges', 'packages', 'edit');
+        return view('hr.package')->with($data);
+    }
+    public function edit_create_package($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.create-package');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Package';
+        $t1 = 'Packages List';
+        $t2 = 'Edit Package';
+        $btn['action'] = Route('hr.update-create-package', $id);
+        $btn['name'] = 'Edit Package';
+        $edit['data'] =  Package::find($id);
+        $edit['url'] = Route('hr.edit-create-package');
+        $edit['reset'] = Route('hr.create-package');
+        $response = Package::orderBy('id', 'desc')->get();
+        $charges = Charge::orderBy('id', 'desc')->where('is_active', 1)->where('is_delete', 0)->get();
+        $packages = Package::join('package_details', 'packages.id', '=', 'package_details.package_id')
+            ->join('charges', 'package_details.charge_id', '=', 'charges.id')
+            ->select('packages.*', 'package_details.charge_id', 'package_details.rate', 'charges.charge_name')
+            ->get();
+        $packageDetails = PackageDetail::where('package_id', $id)->get();
+        $data = compact('title', 't1', 't2', 'btn', 'response', 'charges', 'packages', 'edit', 'packageDetails');
+        return view('hr.package')->with($data);
+    }
+    public function update_create_package(Request $request, $id = 0)
+    {
+        $request->validate([
+            'package_name' => 'required',
+            'charge_id' => 'required|array',
+            'rate' => 'required|array'
+        ]);
+
+
+        $package = $id ? Package::find($id) : new Package();
+
+        if (!$package) {
+            return redirect()->route('hr.create-package')->with('error', 'Package not found!');
+        }
+
+        $package->package_name = $request->package_name;
+        $package->package_amount = $request->total_amount;
+
+        if ($package->save()) {
+            $packageId = $package->id;
+
+            if ($id) {
+                PackageDetail::where('package_id', $id)->delete();
+            }
+
+            foreach ($request->charge_id as $key => $chargeId) {
+                PackageDetail::create([
+                    'package_id' => $packageId,
+                    'charge_id' => $chargeId,
+                    'rate' => $request->rate[$key]
+                ]);
+            }
+
+            return redirect()->route('hr.create-package')->with('success', $id ? 'Successfully Updated!' : 'Successfully Created!');
+        } else {
+            return redirect()->route('hr.create-package')->with('error', 'Something went wrong, try again!');
+        }
+    }
+    public function package_amount(Request $request)
+    {
+        $charges = ChargesHasSection::where('charge_id', $request->selectedCharge_Id)->sum('charge_amount');
+        return response()->json($charges);
+    }
+    public function get_package_details(Request $request)
+    {
+        $charges = PackageDetail::select('c.id','c.charge_name','package_details.rate as charge_amount')
+            ->join('charges as c','c.id','=','package_details.charge_id')
+            // ->join('charges_has_sections as chs','chs.charge_id','=','package_details.charge_id')
+            // ->join('charges_sections as cs','cs.id','=','chs.charge_section_id')
+            ->where('package_details.package_id',$request->package_id)
+            // ->where('cs.charges_section_name',$request->section)
+            ->get();
+        return response()->json($charges);
+    }
+    public function create_notice()
+    {
+        $title = 'Notice';
+        $t1 = 'Add Notice';
+        $btn['name'] = 'Add Notice';
+        $btn['action'] = Route('hr.update-create-notice');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-create-notice');
+        $delete['url'] = Route('hr.delete-notice');
+        $response = Notice::select('notices.*', 'users.name')
+            ->join('users', 'users.id', '=', 'notices.post_by')
+            ->where('notices.is_delete', 0)
+            ->get();
+        $table = 'notices';
+        $data = compact('title', 't1', 'btn', 'response', 'edit', 'table', 'delete');
+        return view('hr.notice')->with($data);
+    }
+    public function edit_create_notice($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.create-notice');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Notice';
+        $t1 = 'Edit Notice';
+        $btn['name'] = 'Update Notice';
+        $btn['action'] = Route('hr.update-create-notice', $id);
+        $edit['data'] =  Notice::find($id);
+        $edit['reset'] = Route('hr.create-notice');
+        $edit['url'] = Route('hr.edit-create-notice');
+        $delete['url'] = Route('hr.delete-notice');
+        $response = Notice::select('notices.*', 'users.name')
+            ->join('users', 'users.id', '=', 'notices.post_by')
+            ->get();
+        $table = 'notices';
+        $data = compact('title', 't1', 'btn', 'edit', 'response', 'table', 'delete');
+        return view('hr.notice')->with($data);
+    }
+    public function update_create_notice(Request $request, $id = 0)
+    {
+        $request->validate([
+            'notice' => 'required',
+            'priority_level' => 'required',
+        ]);
+        $data = $id ? Notice::find($id) : new Notice();
+        $data->post_by = $request->post_by;
+        $data->notice = $request->notice;
+        $data->priority_level = $request->priority_level;
+        if ($data->save()) {
+            return redirect()->route('hr.create-notice')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.create-notice')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function delete_notice($id)
+    {
+        $id = ed($id, false);
+        $data = Notice::where('id', $id)->first();
+
+        if ($data) {
+            $data->update([
+                'is_delete' => 1
+            ]);
+            return redirect()->route('hr.create-notice')->with('success', 'Referral Person Deleted Successfully');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+    public function referral()
+    {
+        $title = 'Referrer/Provider/Market By Person List';
+        $t1 = 'Add Referrer/Provider/Market Person';
+        $btn['name'] = 'Add';
+        $btn['action'] = Route('hr.update-referral');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-referral');
+        $delete['url'] = Route('hr.delete-referral');
+        $response = Referral::where('is_delete', 0)->orderBy('id', 'desc')->get();
+        $data = compact('title', 't1', 'btn', 'response', 'edit', 'delete');
+        return view('hr.referral')->with($data);
+    }
+    public function edit_referral($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.referral');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Referrer/Provider/Market By Person List';
+        $t1 = 'Edit Referrer/Provider/Market Person';
+        $btn['name'] = 'Update';
+        $btn['action'] = Route('hr.update-referral', $id);
+        $edit['data'] =  Referral::find($id);
+        $edit['reset'] = Route('hr.referral');
+        $edit['url'] = Route('hr.edit-referral');
+        $delete['url'] = Route('hr.delete-referral');
+        $response = Referral::where('is_delete', 0)->orderBy('id', 'desc')->get();
+        $data = compact('title', 't1', 'btn', 'edit', 'response', 'delete');
+        return view('hr.referral')->with($data);
+    }
+
+    public function update_referral(Request $request, $id = 0)
+    {
+        // dd($request->all());
+
+        $request->validate([
+            'referral_name'     => 'required',
+            'type'              => 'required',
+            'phone_no'          => 'nullable|digits:10',
+            // 'total_percentage'  => 'nullable|numeric|required_without:lab_percentage',
+            // 'lab_percentage'    => 'nullable|numeric|required_without:total_percentage',
+        ]);
+        $data = $id ? Referral::find($id) : new Referral();
+        $data->referral_name        = ucwords(str_replace("_", " ", $request->referral_name));
+        $data->phone_no             = $request->phone_no;
+        $data->address              = $request->address;
+        $data->type                 = $request->type;
+        $data->reffer_type          = $request->reffer_type;
+        $data->total_percentage     = $request->total_percentage ?? 0.00;
+        $data->lab_percentage       = $request->lab_percentage ?? 0.00;
+        if ($data->save()) {
+            return redirect()->route('hr.referral')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.referral')->with('error', 'Something wrong try again!');
+        }
+    }
+
+    public function delete_referral($id)
+    {
+        $id = ed($id, false);
+        $data = Referral::where('id', $id)->first();
+
+        if ($data) {
+            $data->update([
+                'is_delete' => 1,
+                'is_active' => 0,
+            ]);
+            return redirect()->route('hr.referral')->with('success', 'Referral Person Deleted Successfully');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+
+    public function medicine_unit()
+    {
+        $title = 'Medicine Unit';
+        $t1 = 'Medicine Unit List';
+        $t2 = 'Add Medicine Unit';
+        $form = ['medicine_unit_name'];
+        $head = ['Sl. No.', 'Unit Name', 'Action'];
+        $btn['name'] = 'Add Unit';
+        $btn['action'] = Route('hr.update-medicine-unit');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-medicine-unit');
+        $response = MedUnit::orderBy('id', 'desc')->get();
+        $table = "medicine_units";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_medicine_unit($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.vials');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Medicine Unit';
+        $t1 = 'Medicine Unit List';
+        $t2 = 'Edit Medicine Unit';
+        $form = ['medicine_unit_name'];
+        $head = ['Sl. No.', 'Unit Name', 'Action'];
+        $btn['name'] = 'Update Unit';
+        $btn['action'] = Route('hr.update-medicine-unit', $id);
+        $edit['data'] =  MedUnit::find($id);
+        $edit['reset'] = Route('hr.medicine-unit');
+        $edit['url'] = Route('hr.edit-medicine-unit');
+        $response = MedUnit::orderBy('id', 'desc')->get();
+        $table = "medicine_units";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_medicine_unit(Request $request, $id = 0)
+    {
+        $request->validate([
+            'medicine_unit_name' => 'required|max:100',
+        ]);
+
+        $id ? $data = MedUnit::find($id) : $data = new MedUnit();
+        $data->medicine_unit_name = $request->medicine_unit_name;
+        if ($data->save()) {
+            return redirect()->route('hr.medicine-unit')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.medicine-unit')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function medicine_category()
+    {
+        $title = 'Medicine Category';
+        $t1 = 'Medicine Category List';
+        $t2 = 'Add Medicine Category';
+        $form = ['medicine_catagory_name'];
+        $head = ['Sl. No.', 'Category Name', 'Action'];
+        $btn['name'] = 'Add Category';
+        $btn['action'] = Route('hr.update-medicine-catagory');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-medicine-catagory');
+        $response = MedCatagory::orderBy('id', 'desc')->get();
+        $table = "medicine_catagories";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_medicine_category($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.medicine-catagory');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Medicine Category';
+        $t1 = 'Medicine Category List';
+        $t2 = 'Edit Medicine Category';
+        $form = ['medicine_catagory_name'];
+        $head = ['Sl. No.', 'Category Name', 'Action'];
+        $btn['name'] = 'Update Category';
+        $btn['action'] = Route('hr.update-medicine-catagory', $id);
+        $edit['data'] =  MedCatagory::find($id);
+        $edit['reset'] = Route('hr.medicine-catagory');
+        $edit['url'] = Route('hr.edit-medicine-catagory');
+        $response = MedCatagory::orderBy('id', 'desc')->get();
+        $table = "medicine_catagories";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_medicine_category(Request $request, $id = 0)
+    {
+        $request->validate([
+            'medicine_catagory_name' => 'required|max:100|unique:med_catagories,medicine_catagory_name',
+        ]);
+
+        $id ? $data = MedCatagory::find($id) : $data = new MedCatagory();
+        $data->medicine_catagory_name = $request->medicine_catagory_name;
+        if ($data->save()) {
+            return redirect()->route('hr.medicine-catagory')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.medicine-catagory')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function search_by_bill(Request $request)
+    {
+        if ($request->bill_no != null || $request->p_uhid_bill != null) {
+            $data = Billing::where('uid', $request->bill_no)->where('section', $request->section)->first();
+            if ($data != null) {
+                return redirect()->route('bill.billing-details', [
+                    'section' => $data->section,
+                    'bill_id' => ed($data->id, true),
+                ]);
+            } else {
+                if ($request->p_uhid_bill != null) {
+                    $search_by_p = Billing::where('uid', $request->p_uhid_bill)->where('section', $request->section)->latest()->first();
+                    if ($search_by_p != null) {
+                        return redirect()->route('bill.billing-details', [
+                            'section' => $search_by_p->section,
+                            'bill_id' => ed($search_by_p->id, true),
+                        ]);
+                    } else {
+                        return redirect()->back();
+                    }
+                } else {
+                    return redirect()->back();
+                }
+            }
+        } else {
+            return redirect()->back();
+        }
+    }
+    public function patient_search_in_global(Request $request)
+    {
+        $request_data = $request->all();
+        $trimmedString = str_replace(' ', '', $request->Patientname);
+
+        if (!empty($request_data)) {
+            $all_patient = Patient::where(function ($query) use ($request, $trimmedString) {
+                if (!empty($request->Patientmobile)) {
+                    $query->where('phone', '=', $request->Patientmobile);
+                }
+                if (!empty($request->Patientuhid)) {
+                    $query->where('id', '=', $request->Patientuhid);
+                }
+                if (!empty($request->Patientname)) {
+                    $query->where(DB::raw("REPLACE(CONCAT_WS('', name), ' ', '')"), 'like', '%' . $trimmedString . '%');
+                }
+            })
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->orderBy('id', 'DESC')
+            ->limit(10)
+            ->get();
+        } else {
+            $all_patient = Patient::where('is_active', 1)
+                ->where('is_delete', 0)
+                ->orderBy('id', 'DESC')
+                ->limit(10)
+                ->get();
+        }
+
+        return response()->json([
+            'all_patient' => $all_patient,
+            'request_data' => $request_data
+        ]);
+    }
+
+    public function create_ot_rooms()
+    {
+        $title = 'OT Rooms';
+        $t1 = 'OT Rooms List';
+        $t2 = 'Add OT Rooms';
+        $form = ['name'];
+        $head = ['Sl. No.', 'Room No', 'Room Status', 'Action'];
+        $btn['name'] = 'Add OT Room';
+        $btn['action'] = Route('hr.update-ot-room');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-ot-room');
+        $response = OtRoom::orderBy('id', 'desc')->get();
+        $table = "ot_rooms";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('master-from')->with($data);
+    }
+
+    public function edit_ot_room($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.add-ot-rooms');
+        }
+        $id = ed($id, false);
+        $title = 'OT Rooms';
+        $t1 = 'OT Rooms List';
+        $t2 = 'Edit OT Rooms';
+        $form = ['name'];
+        $head = ['Sl. No.', 'Room No', 'Is Used?', 'Action'];
+        $btn['name'] = 'Update OT Room';
+        $btn['action'] = Route('hr.update-ot-room', $id);
+        $edit['data'] =  OtRoom::find($id);
+        $edit['reset'] = Route('hr.add-ot-rooms');
+        $edit['url'] = Route('hr.edit-ot-room');
+        $response = OtRoom::orderBy('id', 'desc')->get();
+        $table = "ot_rooms";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('master-from')->with($data);
+    }
+
+    public function update_ot_room(Request $request, $id = 0)
+    {
+        if( !empty($id) ){
+
+            $request->validate([
+                'name' => 'required|unique:ot_rooms,name,' . $id,
+            ]);
+
+        } else {
+
+            $request->validate([
+                'name' => 'required|unique:ot_rooms,name',
+            ]);
+
+        }
+
+        $id ? $data = OtRoom::find($id) : $data = new OtRoom();
+        $data->name = $request->name;
+        if ($data->save()) {
+            return redirect()->route('hr.add-ot-rooms')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.add-ot-rooms')->with('error', 'Something wrong try again!');
+        }
+    }
+
+
+    public function create_ot_procedures()
+    {
+        $title = 'OT Procedures';
+        $t1 = 'OT Procedures List';
+        $t2 = 'Add OT Procedures';
+        $form = ['code'];
+        $head = ['Sl. No.', 'Code', 'Action'];
+        $btn['name'] = 'Add';
+        $btn['action'] = Route('hr.update-ot-procedures');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-ot-procedures');
+        $response = OtProcedure::orderBy('id', 'desc')->get();
+        $table = "ot_procedures";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('master-from')->with($data);
+    }
+
+    public function edit_ot_procedure($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.create-ot-procedures');
+        }
+        $id = ed($id, false);
+        $title = 'OT Procedures';
+        $t1 = 'OT Procedure List';
+        $t2 = 'Edit OT Rooms';
+        $form = ['code'];
+        $head = ['Sl. No.', 'Code', 'Action'];
+        $btn['name'] = 'Update';
+        $btn['action'] = Route('hr.update-ot-procedures', $id);
+        $edit['data'] =  OtProcedure::find($id);
+        $edit['reset'] = Route('hr.create-ot-procedures');
+        $edit['url'] = Route('hr.edit-ot-procedures');
+        $response = OtProcedure::orderBy('id', 'desc')->get();
+        $table = "ot_procedures";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('master-from')->with($data);
+    }
+
+    public function update_ot_procedures(Request $request, $id = 0)
+    {
+        if( !empty($id) ){
+
+            $request->validate([
+                'code' => 'required|max:100|unique:ot_procedures,code,' . $id,
+            ]);
+
+        } else {
+
+            $request->validate([
+                'code' => 'required|max:100|unique:ot_procedures,code',
+            ]);
+
+        }
+
+        $id ? $data = OtProcedure::find($id) : $data = new OtProcedure();
+        $data->code = $request->code;
+        if ($data->save()) {
+            return redirect()->route('hr.create-ot-procedures')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.create-ot-procedures')->with('error', 'Something wrong try again!');
+        }
+    }
+
+    public function procedure_details()
+    {
+        $title = 'Procedure Name';
+        $t1 = 'Procedure List';
+        $t2 = 'Add Procedure Name';
+        $form = ['name', 'code'];
+        $head = ['Sl. No.', 'Name', 'Code', 'Action'];
+        $btn['name'] = 'Add Procedure';
+        $btn['action'] = Route('hr.update-procedure-details');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-procedure-details');
+        $response = OtProcedureName::select('ot_procedure_names.*', 'ot_procedures.code as code')->join('ot_procedures', 'ot_procedures.id', '=', 'ot_procedure_names.procedure_code')->orderBy('id', 'desc')->get();
+        $procedure = OtProcedure::where('status', 0)->orderBy('id', 'desc')->get();
+        $table = "ot_procedure_names";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'procedure', 'table');
+        // dd($response);
+        return view('master-from')->with($data);
+    }
+    public function edit_procedure_details($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.procedure-details');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Proceduere Name';
+        $t1 = 'Procedure List';
+        $t2 = 'Edit Procedure Name';
+        $form = ['name', 'procedure_code'];
+        $head = ['Sl. No.', 'Name', 'Code', 'Action'];
+        $btn['name'] = 'Update Procedure';
+        $btn['action'] = Route('hr.update-procedure-details', $id);
+        $edit['data'] =  OtProcedureName::find($id);
+        $procedure = OtProcedure::where('status', 0)->orderBy('id', 'desc')->get();
+        $edit['reset'] = Route('hr.procedure-details');
+        $edit['url'] = Route('hr.edit-procedure-details');
+        $response = OtProcedureName::select('ot_procedure_names.*', 'ot_procedures.code')->join('ot_procedures', 'ot_procedures.id', '=', 'ot_procedure_names.procedure_code')->orderBy('id', 'desc')->get();
+
+        $table = "ot_procedure_names";
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'procedure', 'table');
+        return view('master-from')->with($data);
+    }
+    public function update_procedure_details(Request $request, $id = 0)
+    {
+        if( !empty($id) ){
+
+            $request->validate([
+                'name' => 'required|unique:ot_procedure_names,name,' . $id,
+                'procedure_code' => 'required',
+            ]);
+
+        } else {
+
+            $request->validate([
+                'name' => 'required|unique:ot_procedure_names,name',
+                'procedure_code' => 'required',
+            ]);
+
+        }
+
+        $id ? $data = OtProcedureName::find($id) : $data = new OtProcedureName();
+        $data->name = $request->name;
+        $data->procedure_code = $request->procedure_code;
+        if ($data->save()) {
+            return redirect()->route('hr.procedure-details')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.procedure-details')->with('error', 'Something wrong try again!');
+        }
+    }
+}

@@ -1,0 +1,394 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Expense</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="card">
+        <div class="card-header d-block card_hearder_mimi">
+            <div class="row">
+                <div class="col-md-6 card-title card_hearder_mimi_text">
+                    Expense Entry
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{route('store.update-expense', @$response->id ?? 0)}}" id="yourFormId">
+                @csrf
+                <div class="card-body" style="margin:-6px;">
+                    <div class="col-md-12">
+                        <div class="row">
+                            <div class="col-md-2 mt-3">
+                                <label class="date-format">Date <span class="text-danger">*</span></label>
+                                <input type="text" class="dateTimePickr" name="expense_date" id="expense_date"
+                                    value="{{ old('expense_date', @($response->expense_date) ? \Carbon\Carbon::parse($response->expense_date)->format('d-m-Y h:i A') : date('d-m-Y h:i A')) }}" required />
+                                @error('expense_date')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                            <div class="col-md-2 mt-3">
+                                <label class="form-label ">Department <span class="text-danger">*</span></label>
+                                <select @if( @request('dept_id') ) disabled @endif name="department_id"  class="form-control select2-show-search" required onchange="getRequisitions(this.value);">
+                                        <option value="">Select One.....</option>
+                                        @foreach ($departments as $value)
+                                            <option value="{{ @$value->id }}" {{ @$response->dept_id == $value->id ? 'selected' : '' }}>{{ @$value->name }}</option>
+                                        @endforeach
+                                </select>
+
+                                @if( @request('dept_id') )
+                                <input type="hidden" name="department_id" value="{{ ed(@request('dept_id'), false) }}" />
+                                @endif
+
+                                @error('department_id')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-2 mt-3">
+                                <label class="form-label ">Requisition <span class="text-danger">*</span></label>
+                                <select @if( @request('requ_id') ) disabled @endif id="requisition-id" name="requisition_id"  class="form-control select2-show-search" required onchange="getItemDetails(this.value);">
+                                    <option value="">Select One.....</option>
+                                     @foreach ($requisitions as $value)
+                                        <option value="{{ @$value->id }}" {{ @$response->requisition_id == $value->id ? 'selected' : '' }}>R#{{ @$value->id }}</option>
+                                    @endforeach
+                                </select>
+                                @error('issue_id')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+
+                                @if( @request('requ_id') )
+                                <input type="hidden" name="requisition_id" value="{{ ed(@request('requ_id'), false) }}" />
+                                @endif
+
+                            </div>
+                            <div class="col-md-6 mt-3">
+                                <label class="date-format">Remarks </label>
+                                <input type="text" name="remarks" value="{{ old('remarks', @$response->remarks) }}" />
+                                @error('remarks')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="table-responsive">
+                            <table class="table card-table table-vcenter text-nowrap border" id="data-table">
+                                <thead class="bg-primary text-white">
+                                    <tr>
+                                        <th class="text-white" style="width: 10%">Item Name <span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Avi QTY<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Unit QTY<span class="text-danger">*</span></th>
+                                        <th  class="text-white" style="width: 10%">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="chargeTable">
+                                    @foreach (@$item_list ?? [] as $key => $info)
+                                        @php
+                                            $avi_qty = $info->unit_qty * $info->sub_unit_no;
+                                            $sub_unit_qty = ($info->sub_unit_no * $info->exp_unit_qty) + $info->exp_subunit_qty;
+                                            $sub_unit = $info->sub_unit_name;
+                                        $key++;
+                                        @endphp
+                                        <tr>
+                                            <td>
+                                                <input class="form-control" type="hidden" name="req_item_id[]" value="{{ $info->id }}" />
+                                                <select class="form-control select2-show-search" id="item_name{{ $key }}" name="item_name[]">
+                                                    <option value="{{ $info->item_id }}">{{ $info->item_name }}</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <div class="input-group" style="width: 100%;">
+                                                    <input class="form-control col-5 sub_unit_qty" readonly type="number" min="0" style="padding-left: 0.50rem;" value="{{ $avi_qty }}" step="0.1" />
+                                                    <input class="form-control col-7 sub_unit" readonly type="text" value="{{ $sub_unit }}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="input-group" style="width: 100%;">
+                                                    <input class="form-control col-5 sub_unit_qty" max="{{ $avi_qty }}" type="number" min="0" style="padding-left: 0.50rem;" name="sub_unit_qty[]" value="{{ $sub_unit_qty }}" step="0.1" placeholder="Sub Qty" />
+                                                    <input class="form-control col-7 sub_unit" readonly type="text" name="sub_unit_name[]" value="{{ $sub_unit }}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <input class="form-control" type="text" name="all_remarks[]" style="padding-left: 0.50rem;" placeholder="Remarks" />
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="save_action" id="saveAction">
+                <div class="text-center mb-4 sub-btn" @if( @request('id') ) style="display: block;" @else style="display: none;" @endif>
+                    <button type="submit" onclick="setAction(1)" class="btn btn-primary px-5">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+@push('js')
+<script type="text/javascript">
+
+    function getRequisitions(department_id){
+
+        if (department_id) {
+            $.ajax({
+                url: "{{ route('store.get-requisition') }}",
+                type: "post",
+                data: {
+                    department_id: department_id,
+                    _token: '{{ csrf_token() }}',
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if (res.status) {
+
+                        let options = '<option value="">Select requisition</option>';
+                        res.data.forEach(function (subcat, index) {
+                            options += `
+                                <option value="${subcat.id}">
+                                    R# ${subcat.id}
+                                </option>
+                            `;
+                        });
+
+                        $('#requisition-id').html(options);
+
+                    } else {
+                        alert('Requisition not found');
+                    }
+                }
+            });
+        }else{
+            $('#chargeTable tr:first').show();
+        }
+    }
+
+    function getItemDetails(requisition_id){
+        $('#chargeTable').html('');
+        $('.sub-btn').hide();
+
+        if (requisition_id) {
+            $.ajax({
+                url: "{{ route('store.get-issue-items') }}",
+                type: "post",
+                data: {
+                    requisition_id: requisition_id,
+                    _token: '{{ csrf_token() }}',
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if (res.status) {
+
+                        let newRow = null;
+                        let table = document.getElementById("chargeTable");
+                        let rowCount = table.rows.length;
+                        // $('#department').val(res.data.department_id).trigger('change');
+                        // $('#chargeTable tr:first').hide();
+                        res.data.forEach(item => {
+
+                            // Extract values from each item
+                            let itemValue = item.item_id;
+                            let itemText = item.item_name || '';
+                            let unit_id = item.unit_id || '';
+                            let unit = item.unit_name || '';
+                            let sub_unit_id = item.sub_unit_id || '';
+                            let sub_unit = item.sub_unit_name || '';
+                            let sub_unit_no = item.sub_unit_no || 0;
+                            let unit_qty = item.unit_qty;
+                            let avi_qty = unit_qty * sub_unit_no;
+                            let exp_qty = item.exp_qty;
+                            let req_item_id = item.id;
+
+                            // Create new row
+                            newRow = table.insertRow(table.rows.length);
+
+                            newRow.insertCell(0).innerHTML =
+                                `<select class="form-control" name="item_name[]">
+                                    <option value="${itemValue}">${itemText}</option>
+                                </select>
+                                <input class="form-control" type="hidden" name="unit_id[]" value="${unit_id}" />
+                                <input class="form-control" type="hidden" name="sub_unit_id[]" value="${sub_unit_id}" />
+                                <input class="form-control" type="hidden" name="req_item_id[]" value="${req_item_id}" />`;
+
+                            newRow.insertCell(1).innerHTML =
+                                `<div class="input-group" style="width: 100%;">
+                                    <input class="form-control col-5 sub_unit_qty" readonly type="number" min="0" style="padding-left: 0.50rem;" value="${avi_qty}" step="0.1" />
+                                    <input class="form-control col-7 sub_unit" readonly type="text" value="${sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                </div>`;
+
+                            newRow.insertCell(2).innerHTML =
+                                `<div class="input-group" style="width: 100%;">
+                                    <input class="form-control col-5 sub_unit_qty" max="${avi_qty}" type="number" min="0" style="padding-left: 0.50rem;" name="sub_unit_qty[]" value="0" step="0.1" placeholder="Sub Qty" />
+                                    <input class="form-control col-7 sub_unit" readonly type="text" name="sub_unit_name[]" value="${sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                </div>`;
+
+                            // newRow.insertCell(3).innerHTML =
+                            //     `<input class="form-control avi_qty" id="avi_qty" readonly type="text" name="avi_qty[]" value="${unit_qty}" />`;
+
+                            // newRow.insertCell(4).innerHTML =
+                            //     `<button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>`;
+
+                            newRow.insertCell(3).innerHTML =
+                                `<input class="form-control" type="text" name="all_remarks[]" style="padding-left: 0.50rem;" placeholder="Remarks" />`;
+
+                            rowCount++;
+                        });
+                        $('.sub-btn').show();
+                    } else {
+                        alert('Requisition not found');
+                    }
+                }
+            });
+        }else{
+            $('#chargeTable tr:first').show();
+        }
+    }
+
+    function setAction(value) {
+        document.getElementById('saveAction').value = value;
+    }
+
+    $('#item_id').on('change', function () {
+
+        const $opt = $(this).find('option:selected');
+        const aviQty = $opt.data('avi-qty');
+        $('#avi_qty').val(aviQty ?? 0);
+        $('#unit_qty').attr('max', aviQty ?? 0);
+
+        const subUnitNo = $opt.data('sub-unit-no');
+        $('.sub_unit_qty').attr('max', (subUnitNo - 1) ?? 0);
+
+    });
+
+    $('#expense_type').on('change', function () {
+
+        $('.hide-all').hide();
+
+        const $opt = $(this).find('option:selected');
+        const expenseType = $opt.val();
+        if( expenseType == 'doctor' ){
+            $('#doctor_id').show();
+        } else if( expenseType == 'patient' ){
+            $('#patient_id').show();
+        } else if( expenseType == 'staff' ){
+            $('#staff_id').show();
+        }
+
+    });
+
+    function validation(input) {
+
+        var row = $('#chargeTable').find('tr:first');
+        var itemSelect = row.find('.item_id').val();
+        var itemSelect = row.find('.expense_type').val();
+        var unitQtyInput = row.find('.unit_qty');
+        var subUnitQtyInput = row.find('.sub_unit_qty');
+        var unitQty = parseFloat(unitQtyInput.val());
+        var subUnitQty = parseFloat(subUnitQtyInput.val());
+        var maxSubUnitQty = parseFloat(subUnitQtyInput.attr('max'));
+
+        if (itemSelect === '') {
+            alert('Please Select an Item & Unit!');
+        } else if (unitQty <= 0 && subUnitQty <= 0) {
+            alert('Please Select Unit or Subunit!');
+        } else if (!isNaN(maxSubUnitQty) && subUnitQty > maxSubUnitQty) {
+            alert('Sub Unit Qty cannot exceed the maximum allowed value (' + maxSubUnitQty + ')!');
+        } else {
+            addNewrow(input);
+        }
+
+    }
+
+    function addNewrow(input) {
+
+        let firstRow        = $('#chargeTable').find('tr:first');
+        let item_id         = firstRow.find('.item_id').val();
+        let item_text       = firstRow.find('.item_id option:selected').text();
+
+        let expense_id      = firstRow.find('.expense_type').val();
+        let expense_text    = firstRow.find('.expense_type option:selected').text();
+
+        let aviQty = firstRow.find('.item_id option:selected').attr('data-avi-qty') || 0;
+        let subUnitNo = firstRow.find('.item_id option:selected').attr('data-sub-unit-no') || 0;
+
+        let unit_id = firstRow.find('.item_id option:selected').attr('data-unit-id') || 0;
+        let sub_unit_id = firstRow.find('.item_id option:selected').attr('data-sub-unit-id') || 0;
+
+        let unit_qty        = firstRow.find('.unit_qty').val();
+        let unit            = firstRow.find('.unit').text();
+        let sub_unit_qty    = firstRow.find('.sub_unit_qty').val();
+        let sub_unit        = firstRow.find('.sub_unit').text();
+
+        let newRow = `
+            <tr>
+                <td>
+                    <select class="form-control" name="item_id[]">
+                        <option value="${item_id}" selected>${item_text}</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="form-control" name="expense_type[]">
+                        <option value="${expense_id}" selected>${expense_text}</option>
+                    </select>
+                </td>
+                <td>
+                    <div class="input-group mt-1">
+                        <input style="padding-left: 0.50rem;" class="form-control col-7" type="text" max="${aviQty}" name="unit_qty[]" value="${unit_qty}" placeholder="Qty" />
+                        <input class="form-control col-5" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="${unit}" placeholder="Unit" />
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group mt-1" style="width: 100%;">
+                        <input class="form-control col-7" type="text" style="padding-left: 0.50rem;" name="sub_unit_qty[]" value="${sub_unit_qty}" placeholder="Sub Qty" />
+                        <input class="form-control col-5" readonly type="text" max="${subUnitNo-1}" name="sub_unit_name[]" value="${sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+                </td>
+                    <input type="hidden" name="unit_id[]" value="${unit_id}">
+                    <input type="hidden" name="sub_unit_id[]" value="${sub_unit_id}">
+            </tr>
+        `;
+        $('#chargeTable').append(newRow);
+
+        // Reset first row
+        firstRow.find('.item_id').val('').trigger('change');
+        firstRow.find('.unit_qty').val('0');
+        firstRow.find('.unit').val('');
+        firstRow.find('.sub_unit_qty').val('0');
+        firstRow.find('.sub_unit').val('');
+        firstRow.find('.expense_type').val('').trigger('change');
+    }
+
+    function removeRow(button) {
+        let row = button.closest('tr');
+        row.remove();
+    }
+
+    @php if( (!empty($type) && $type == 'default') || empty($type) ): @endphp
+    $(document).ready(function () {
+        $('#yourFormId').submit(function (e) {
+            e.preventDefault();
+            if ($('#chargeTable').find('tr').length <= 1) {
+                alert('Please add at least one item.');
+                return false;
+            }
+            this.submit();
+        });
+    });
+    @php endif @endphp
+
+    function removeRow(button) {
+        const row = button.closest('tr');
+        row.remove();
+    }
+</script>
+
+
+@endpush
+

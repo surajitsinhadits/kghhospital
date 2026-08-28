@@ -1,0 +1,104 @@
+@extends('layouts.structure')
+
+@push('title')
+    <title>CAMP</title>
+@endpush
+
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi justify-content-between">
+                    <h4 class="card-title card_hearder_mimi_text">Blood Issue LIST</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped table-bordered data-table w-100">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('js')
+    <script type="text/javascript">
+        $(function() {
+            $('.data-table').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: "{{ route('bl.get-blood-issue') }}"
+                },
+                columns: [{
+                        data: null,
+                        name: 'sl_no',
+                        title: 'SN',
+                        render: function(data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        },
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'created_at',
+                        name: 'created_at',
+                        title: 'Date',
+                    },
+                    {
+                        data: 'bag_barcode',
+                        name: 'bl_donations.bag_barcode',
+                        title: 'Bag Barcode'
+                    },
+                    {
+                        data: 'section',
+                        name: 'bl_blood_issue.section',
+                        title: 'Section',
+                        render: function(data, type, row) {
+                            return `${row.section} (${row.section_id})`;
+                        },
+                    },
+                    {
+                        data: 'billing',
+                        name: 'billing',
+                        title: 'Billing ID'
+                    },
+                    {
+                        data: 'patient_name',
+                        name: 'patients.name',
+                        title: 'Patient Name',
+                        render: function(data, type, row) {
+                            return `${row.patient_name} (${row.patient_id})`;
+                        },
+                    },
+                    {
+                        data: 'phone',
+                        name: 'patients.phone',
+                        title: 'Patient Phone'
+                    },
+                    {
+                        data: 'gender',
+                        name: 'patients.gender',
+                        title: 'Gender'
+                    },
+                    {
+                        data: 'dob_year',
+                        name: 'patients.dob_year',
+                        title: 'Age',
+                        render: function(data, type, row) {
+                            return `${row.dob_year} Y`;
+                        },
+                    },
+                    {
+                        data: 'blood_group',
+                        name: 'bl_donations.blood_group',
+                        title: 'Blood Group'
+                    }
+                ],
+            });
+        });
+    </script>
+@endpush

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+
+<head>
+    <meta charset="utf-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="{{ url('public/dashlogo.jpeg') }}" type="image/x-icon" />
+    @stack('title')
+
+    {{-- css --}}
+    <link href="{{ url('public/assets') }}/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url('public/assets') }}/css/style.css" rel="stylesheet" />
+    <link href="{{ url('public/assets') }}/plugins/wysiwyag/richtext.css" rel="stylesheet" />
+    <link href="{{ url('public/assets') }}/css/animated.css" rel="stylesheet" />
+    <link href="{{ url('public/assets') }}/css/sidemenu.css" rel="stylesheet">
+    <link href="{{ url('public/assets') }}/css/icons.css" rel="stylesheet" />
+    <link href="{{ url('public/assets') }}/plugins/select2/select2.min.css" rel="stylesheet" />
+    <link href="{{ url('public/assets') }}/plugins/simplebar/css/simplebar.css" rel="stylesheet">
+    <link href="{{ url('public/assets') }}/colors/color1.css" rel="stylesheet" type="text/css" id="theme" />
+    <link href="{{ url('public/assets') }}/switcher/css/switcher.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+
+    {{-- flatpickr --}}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+    <!-- Toastr CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+
+    {{-- <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css" rel="stylesheet" /> --}}
+
+    <style>
+        .monthPickr,
+        .monthPickrMulti,
+        .datePickr,
+        .timePickr,
+        .dateTimePickr,
+        .dateTimeEndPickr,
+        .dateTimeStratPickr,
+        .dateRangePickr {
+            background: white !important;
+        }
+
+        .flex.justify-between.flex-1.sm\:hidden {
+            display: none;
+        }
+
+        .paginate {
+            text-align: center;
+        }
+
+        /* datatable css */
+        thead th {
+            background-color: #2e4f4f !important;
+            color: #fff !important;
+        }
+
+        div.table-responsive>div.dataTables_wrapper>div.row {
+            margin: 0;
+        }
+
+        div.dataTables_wrapper div.dataTables_filter {
+            margin-bottom: 0px;
+        }
+
+        div.dataTables_wrapper div.dataTables_filter label {
+            text-align: end !important;
+        }
+
+        #table-responsive {
+            min-height: 60vh;
+        }
+    </style>
+    <style>
+        .iconnav{
+            margin-right: 8px;
+        }
+        .dropdown a{
+            font-size: 13px !important;
+        }
+        .navbar-light .navbar-nav .nav-link {
+            margin-top: 2px;
+        }
+    </style>
+    @stack('css')
+</head>
+
+<body class="app sidebar-mini">
+    <x-switcher />
+
+    <div id="global-loader">
+        <img src="{{ url('public/loader.gif') }}" alt="loader" width="100px" height="100px">
+    </div>
+
+    <x-navbar />
+
+    <!--Main Content-->
+    @yield('main-content')
+
+    {{-- <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js"></script> --}}
+
+    <!-- Jquery js-->
+    <script src="{{ url('public/assets') }}/js/jquery-3.5.1.min.js"></script>
+    <!-- Bootstrap4 js-->
+    <script src="{{ url('public/assets') }}/plugins/bootstrap/popper.min.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/bootstrap/js/bootstrap.min.js"></script>
+    <!--Othercharts js-->
+    <script src="{{ url('public/assets') }}/plugins/othercharts/jquery.sparkline.min.js"></script>
+    <!-- Circle-progress js-->
+    <script src="{{ url('public/assets') }}/js/circle-progress.min.js"></script>
+    <!-- Jquery-rating js-->
+    <!--Sidemenu js-->
+    <script src="{{ url('public/assets') }}/plugins/sidemenu/sidemenu.js"></script>
+    <!-- INTERNAL Select2 js -->
+    <script src="{{ url('public/assets') }}/plugins/select2/select2.full.min.js"></script>
+    <script src="{{ url('public/assets') }}/js/select2.js"></script>
+    <!-- Simplebar JS -->
+    <script src="{{ url('public/assets') }}/plugins/simplebar/js/simplebar.min.js"></script>
+    <!-- Custom js-->
+    <script src="{{ url('public/assets') }}/js/custom.js"></script>
+    <!-- INTERNAL Data tables -->
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/jquery.dataTables.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/dataTables.bootstrap4.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/dataTables.buttons.min.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/buttons.bootstrap4.min.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/jszip.min.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/pdfmake.min.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/vfs_fonts.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/buttons.html5.min.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/buttons.print.min.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/datatable/js/buttons.colVis.min.js"></script>
+    <!-- Switcher js-->
+    <script src="{{ url('public/assets') }}/switcher/js/switcher.js"></script>
+    <script src="{{ url('public/assets') }}/plugins/notify/js/notifIt.js"></script>
+    <!-- INTERNAL WYSIWYG Editor js -->
+    <script src="{{ url('public/assets') }}/plugins/wysiwyag/jquery.richtext.js"></script>
+    <script src="{{ url('public/assets') }}/js/form-editor.js"></script>
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/super-build/ckeditor.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- datatable -->
+    <link href="https://cdn.datatables.net/1.11.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <script src="https://cdn.datatables.net/1.11.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.4/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $('.datatable').DataTable();
+        $('.datatable-all').DataTable({
+            "paging": false,
+            "searching": true,
+            "info": false        // Disable "Showing x of y" info
+        })
+    </script>
+    <!-- Toastr JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <!-- ApexCharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- moment JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+
+    @if (session('success'))
+        <script>
+            toastr.success("{{ session('success') }}");
+        </script>
+    @elseif(session('error'))
+        <script>
+            toastr.error("{{ session('error') }}");
+        </script>
+    @endif
+
+    <script>
+        let datePickr = {
+            enableTime: false,
+            dateFormat: "d-m-Y"
+        };
+        let timePickr = {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "h:i K",
+        };
+        let dateTimePickr = {
+            enableTime: true,
+            dateFormat: "d-m-Y h:i K",
+            defaultHour: 00,
+            defaultMinute: 00,
+        };
+        let dateTimeStratPickr = {
+            enableTime: true,
+            dateFormat: "d-m-Y h:i K",
+            minDate: new Date(),
+            defaultHour: 00,
+            defaultMinute: 00,
+        };
+        let dateTimeEndPickr = {
+            enableTime: true,
+            dateFormat: "d-m-Y h:i K",
+            maxDate: new Date(),
+            defaultHour: 00,
+            defaultMinute: 00,
+            onChange: function(selectedDates, dateStr, instance) {
+                let now = new Date();
+                let selectedDate = selectedDates[0];
+                if (selectedDate.getDate() == now.getDate()) {
+                    selectedDate.setHours(now.getHours());
+                    selectedDate.setMinutes(now.getMinutes());
+                    instance.setDate(selectedDate);
+                }
+            }
+        };
+        let dateRangePickr = {
+            mode: "range",
+            enableTime: false,
+            dateFormat: "d-m-Y"
+        };
+        $(".datePickr").flatpickr(datePickr);
+        $(".timePickr").flatpickr(timePickr);
+        $(".dateTimePickr").flatpickr(dateTimePickr);
+        $(".dateTimeStratPickr").flatpickr(dateTimeStratPickr);
+        $(".dateTimeEndPickr").flatpickr(dateTimeEndPickr);
+        $(".dateRangePickr").flatpickr(dateRangePickr);
+    </script>
+    @stack('js')
+    <script type="text/javascript">
+        // document.addEventListener('DOMContentLoaded', function () {
+        //     let clickedButton = null;
+
+        //     // Track which submit button was clicked
+        //     document.querySelectorAll('form button[type="submit"]').forEach(button => {
+        //         button.addEventListener('click', function (event) {
+        //             clickedButton = event.target;
+        //         });
+        //     });
+
+        //     // When any form is submitted
+        //     document.querySelectorAll('form').forEach(form => {
+        //         form.addEventListener('submit', function (event) {
+        //             if (clickedButton) {
+        //                 clickedButton.disabled = true;
+        //             }
+        //         });
+        //     });
+        // });
+    </script>
+    <script>
+        $(document).ready(function() {
+            $('.nav-toggle').click(function() {
+                var collapse_content_selector = $(this).attr('href'); //get collapse content selector
+                var toggle_switch = $(this); //make the collapse content to be shown or hide
+                $(collapse_content_selector).toggle(function() {
+                    if ($(this).css('display') == 'none') {
+                        toggle_switch.html('Show'); //change the button label to be 'Show'
+                    } else {
+                        toggle_switch.html('Hide'); //change the button label to be 'Hide'
+                    }
+                });
+            });
+
+        });
+    </script>
+    <script>
+        document.addEventListener('click', function(event) {
+            const div = document.getElementById('search_result');
+            if (!div.contains(event.target)) {
+                div.style.display = 'none';
+            }
+        });
+    </script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const editors = document.querySelectorAll(".text");
+
+            editors.forEach(editor => {
+                CKEDITOR.ClassicEditor.create(editor, {
+                    toolbar: {
+                        items: [
+                            'exportPDF', 'exportWord', '|',
+                            'findAndReplace', 'selectAll', '|',
+                            'heading', '|',
+                            'bold', 'italic', 'strikethrough', 'underline', 'code', 'subscript',
+                            'superscript',
+                            'removeFormat', '|',
+                            'bulletedList', 'numberedList', 'todoList', '|',
+                            'outdent', 'indent', '|',
+                            'undo', 'redo',
+                            '-',
+                            'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor',
+                            'highlight', '|',
+                            'alignment', '|',
+                            'link', 'uploadImage', 'blockQuote', 'insertTable', 'mediaEmbed',
+                            'codeBlock', 'htmlEmbed',
+                            '|',
+                            'specialCharacters', 'horizontalLine', 'pageBreak', '|',
+                            'textPartLanguage', '|',
+                            'sourceEditing'
+                        ],
+                        shouldNotGroupWhenFull: true
+                    },
+                    list: {
+                        properties: {
+                            styles: true,
+                            startIndex: true,
+                            reversed: true
+                        }
+                    },
+                    heading: {
+                        options: [{
+                                model: 'paragraph',
+                                title: 'Paragraph',
+                                class: 'ck-heading_paragraph'
+                            },
+                            {
+                                model: 'heading1',
+                                view: 'h1',
+                                title: 'Heading 1',
+                                class: 'ck-heading_heading1'
+                            },
+                            {
+                                model: 'heading2',
+                                view: 'h2',
+                                title: 'Heading 2',
+                                class: 'ck-heading_heading2'
+                            },
+                            {
+                                model: 'heading3',
+                                view: 'h3',
+                                title: 'Heading 3',
+                                class: 'ck-heading_heading3'
+                            },
+                            {
+                                model: 'heading4',
+                                view: 'h4',
+                                title: 'Heading 4',
+                                class: 'ck-heading_heading4'
+                            },
+                            {
+                                model: 'heading5',
+                                view: 'h5',
+                                title: 'Heading 5',
+                                class: 'ck-heading_heading5'
+                            },
+                            {
+                                model: 'heading6',
+                                view: 'h6',
+                                title: 'Heading 6',
+                                class: 'ck-heading_heading6'
+                            }
+                        ]
+                    },
+                    placeholder: 'Welcome to CKEditor 5!',
+                    fontFamily: {
+                        options: [
+                            'default',
+                            'Arial, Helvetica, sans-serif',
+                            'Courier New, Courier, monospace',
+                            'Georgia, serif',
+                            'Lucida Sans Unicode, Lucida Grande, sans-serif',
+                            'Tahoma, Geneva, sans-serif',
+                            'Times New Roman, Times, serif',
+                            'Trebuchet MS, Helvetica, sans-serif',
+                            'Verdana, Geneva, sans-serif'
+                        ],
+                        supportAllValues: true
+                    },
+                    fontSize: {
+                        options: [10, 12, 14, 'default', 18, 20, 22],
+                        supportAllValues: true
+                    },
+                    htmlSupport: {
+                        allow: [{
+                            name: /.*/,
+                            attributes: true,
+                            classes: true,
+                            styles: true
+                        }]
+                    },
+                    htmlEmbed: {
+                        showPreviews: true
+                    },
+                    link: {
+                        decorators: {
+                            addTargetToExternalLinks: true,
+                            defaultProtocol: 'https://',
+                            toggleDownloadable: {
+                                mode: 'manual',
+                                label: 'Downloadable',
+                                attributes: {
+                                    download: 'file'
+                                }
+                            }
+                        }
+                    },
+                    mention: {
+                        feeds: [{
+                            marker: '@',
+                            feed: [
+                                '@apple', '@bears', '@brownie', '@cake', '@cake',
+                                '@candy', '@canes',
+                                '@chocolate', '@cookie', '@cotton', '@cream',
+                                '@cupcake', '@danish', '@donut', '@dragée',
+                                '@fruitcake', '@gingerbread',
+                                '@gummi', '@ice', '@jelly-o',
+                                '@liquorice', '@macaroon', '@marzipan', '@oat', '@pie',
+                                '@plum', '@pudding',
+                                '@sesame', '@snaps', '@soufflé',
+                                '@sugar', '@sweet', '@topping', '@wafer'
+                            ],
+                            minimumCharacters: 1
+                        }]
+                    },
+                    removePlugins: [
+                        'AIAssistant',
+                        'CKBox',
+                        'CKFinder',
+                        'EasyImage',
+                        'MultiLevelList',
+                        'RealTimeCollaborativeComments',
+                        'RealTimeCollaborativeTrackChanges',
+                        'RealTimeCollaborativeRevisionHistory',
+                        'PresenceList',
+                        'Comments',
+                        'TrackChanges',
+                        'TrackChangesData',
+                        'RevisionHistory',
+                        'Pagination',
+                        'WProofreader',
+                        'MathType',
+                        'SlashCommand',
+                        'Template',
+                        'DocumentOutline',
+                        'FormatPainter',
+                        'TableOfContents',
+                        'PasteFromOfficeEnhanced',
+                        'CaseChange'
+                    ]
+                });
+            });
+        });
+    </script>
+    <script>
+        $('#qty, input[name="qty[]"]').on('input', function() {
+            let value = $(this).val();
+            if (value == '') {
+                $(this).val(1);
+            }
+        });
+        $('#rate, input[name="rate[]"], #discount_in_per, input[name="discount_in_per[]"], #discount_amount, input[name="discount_amount[]"], #total_discount, #miscellaneous_charge').on('input', function() {
+            let value = $(this).val();
+            if (value == '') {
+                $(this).val(0);
+            }else{
+                // Remove all non-numeric and non-dot characters
+                value = value.replace(/[^0-9.]/g, '');
+
+                // Remove leading zeros, but preserve "0", "0.x", and ".x"
+                if (value.length > 1 && value.charAt(0) === '0' && value.charAt(1) !== '.') {
+                    value = value.replace(/^0+/, '');
+                    // If all zeros were removed, set to "0"
+                    if (value === '') value = '0';
+                }
+
+                $(this).val(value);
+            }
+        });
+        function formatDateTime(dateTime, format = 'both') {
+            let dateObj = new Date(dateTime);
+            if (isNaN(dateObj.getTime())) return '--'; // Handle invalid dates
+
+            // Extract date parts
+            let day = String(dateObj.getDate()).padStart(2, '0');
+            let month = String(dateObj.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+            let year = dateObj.getFullYear();
+
+            // Extract time parts
+            let hours = dateObj.getHours();
+            let minutes = String(dateObj.getMinutes()).padStart(2, '0');
+            let ampm = hours >= 12 ? 'PM' : 'AM';
+
+            // Convert to 12-hour format
+            hours = hours % 12 || 12;
+            hours = String(hours).padStart(2, '0'); // Ensure 2-digit hours
+
+            let formattedDate = `${day}-${month}-${year}`;
+            let formattedTime = `${hours}:${minutes} ${ampm}`;
+
+            // Return based on format type
+            if (format === 'date') return formattedDate; // Only Date
+            if (format === 'time') return formattedTime; // Only Time
+            return `${formattedDate} ${formattedTime}`; // Both Date & Time
+        }
+    </script>
+</body>
+
+</html>

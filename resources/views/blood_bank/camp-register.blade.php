@@ -1,0 +1,318 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{ $title }}</title>
+@endpush
+
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <h4 class="card-title card_hearder_mimi_text">{{ $title }}</h4>
+                </div>
+                <div class="card-body">
+                    <form class="form-horizontal" method="POST" id="camp-register-form" action="{{ route('bl.camp-save') }}">
+                        @csrf
+                        <input type="hidden" name="camp_id" value="{{ old('id', $edit['id'] ?? '') }}">
+
+                        <div class="row">
+                            <div class="card-body hospital_allcardbodydesign">
+                                <h5 class="font-weight-bold"><i class="fas fa-clinic-medical"></i> Camp Information</h5>
+                                <div class="row">
+                                    <div class="col-md-4 newuserchange">
+                                        <label>Camp Name <span class="text-danger">*</span></label>
+                                        <input type="text" name="camp_name" class="form-control"
+                                            value="{{ old('camp_name', $edit['camp_name'] ?? '') }}" required>
+                                        @error('camp_name')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-4 newuserchange">
+                                        <label>Organized By <span class="text-danger">*</span></label>
+                                        <input type="text" name="organized_by" class="form-control"
+                                            value="{{ old('organized_by', $edit['organized_by'] ?? '') }}" required>
+                                        @error('organized_by')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-4 newuserchange">
+                                        <label>Camp Date <span class="text-danger">*</span></label>
+                                        <input type="text" name="organized_date" class="form-control datePickr"
+                                            value="{{ dateFor(old('organized_date', isset($edit['organized_date']) ? \Carbon\Carbon::parse($edit['organized_date'])->format('Y-m-d') : '')) }}" required>
+                                        @error('organized_date')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <div class="row mt-2">
+                                    <div class="col-md-4 newuserchange">
+                                        <label>Start Time <span class="text-danger">*</span></label>
+                                        <input type="text" name="start_time" class="form-control timePickr"
+                                            value="{{ timeFor(old('start_time', $edit['start_time'] ?? '')) }}" required>
+                                        @error('start_time')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-4 newuserchange">
+                                        <label>End Time <span class="text-danger">*</span></label>
+                                        <input type="text" name="end_time" class="form-control timePickr"
+                                            value="{{ timeFor(old('end_time', $edit['end_time'] ?? '')) }}" required>
+                                        @error('end_time')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-4 newuserchange">
+                                        <label>Location <span class="text-danger">*</span></label>
+                                        <input type="text" name="location" class="form-control"
+                                            value="{{ old('location', $edit['location'] ?? '') }}" required>
+                                        @error('location')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <div class="row mt-2">
+                                    <div class="col-md-4 newuserchange">
+                                        <label>Contact Person <span class="text-danger">*</span></label>
+                                        <input type="text" name="contact_person" class="form-control"
+                                            value="{{ old('contact_person', $edit['contact_person'] ?? '') }}" required>
+                                        @error('contact_person')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-4 newuserchange">
+                                        <label>Contact Phone <span class="text-danger">*</span></label>
+                                        <input type="text" name="contact_phone" class="form-control"
+                                            value="{{ old('contact_phone', $edit['contact_phone'] ?? '') }}" required>
+                                        @error('contact_phone')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-2 newuserchange">
+                                        <label>Expected Donors</label>
+                                        <input type="number" name="expected_donors" class="form-control"
+                                            value="{{ old('expected_donors', $edit['expected_donors'] ?? 0) }}">
+                                        @error('expected_donors')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-2 newuserchange">
+                                        <label>Actual Donors</label>
+                                        <input type="number" name="actual_donors" class="form-control"
+                                            value="{{ old('actual_donors', $edit['actual_donors'] ?? 0) }}">
+                                        @error('actual_donors')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <div class="row mt-2">
+                                    <div class="col-md-12 newuserchange">
+                                        <label>Remarks</label>
+                                        <textarea name="remarks" class="form-control" rows="3">{{ old('remarks', $edit['remarks'] ?? '') }}</textarea>
+                                        @error('remarks')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body hospital_allcardbodydesign">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="row">
+                                        <div class="col-2">
+                                            <button type="submit" class="btn btn-primary" name="submit_action" value="{{ strtolower(str_replace(' ', '_', $btn)) }}">
+                                                <i class="fa fa-paper-plane mr-2"></i> {{ $btn }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('js')
+    <script>
+        $(document).ready(function() {
+            const $form = $('#camp-register-form');
+            let activeSubmitButton = null;
+
+            // Helper: Validate a single field
+            function validateField($field) {
+                let name = $field.attr('name');
+                let val = $field.val() ? $field.val().trim() : '';
+                let valid = true;
+
+                switch (name) {
+                    case 'camp_name':
+                    case 'organized_by':
+                    case 'location':
+                    case 'contact_person':
+                        // Required, alphabets, numbers, spaces, commas, slashes allowed
+                        valid = !!val && /^[A-Za-z0-9\s,\/]+$/.test(val);
+                        break;
+                    case 'organized_date':
+                        // Required, date format (basic check)
+                        valid = !!val && /^\d{2}-\d{2}-\d{4}$/.test(val);
+                        break;
+                    case 'start_time':
+                    case 'end_time':
+                        valid = !!val;
+                        break;
+                    case 'contact_phone':
+                        // Required, exactly 10 digits
+                        valid = !!val && /^\d{10}$/.test(val);
+                        break;
+                    case 'expected_donors':
+                    case 'actual_donors':
+                        // Optional, must be a number >= 0
+                        valid = val === '' || (!isNaN(val) && Number(val) >= 0);
+                        break;
+                    case 'remarks':
+                        // Optional, allow anything
+                        valid = true;
+                        break;
+                    default:
+                        break;
+                }
+
+                if (!valid) {
+                    $field.addClass('border-danger').removeClass('border-primary').css('border-color', '#dc3545');
+                } else {
+                    $field.removeClass('border-danger').addClass('border-primary').css('border-color', '#007bff');
+                }
+                return valid;
+            }
+
+            // Validate all fields on form
+            function validateForm() {
+                let valid = true;
+                let $fields = $(
+                    'input[name="camp_name"], ' +
+                    'input[name="organized_by"], ' +
+                    'input[name="organized_date"], ' +
+                    'input[name="start_time"], ' +
+                    'input[name="end_time"], ' +
+                    'input[name="location"], ' +
+                    'input[name="contact_person"], ' +
+                    'input[name="contact_phone"], ' +
+                    'input[name="expected_donors"], ' +
+                    'input[name="actual_donors"], ' +
+                    'textarea[name="remarks"]'
+                );
+                $fields.each(function() {
+                    if (!validateField($(this))) valid = false;
+                });
+                return valid;
+            }
+
+            // Live validation on input/change for all relevant fields
+            $(
+                'input[name="camp_name"], ' +
+                'input[name="organized_by"], ' +
+                'input[name="organized_date"], ' +
+                'input[name="start_time"], ' +
+                'input[name="end_time"], ' +
+                'input[name="location"], ' +
+                'input[name="contact_person"], ' +
+                'input[name="contact_phone"], ' +
+                'input[name="expected_donors"], ' +
+                'input[name="actual_donors"], ' +
+                'textarea[name="remarks"]'
+            ).on('input change keyup', function() {
+                validateField($(this));
+            });
+
+            // Input restrictions
+            // Names, location, etc.: only allow alphabets, numbers, spaces, commas, slashes
+            $('input[name="camp_name"], input[name="organized_by"], input[name="location"], input[name="contact_person"]')
+                .on('input', function() {
+                    this.value = this.value.replace(/[^A-Za-z0-9\s,\/]/g, '');
+                });
+
+            // Contact phone: only digits, max 10
+            $('input[name="contact_phone"]').on('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+            });
+
+            // Expected/Actual donors: only numbers, no negatives
+            $('input[name="expected_donors"], input[name="actual_donors"]').on('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+
+            $form.find('button[type="submit"], input[type="submit"]').on('click', function() {
+                activeSubmitButton = this;
+            });
+
+            // On submit, prevent submit if invalid
+            $form.on('submit', function(e) {
+                const form = this;
+
+                if ($form.data('submitting') === true) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                if (!validateForm()) {
+                    e.preventDefault();
+                    let $firstInvalid = $(this).find('.border-danger:visible').first();
+                    if ($firstInvalid.length) $firstInvalid.focus();
+                    return false;
+                }
+
+                if (!form.checkValidity()) {
+                    return true;
+                }
+
+                const submitter = e.originalEvent && e.originalEvent.submitter
+                    ? e.originalEvent.submitter
+                    : activeSubmitButton;
+
+                if (submitter && submitter.name) {
+                    $('<input>', {
+                        type: 'hidden',
+                        name: submitter.name,
+                        value: submitter.value
+                    }).appendTo(form);
+                }
+
+                $form.data('submitting', true);
+
+                $form.find('button[type="submit"], input[type="submit"]').each(function() {
+                    if (this.tagName === 'BUTTON') {
+                        this.dataset.originalText = this.innerHTML;
+                        this.innerHTML = 'Processing...';
+                    } else {
+                        this.dataset.originalText = this.value;
+                        this.value = 'Processing...';
+                    }
+
+                    this.disabled = true;
+                });
+            });
+
+            // Remove error highlight on input/change if valid
+            $('input, textarea').on('input change', function() {
+                if ($(this).hasClass('border-danger')) {
+                    validateField($(this));
+                }
+            });
+        });
+    </script>
+@endpush

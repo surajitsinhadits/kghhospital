@@ -1,0 +1,232 @@
+<?php
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BloodBank\BloodBankController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\HR\HRController;
+use App\Http\Controllers\HR\RoleController;
+use App\Http\Controllers\HR\MasterController;
+use App\Http\Controllers\Patient\PatientController;
+
+Route::get('/clear-cache', function () {
+    // Clears all caches (route, config, views, etc.)
+    Artisan::call('optimize:clear');
+    return "All caches have been cleared!";
+});
+
+Route::view('/', 'index')->name('login');
+Route::post('/check-user', [AuthController::class, 'check_user'])->name('check-user');
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// vendor login start
+Route::view('/vendor-login', 'vendor-login')->name('vendor.login');
+Route::post('/check-vendor', [AuthController::class, 'check_vendor'])->name('check-vendor');
+Route::post('/vendor-logout', [AuthController::class, 'vendorLogout'])->name('vendor.logout');
+// vendor login end
+
+Route::post('/send-otp', [AuthController::class, 'sendOtp'])->name('send-otp');
+Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->name('verify-otp');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('reset-password');
+Route::get('change-password', [AuthController::class, 'change_password'])->name('change-password');
+Route::post('save-change-password', [AuthController::class, 'save_change_password'])->name('save-change-password');
+
+Route::middleware(['auth'])->group(function () {
+    Route::controller(HomeController::class)->group(function () {
+        Route::get('/dashboard', 'index')->name('dashboard');
+        Route::get('/vendor-dashboard', 'vendor_dashboard')->name('vendor-dashboard');
+        Route::get('/count-data', 'dashboard_data')->name('get-count-data');
+        Route::get('/profile', 'profile')->name('profile');
+        Route::get('/bed-status', 'bed_status')->name('bed-status');
+        Route::post('/is-active/{id}/{table}/{col}', 'status_update')->name('is-active');
+        Route::post('/get-district', 'get_district')->name('get-district');
+        Route::post('/get-sub-category', 'get_sub_category')->name('get-sub-category');
+        Route::post('/get-beds', 'get_beds')->name('get-beds');
+        Route::post('/find-credit-amount', 'find_credit_amount')->name('find-credit-amount');
+    });
+    Route::controller(HRController::class)->group(function () {
+        // users
+        Route::get('/users', 'users')->name('hr.users');
+        Route::get('/users-info/{id}', 'user_info')->name('hr.users-info');
+        Route::get('/add-user', 'add_user')->name('hr.add-user');
+        Route::get('/edit-user/{id}', 'edit_user')->name('hr.edit-user');
+        Route::post('/update-user/{id?}', 'update_user')->name('hr.update-user');
+        Route::get('/edit-profile/{id}', 'edit_profile')->name('hr.edit-profile');
+        Route::post('/update-profile/{id?}', 'update_profile')->name('hr.update-profile');
+
+        // doctors
+        Route::get('/doctors', 'doctors')->name('hr.doctors');
+        Route::get('/doctor-info/{id}', 'doctor_info')->name('hr.doctors-info');
+        Route::get('/add-doctor', 'add_doctor')->name('hr.add-doctor');
+        Route::get('/edit-doctor/{id}', 'edit_doctor')->name('hr.edit-doctor');
+        Route::post('/update-doctor/{id?}', 'update_doctor')->name('hr.update-doctor');
+        Route::get('/sub-categories/{id?}', 'sub_categories')->name('hr.sub-categories-res');
+
+        // departments
+        Route::get('/departments', 'departments')->name('hr.departments');
+        Route::get('/edit-department/{id?}', 'edit_departments')->name('hr.edit-departments');
+        Route::post('/update-department/{id?}', 'update_departments')->name('hr.update-departments');
+
+        // designation
+        Route::get('/designation', 'designation')->name('hr.designation');
+        Route::get('/edit-designation/{id?}', 'edit_designation')->name('hr.edit-designation');
+        Route::post('/update-designation/{id?}', 'update_designation')->name('hr.update-designation');
+
+        // Approval Setting
+        Route::get('/approval-system/{section?}', 'approval_system')->name('hr.approval-system');
+        Route::get('/approve/{id}', 'approve')->name('hr.approve');
+    });
+    Route::controller(RoleController::class)->group(function () {
+        // role & permission
+        Route::get('/role', 'role')->name('hr.role');
+        Route::post('/insert-role', 'insert_role')->name('hr.insert-role');
+        Route::get('/permission-assign/{role_id}', 'permission_assign')->name('hr.permission-assign');
+        Route::get('/permission', 'permission')->name('hr.permission');
+        Route::post('/insert-permission', 'insert_permission')->name('hr.insert-permission');
+        Route::post('/asign-permission', 'asign_permission')->name('hr.asign-permissionn');
+    });
+    Route::controller(PatientController::class)->group(function () {
+        // patient_note
+        Route::post('/patient-note-add', 'patient_save')->name('hr.patient-note-add');
+        Route::get('patient-note-delete/{id?}', 'patient_delete')->name('hr.patient-note-delete');
+
+        // Patient_details
+        Route::get('edit-patient-details/{id}', 'edit_patient_details')->name('hr.patient-edit-details');
+        Route::post('update-patient-details/', 'update_patient_details')->name('hr.patient-update-details');
+
+        // Patient
+        Route::get('patient-profile-details/{id}', 'patient_details')->name('hr.patient-profile-details');
+        Route::get('patient-list', 'patient_list')->name('hr.patient-list');
+        Route::post('global_pateint_bill_search', 'global_pateint_bill_search')->name('global_pateint_bill_search');
+
+        // childcare
+        Route::get('/child-register', 'child_register')->name('hr.child-register');
+        Route::post('/child-register-save', 'child_register_save')->name('hr.child-register-save');
+        Route::get('/child-list', 'child_list')->name('hr.child-list');
+        Route::get('/child-register-edit/{id?}', 'child_register_edit')->name('hr.child-register-edit');
+        Route::get('/child-certificate-print/{id?}', 'child_certificate_print')->name('hr.child-certificate-print');
+        Route::get('/child-admission/{id?}', 'child_admission')->name('hr.child-admission');
+        Route::get('/child-register-view/{id?}', 'child_register_view')->name('hr.child-register-view');
+        Route::get('/child-register-delete/{id?}', 'child_register_delete')->name('hr.child-register-delete');
+    });
+    Route::controller(MasterController::class)->group(function () {
+        // charges
+        Route::get('/charges', 'charges')->name('hr.charges');
+        Route::get('/charge-info/{id?}', 'charge_info')->name('hr.charge-info');
+        Route::get('/add-charge', 'charges_add')->name('hr.charges-add');
+        Route::get('/edit-charge/{id?}', 'edit_charges')->name('hr.edit-charges');
+        Route::post('/update-charge/{id?}', 'update_charges')->name('hr.update-charges');
+
+        // charges-catagory
+        Route::get('/charges-catagory', 'charges_catagory')->name('hr.charges-catagory');
+        Route::get('/edit-charges-catagory/{id?}', 'edit_charges_catagory')->name('hr.edit-charges-catagory');
+        Route::post('/update-charges-catagory/{id?}', 'update_charges_catagory')->name('hr.update-charges-catagory');
+        Route::get('/get-categories', 'parent_categories')->name('hr.categories');
+        Route::get('/get-sub-categories/{id?}', 'sub_categories')->name('hr.sub-categories');
+
+        // charges-section
+        Route::get('/charges-section', 'charges_section')->name('hr.charges-section');
+        // Route::get('/edit-charges-section/{id?}', 'edit_charges_section')->name('hr.edit-charges-section');
+        Route::post('/update-charges-section/{id?}', 'update_charges_section')->name('hr.update-charges-section');
+
+        // requisition-section
+        Route::get('/requisition-section', 'requisition_section')->name('hr.requisition-section');
+        Route::get('/edit-requisition-section/{id?}', 'edit_requisition_section')->name('hr.edit-requisition-section');
+        Route::post('/update-requisition-section/{id?}', 'update_requisition_section')->name('hr.update-requisition-section');
+
+        // sample-test
+        Route::get('/sample-test', 'sample_test')->name('hr.sample-test');
+        Route::get('/edit-sample-test/{id?}', 'edit_sample_test')->name('hr.edit-sample-test');
+        Route::post('/update-sample-test/{id?}', 'update_sample_test')->name('hr.update-sample-test');
+
+        // tpa-management-details
+        Route::get('tpa-management-details/', 'tpa_management')->name('hr.tpa-management');
+        Route::get('/edit-tpa-management-details/{id?}', 'edit_tpa_management')->name('hr.edit-tpa-management');
+        Route::post('/update-tpa-management-details/{id?}', 'update_tpa_management')->name('hr.update-tpa-management');
+
+        // vials
+        Route::get('/vials', 'vials')->name('hr.vials');
+        Route::get('/edit-vials/{id?}', 'edit_vials')->name('hr.edit-vials');
+        Route::post('/update-vials/{id?}', 'update_vials')->name('hr.update-vials');
+
+        // ward
+        Route::get('/ward-details', 'ward_details')->name('hr.ward-details');
+        Route::get('/edit-ward-details/{id?}', 'edit_ward_details')->name('hr.edit-ward-details');
+        Route::post('/update-ward-details/{id?}', 'update_ward_details')->name('hr.update-ward-details');
+
+        // Bed
+        Route::get('/bed-details', 'bed_details')->name('hr.bed-details');
+        Route::get('/edit-bed-details/{id?}', 'edit_bed_details')->name('hr.edit-bed-details');
+        Route::post('/update-bed-details/{id?}', 'update_bed_details')->name('hr.update-bed-details');
+
+        // diagonases
+        Route::get('/diagonases', 'diagonases')->name('hr.diagonases');
+        Route::get('/edit-diagonases/{id?}', 'edit_diagonases')->name('hr.edit-diagonases');
+        Route::post('/update-diagonases/{id?}', 'update_diagonases')->name('hr.update-diagonases');
+
+        // Header
+        Route::get('/all-header-listing', 'all_header_listing')->name('hr.all-header-listing');
+        Route::get('/edit-all-header-listing/{id?}', 'edit_all_header_listing')->name('hr.edit-all-header-listing');
+        Route::post('/update-all-header-listing/{id?}', 'update_all_header_listing')->name('hr.update-all-header-listing');
+
+        // Settings
+        Route::get('/general-setting-details', 'general_setting_details')->name('hr.general-setting-details');
+        Route::post('/update-general-setting-details', 'update_general_setting_details')->name('hr.update-general-setting-details');
+
+        //package
+        Route::get('/create-package', 'create_package')->name('hr.create-package');
+        Route::get('/edit-create-package/{id?}', 'edit_create_package')->name('hr.edit-create-package');
+        Route::post('/update-create-package/{id?}', 'update_create_package')->name('hr.update-create-package');
+        Route::post('/package-amount', 'package_amount')->name('hr.package-amount');
+        Route::post('/get-package-details', 'get_package_details')->name('hr.get-package-details');
+
+        //Notice
+        Route::get('/create-notice', 'create_notice')->name('hr.create-notice');
+        Route::get('/edit-notice/{id?}', 'edit_create_notice')->name('hr.edit-create-notice');
+        Route::post('/update-notice/{id?}', 'update_create_notice')->name('hr.update-create-notice');
+        Route::get('/delete-notice/{id?}', 'delete_notice')->name('hr.delete-notice');
+
+        //Referral
+        Route::get('/referral', 'referral')->name('hr.referral');
+        Route::get('/edit-referral/{id?}', 'edit_referral')->name('hr.edit-referral');
+        Route::post('/update-referral/{id?}', 'update_referral')->name('hr.update-referral');
+        Route::get('/delete-referral/{id?}', 'delete_referral')->name('hr.delete-referral');
+
+        //MEDICINE VENDOR
+        Route::get('/medicine-vendor', 'medicine_vendor')->name('hr.medicine-vendor');
+
+        //searchbybill
+        Route::post('/search-by-bill', 'search_by_bill')->name('hr.search-by-bill');
+        Route::post('/patient-search-in-global', 'patient_search_in_global')->name('hr.patient-search-in-global');
+
+        //MEDICINE UNIT
+        Route::get('/medicine-unit', 'medicine_unit')->name('hr.medicine-unit');
+        Route::get('/edit-medicine-unit/{id?}', 'edit_medicine_unit')->name('hr.edit-medicine-unit');
+        Route::post('/update-medicine-unit/{id?}', 'update_medicine_unit')->name('hr.update-medicine-unit');
+
+        //MEDICINE CATAGORY
+        Route::get('/medicine-catagory', 'medicine_category')->name('hr.medicine-catagory');
+        Route::get('/edit-medicine-catagory/{id?}', 'edit_medicine_category')->name('hr.edit-medicine-catagory');
+        Route::post('/update-medicine-catagory/{id?}', 'update_medicine_category')->name('hr.update-medicine-catagory');
+
+        //searchbybill
+        Route::post('/search-by-bill', 'search_by_bill')->name('hr.search-by-bill');
+        Route::post('/patient-search-in-global', 'patient_search_in_global')->name('hr.patient-search-in-global');
+
+        //OPERATION
+        Route::get('/add-operation-name', 'add_operation')->name('hr.add-operation-name');
+        Route::get('/edit-operation-name/{id?}', 'edit_operation')->name('hr.edit-operation-name');
+        Route::post('/update-operation-name/{id?}', 'update_operation_name')->name('hr.update-operation-name');
+
+        Route::get('/add-ot-rooms', 'create_ot_rooms')->name('hr.add-ot-rooms');
+        Route::post('/update-ot-room/{id?}', 'update_ot_room')->name('hr.update-ot-room');
+        Route::get('/edit-ot-room/{id?}', 'edit_ot_room')->name('hr.edit-ot-room');
+
+        Route::get('/create-ot-procedures', 'create_ot_procedures')->name('hr.create-ot-procedures');
+        Route::post('/update-ot-procedures/{id?}', 'update_ot_procedures')->name('hr.update-ot-procedures');
+        Route::get('/edit-ot-procedures/{id?}', 'edit_ot_procedure')->name('hr.edit-ot-procedures');
+
+        Route::get('/procedure-details', 'procedure_details')->name('hr.procedure-details');
+        Route::get('/edit-procedure-details/{id?}', 'edit_procedure_details')->name('hr.edit-procedure-details');
+        Route::post('/update-procedure-details/{id?}', 'update_procedure_details')->name('hr.update-procedure-details');
+    });
+});

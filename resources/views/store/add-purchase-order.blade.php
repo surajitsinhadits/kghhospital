@@ -1,0 +1,1025 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Purchase Order</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="card">
+        <div class="card-header d-block card_hearder_mimi">
+            <div class="row">
+                <div class="col-md-6 card-title card_hearder_mimi_text">
+                   {{$title}} Purchase Order
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{route('store.update-purchase-order', ['id' => @$response->id ?? 0, 'type' => $type ?? ''])}}"
+                id="yourFormId"
+                data-require-date="1">
+                @csrf
+                <input type="hidden" name="type" value="{{ @$type }}">
+                <div class="card-body" style="margin:-6px;">
+                    <div class="col-md-12">
+                        <div class="row">
+                            <div class="col-md-2 mt-3">
+                                <label class="date-format">Date <span class="text-danger">*</span></label>
+                                <input @if( !empty($type) && $type != 'default' ) disabled @endif type="text" class="dateTimePickr"
+                                    name="po_date" id="po_date" readonly value="{{ old('po_date', @($response->po_date) ? \Carbon\Carbon::parse($response->po_date)->format('d-m-Y h:i A') : date('d-m-Y h:i A')) }}" required />
+                                @error('po_date')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                            <div class="col-md-3 mt-3">
+                                <label class="form-label ">Vendor <span class="text-danger">*</span></label>
+                                <select @if( !empty($type) && $type != 'default' ) disabled @endif name="vendor_id"  class="form-control select2-show-search" required>
+                                        <option value="">Select One.....</option>
+                                        @foreach ($vendor as $value)
+                                            <option value="{{ @$value->id }}" {{ @$response->vendor_id == $value->id ? 'selected' : '' }}>{{ @$value->vendor_name }}</option>
+                                        @endforeach
+                                </select>
+                                @error('vendor_id')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-3 mt-3">
+                                    <label class="form-label">Requisition No <span class="text-danger">*</span></label>
+                                    @php
+                                        // Get selected IDs from old() (after validation error) or from $response on edit
+                                        $selectedReqs = old('requisition_ids', @$response->requisition_ids ?? []);
+
+                                        // If stored as comma-separated string in DB, convert to array
+                                        if (!is_array($selectedReqs)) {
+                                            $selectedReqs = explode(',', $selectedReqs);
+                                        }
+                                    @endphp
+                                    <select @if( !empty($type) && $type != 'default' ) disabled @endif id="requisition_id" class="form-control select2-multiple" onchange="getReq()" name="requisition_ids[]" multiple="multiple" required>
+                                        @foreach ($req as $val)
+                                            <option value="{{ @$val->id }}" {{ in_array($val->id, $selectedReqs) ? 'selected' : '' }}>
+                                                @if( @$val->department_code )
+                                                    {{ @$val->department_code }}#{{ @$val->vid }}
+                                                @else
+                                                    R#{{ @$val->id }}
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('requisition_id')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            @if( empty($type) || (!empty($type) && $type == 'default') )
+                            <div class="col-md-4 mt-5 text-right">
+                                <a href="javascript:void(0);" onclick="getLowLevelItems();" class="btn btn-primary px-5">Get Low Level Items</a>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="table-responsive">
+                            <table class="table card-table table-vcenter text-nowrap border" id="data-table">
+                                <thead class="bg-primary text-white">
+                                    <tr>
+                                        <th class="text-white" style="width: 30%">Item Name <span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Unit<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Sub Unit<span class="text-danger">*</span></th>
+                                        {{-- <th class="text-white" style="width: 10%">Present QTY</th> --}}
+                                        <th class="text-white" style="width: 10%">Unit/Rate</th>
+                                        <th class="text-white" style="width: 10%">GST</th>
+                                        <th class="text-white" style="width: 10%">Discount</th>
+                                        <th class="text-white" style="width: 10%">Total Rate</th>
+                                        <th class="text-white" style="width: 5%">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="chargeTable">
+                                    @foreach(@$item_details ?? [] as $key => $item)
+                                        <tr>
+                                            <td>
+                                                <select class="form-control" name="item_id[]">
+                                                    <option value="">Select One.....</option>
+                                                    @foreach ($item_list as $value)
+                                                        <option data-price="{{ $value->item_unit_price }}" data-sub-unit-no="{{ $value->sub_unit_no }}" value="{{ $value->id }}" {{ @$item->item_id == $value->id ? 'selected' : 'disabled' }}>
+                                                            {{ @$value->item_name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <div class="input-group mt-1">
+                                                    <input style="padding-left: 0.50rem;" class="form-control col-7" onkeyup="valueCalculations(this);" type="number" name="unit_qty[]" value="{{ @$item->unit_qty }}" placeholder="Qty" />
+                                                    <input class="form-control col-5" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="{{ @$item->unit_name }}" placeholder="Unit" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="input-group mt-1" style="width: 100%;">
+                                                    <input class="form-control col-7" type="number" style="padding-left: 0.50rem;" onkeyup="valueCalculations(this);" name="sub_unit_qty[]" value="{{ @$item->sub_unit_qty }}" placeholder="Sub Qty" />
+                                                    <input class="form-control col-5" readonly type="text" name="sub_unit_name[]" value="{{ @$item->sub_unit_name }}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <input class="form-control col-9" onkeyup="valueCalculations(this);" type="number" style="padding-left: 0.50rem;" name="rate[]" value="{{ @$item->rate }}" placeholder="Rate Per QTY" />
+                                            </td>
+                                            <td>
+                                                <div class="col-auto">
+                                                    <div class="input-group mb-2">
+                                                        <input type="number" class="form-control gst" onkeyup="valueCalculations(this);" name="gst[]" placeholder="GST" value="{{ @$item->igst ?? @$item->cgst }}">
+                                                        <div class="input-group-prepend">
+                                                            <div class="input-group-text">%</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="col-auto">
+                                                    <div class="input-group mb-2">
+                                                        <input type="number" class="form-control discount" onkeyup="valueCalculations(this);" name="discount[]" placeholder="Discount" value="{{ @$item->discount }}">
+                                                        <div class="input-group-prepend">
+                                                            <div class="input-group-text">%</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <input class="form-control col-9" readonly type="number" style="padding-left: 0.50rem;" name="total_price[]" value="{{ @$item->total_price }}" placeholder="Rate Per QTY" />
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+                                            </td>
+                                            <input type="hidden" name="unit_id[]" value="{{ @$item->unit_id }}">
+                                            <input type="hidden" name="sub_unit_id[]" value="{{ @$item->sub_unit_id }}">
+                                            <input type="hidden" name="item_detail_id[]" value="{{ @$item->id }}">
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-5">
+                        <div class="col-md-12 mt-3">
+                            <label class="form-label" style="margin: 3px 0px 0px 0px">Note</label>
+                            <textarea class="form-control" rows="5" name="note">{{@$response->note}}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="save_action" id="saveAction">
+                @if( in_array(@$response->status, [1,2]) || @$response->status === null )
+                <div class="text-center mb-4">
+                    @if( !empty($type) && $type == 'approve' )
+                        <span>Previous Outstanding amount : ₹ {{ @$total_due }}</span><br><br>
+                        @if(auth()->id() == 596 || auth()->id() == 1)
+                        <button
+                            type="submit"
+                            onclick="setAction(0);"
+                            class="btn btn-primary px-5"
+                            data-form-submit="true"
+                            name="action_button"
+                            value="approved"
+                        >Approved</button>
+                        @endif
+                        <a href="{{ route('store.listing-purchase-order-approved') }}" class="btn btn-link px-5">Back To List</a>
+                    @elseif( !empty($type) && $type == 'verify' )
+                        <button
+                            type="submit"
+                            onclick="setAction(2)"
+                            class="btn btn-primary px-5"
+                            data-form-submit="true"
+                            name="action_button"
+                            value="verify"
+                        >Save & Verify</button>
+                        <button
+                            type="submit"
+                            onclick="setAction(3)"
+                            class="btn btn-danger px-5"
+                            data-form-submit="true"
+                            name="action_button"
+                            value="reject"
+                        >Reject</button>
+                    @else
+                        <button
+                            type="submit"
+                            onclick="setAction(1)"
+                            class="btn btn-primary px-5"
+                            data-form-submit="true"
+                            name="action_button"
+                            value="save"
+                        >Save</button>
+                    @endif
+                </div>
+                @endif
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="myModalLabel">Low Level Item List</h5>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dismiss="modal" data-low-level-close="1" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+        <div class="modal-body">
+
+            <div class="container">
+                <table class="table table-bordered align-middle" id="itemTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:60px;">Select</th>
+                            <th>Item Name</th>
+                            <th style="width:120px;">Present Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dismiss="modal" data-low-level-close="1" aria-label="Close">
+                <i class="bx bx-x"></i> Close
+            </button>
+            <button type="button" class="btn btn-success" onclick="getLowLevelItems(1)">
+                <i class="bx bxs-check-circle"></i> Save
+            </button>
+        </div>
+
+        </div>
+    </div>
+</div>
+
+@endsection
+@push('js')
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script type="text/javascript">
+
+    $(document).ready(function() {
+        $('#requisition_id').select2({
+            placeholder: "Select requisitions",
+            allowClear: true,
+            width: '100%' // good for Bootstrap form-control
+        });
+    });
+
+    function priceCalculations(input) {
+
+        let row = input.closest('.row');
+        let select = row.querySelector('.item_id');
+        let selectedOption = select.options[select.selectedIndex];
+
+        let unitQty = parseInt(row.querySelector('[name="unit_qty"]').value) || 0;
+        let subUnitQty = parseInt(row.querySelector('[name="sub_unit_qty"]').value) || 0;
+
+        let rate = parseInt(row.querySelector('[name="rate"]').value) || 0;
+        let unitPrice = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        if( rate ){
+            unitPrice = rate;
+        }
+
+        let subUnitNo = parseFloat(selectedOption.getAttribute('data-sub-unit-no')) || 0;
+
+        let gst = parseFloat(row.querySelector('[name="gst"]').value) || 0;
+        let discount = parseFloat(row.querySelector('[name="discount"]').value) || 0;
+
+        let totalPrice = (unitQty * unitPrice) + (subUnitQty * (unitPrice / subUnitNo));
+        discount = totalPrice * (discount / 100);
+        let discountPrice = totalPrice - discount;
+        gst = discountPrice * (gst / 100);
+        totalPrice = discountPrice + gst;
+
+        $('#total_price').val(totalPrice.toFixed(2));
+
+    }
+
+    function valueCalculations(input) {
+
+        let row = input.closest('tr');
+        let select = row.querySelector('[name="item_id[]"]');
+        let selectedOption = select.options[select.selectedIndex];
+
+        let unitPrice = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        let subUnitNo = parseFloat(selectedOption.getAttribute('data-sub-unit-no')) || 0;
+
+        let rate = parseFloat(row.querySelector('[name="rate[]"]').value) || 0;
+        if( rate ){
+            unitPrice = rate;
+        }
+        let unitQty = parseFloat(row.querySelector('[name="unit_qty[]"]').value) || 0;
+        let subUnitQty = parseFloat(row.querySelector('[name="sub_unit_qty[]"]').value) || 0;
+
+        let gst = parseFloat(row.querySelector('[name="gst[]"]').value) || 0;
+        let discount = parseFloat(row.querySelector('[name="discount[]"]').value) || 0;
+
+
+        let totalPrice = (unitQty * unitPrice) + (subUnitQty * (unitPrice / subUnitNo));
+        discount = totalPrice * (discount / 100);
+        let discountPrice = totalPrice - discount;
+        gst = discountPrice * (gst / 100);
+        totalPrice = discountPrice + gst;
+
+        row.querySelector('[name="total_price[]"]').value = totalPrice.toFixed(2);
+
+    }
+
+    function setAction(value) {
+        document.getElementById('saveAction').value = value;
+    }
+
+    @php if( (!empty($type) && $type == 'default') || empty($type) ): @endphp
+    $(document).ready(function () {
+        $('#yourFormId').on('submit', function (e) {
+            if( $('#po_date').val() == '' ){
+                alert('Please select date.');
+                e.preventDefault();
+                return false;
+            }
+        });
+    });
+    @php endif @endphp
+
+    function getVendorPrice(item_id){
+
+        $.ajax({
+            url: "{{ route('store.get-vendor-price-item-wise') }}",
+            type: "POST",
+            data: {
+                itemId: item_id,
+                _token: '{{ csrf_token() }}'
+            },
+            dataType: 'json',
+            success: function(res) {
+
+                $('#vendor-data').hide();
+
+                if( res.status == 1 ){
+
+                    var html = '';
+                    res.data.forEach(item => {
+
+                        let item_cgst = (item.cgst && item.cgst != 0) ? '(' + Number(item.cgst) + '%)' : '';
+                        let item_sgst = (item.sgst && item.sgst != 0) ? '(' + Number(item.sgst) + '%)' : '';
+                        let item_igst = (item.igst && item.igst != 0) ? '(' + Number(item.igst) + '%)' : '';
+
+                        let item_discount_percentage = (item.discount_percentage && item.discount_percentage != 0) ? '(' + item.discount_percentage + ')' : '';
+
+                        html += `<tr>
+                                    <td style="height:40px;">${item.date.substring(0, 10)}</td>
+                                    <td style="height:40px;">${item.invoice_no}</td>
+                                    <td style="height:40px;">${item.vendor_name}</td>
+                                    <td style="height:40px;">${item.item_name}</td>
+                                    <td style="height:40px;">${item.unit_qty}</td>
+                                    <td style="height:40px;">${item.rate}</td>
+                                    <td style="height:40px;">${item.mrp}</td>
+                                    <td style="height:40px;">${item.cgst_amount} ${item_cgst}</td>
+                                    <td style="height:40px;">${item.sgst_amount} ${item_sgst}</td>
+                                    <td style="height:40px;">${item.igst_amount} ${item_igst}</td>
+                                    <td style="height:40px;">${item.discount_amount} ${item_discount_percentage}</td>
+                                    <td style="height:40px;">${item.net_amount}</td>
+                                    <td style="height:40px;">${item.amount}</td>
+                                </tr>
+                                `;
+                    });
+
+                    $('#vendor-price').html(html);
+                    $('#vendor-data').show();
+
+                } else {
+                    $('#vendor-price').html('');
+                    $('#vendor-data').hide();
+                }
+
+            },
+            error: function() {
+                $('#vendor-price').html('');
+            }
+        });
+
+    }
+
+    function getAvailableQTY(item_id){
+
+        $.ajax({
+            url: "{{ route('store.get-item-available-qty') }}",
+            type: "POST",
+            data: {
+                itemId: item_id,
+                _token: '{{ csrf_token() }}'
+            },
+            dataType: 'json',
+            success: function(res) {
+
+                let firstRow = $('#chargeTable').find('tr:first');
+                firstRow.find('.present-qty').val(res.avi_qty || 0);
+
+            },
+            error: function() {
+                $('#vendor-price').html('');
+            }
+        });
+
+    }
+
+    function getItemDetails(e) {
+        const char_id = e.value;
+        if (char_id) {
+            $.ajax({
+                url: "{{ route('store.get-item-unit-and-sub-unit') }}",
+                type: "POST",
+                data: {
+                    itemId: char_id,
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(res) {
+
+                    let selectedOption = e.options[e.selectedIndex];
+
+                    let price = selectedOption.getAttribute('data-price');
+                    let presentStock = selectedOption.getAttribute('data-present-stock');
+
+                    let row = $(e).closest('tr');
+                    row.find('.unit').val(res.unit || '');
+                    row.find('.sub_unit').val(res.sub_unit || '');
+                    row.find('.unit_id').val(res.unit_id || '');
+                    row.find('.sub_unit_id').val(res.sub_unit_id || '');
+                    row.find('.sub_unit_qty').attr('max', res.sub_unit_no - 1);
+
+                    row.find('.present-qty').val(presentStock);
+                    row.find('.unit_qty').val(1);
+                    row.find('.rate').val(price);
+                    row.find('#total_price').val(price);
+
+                    getAvailableQTY(char_id);
+                    getVendorPrice(char_id);
+
+                },
+                error: function() {
+                    let row = $(e).closest('tr');
+                    row.find('.unit').val('');
+                    row.find('.sub_unit').val('');
+                }
+            });
+        }
+    }
+
+    function validation(input) {
+
+        $('#vendor-data').hide();
+
+        var row = $('#chargeTable').find('tr:first');
+        var itemSelect = row.find('.item_id').val();
+        var unitQtyInput = row.find('.unit_qty');
+        var subUnitQtyInput = row.find('.sub_unit_qty');
+        var unitQty = parseFloat(unitQtyInput.val());
+        var subUnitQty = parseFloat(subUnitQtyInput.val());
+        var maxSubUnitQty = parseFloat(subUnitQtyInput.attr('max'));
+
+        if (itemSelect === '') {
+            alert('Please Select an Item!');
+        } else if (unitQty <= 0 && subUnitQty <= 0) {
+            alert('Please Select Unit or Subunit!');
+        } else if (!isNaN(maxSubUnitQty) && subUnitQty > maxSubUnitQty) {
+            alert('Sub Unit Qty cannot exceed the maximum allowed value (' + maxSubUnitQty + ')!');
+        } else {
+            addNewrow(input);
+        }
+    }
+
+    function addNewrow(input) {
+
+        let row = input.closest('tr');
+        let select = row.querySelector('[name="item_id"]');
+        let selectedOption = select.options[select.selectedIndex];
+
+        let unitPrice = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        let subUnitNo = parseFloat(selectedOption.getAttribute('data-sub-unit-no')) || 0;
+
+        let firstRow = $('#chargeTable').find('tr:first');
+        let item_id = firstRow.find('.item_id').val();
+        let item_text = firstRow.find('.item_id option:selected').text();
+        let unit_qty = firstRow.find('.unit_qty').val();
+        let unit = firstRow.find('.unit').val();
+        let sub_unit_qty = firstRow.find('.sub_unit_qty').val();
+        let sub_unit = firstRow.find('.sub_unit').val();
+        let unit_id = firstRow.find('.unit_id').val();
+        let sub_unit_id = firstRow.find('.sub_unit_id').val();
+
+        let present_qty = firstRow.find('.present-qty').val();
+        let rate = firstRow.find('.rate').val();
+        let gst = firstRow.find('.gst').val();
+        let discount = firstRow.find('.discount').val();
+        let total_price = firstRow.find('#total_price').val();
+
+        let newRow = `
+            <tr>
+            <td>
+                <select class="form-control" name="item_id[]">
+                    <option data-price="${unitPrice}" data-sub-unit-no="${subUnitNo}" value="${item_id}" selected>${item_text}</option>
+                </select>
+            </td>
+            <td>
+                <div class="input-group mt-1">
+                    <input style="padding-left: 0.50rem;" onkeyup="valueCalculations(this);" class="form-control col-7" type="text" name="unit_qty[]" value="${unit_qty}" placeholder="Qty" />
+                    <input class="form-control col-5" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="${unit}" placeholder="Unit" />
+                </div>
+            </td>
+            <td>
+                <div class="input-group mt-1" style="width: 100%;">
+                    <input class="form-control col-7" type="text" style="padding-left: 0.50rem;" onkeyup="valueCalculations(this);" name="sub_unit_qty[]" value="${sub_unit_qty}" placeholder="Sub Qty" />
+                    <input class="form-control col-5" readonly type="text" name="sub_unit_name[]" value="${sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                </div>
+            </td>
+            <td>
+                <input class="form-control col-9" readonly type="number" style="padding-left: 0.50rem;" name="present_qty[]" value="${present_qty}" placeholder="Present QTY" />
+            </td>
+            <td>
+                <input class="form-control col-9" onkeyup="valueCalculations(this);" type="number" style="padding-left: 0.50rem;" name="rate[]" value="${rate}" placeholder="Rate Per QTY" />
+            </td>
+            <td>
+                <div class="col-auto">
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" onkeyup="valueCalculations(this);" name="gst[]" value="${gst}" placeholder="GST">
+                        <div class="input-group-prepend">
+                            <div class="input-group-text">%</div>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <div class="col-auto">
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" value="${discount}" onkeyup="valueCalculations(this);" name="discount[]" placeholder="Discount">
+                        <div class="input-group-prepend">
+                            <div class="input-group-text">%</div>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <input class="form-control col-9" readonly type="number" style="padding-left: 0.50rem;" name="total_price[]" value="${total_price}" placeholder="Rate Per QTY" />
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+            </td>
+            <input type="hidden" name="unit_id[]" value="${unit_id}">
+            <input type="hidden" name="sub_unit_id[]" value="${sub_unit_id}">
+            <input type="hidden" name="item_detail_id[]" value="">
+            </tr>
+        `;
+        $('#chargeTable').append(newRow);
+
+        // Reset first row
+        firstRow.find('.item_id').val('').trigger('change');
+        firstRow.find('.unit_qty').val('0');
+        firstRow.find('.unit').val('');
+        firstRow.find('.sub_unit_qty').val('0');
+        firstRow.find('.sub_unit').val('');
+        firstRow.find('.unit_id').val('');
+        firstRow.find('.sub_unit_id').val('');
+        firstRow.find('.present-qty').val('');
+        firstRow.find('.rate').val('');
+        firstRow.find('.gst').val('');
+        firstRow.find('.discount').val('');
+        firstRow.find('#total_price').val('');
+    }
+
+    function removeRow(button) {
+        let row = button.closest('tr');
+        row.remove();
+    }
+
+    function addBlankRow() {
+        const table = document.getElementById('itemTable');
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>
+                <select class="form-control" name="item_id[]">
+                    <option value="">Select One.....</option>
+                    @foreach ($item_list as $value)
+                        <option value="{{ $value->id }}">{{ $value->item_name }}</option>
+                    @endforeach
+                </select>
+            </td>
+            <td><input class="form-control" name="unit_qty[]" type="text" value="0" /></td>
+            <td><input class="form-control" name="unit_name[]" type="text" readonly value="0" /></td>
+            <td><input class="form-control" name="sub_unit_qty[]" type="text" value="0" /></td>
+            <td><input class="form-control" name="sub_unit_name[]" type="text" readonly value="0" /></td>
+            <td>
+                <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+            </td>
+            <input type="hidden" name="unit_id[]" value="" />
+            <input type="hidden" name="sub_unit_id[]" value="" />
+            <input type="hidden" name="item_detail_id[]" value="" />
+        `;
+        table.appendChild(newRow);
+    }
+
+    function removeRow(button) {
+        const row = button.closest('tr');
+        row.remove();
+    }
+
+    function toggleLowLevelModal(show) {
+        const modalEl = document.getElementById('myModal');
+        if (!modalEl) {
+            return;
+        }
+
+        if (window.bootstrap && typeof bootstrap.Modal === 'function') {
+            let instance = bootstrap.Modal.getInstance(modalEl);
+            if (!instance) {
+                instance = new bootstrap.Modal(modalEl);
+            }
+            show ? instance.show() : instance.hide();
+            return;
+        }
+
+        if (window.jQuery && typeof $(modalEl).modal === 'function') {
+            $(modalEl).modal(show ? 'show' : 'hide');
+            return;
+        }
+
+        modalEl.classList.toggle('show', show);
+        modalEl.style.display = show ? 'block' : 'none';
+        modalEl.setAttribute('aria-hidden', show ? 'false' : 'true');
+        document.body.classList.toggle('modal-open', show);
+
+        const existingBackdrop = document.querySelector('.modal-backdrop[data-low-level="1"]');
+        if (show && !existingBackdrop) {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.dataset.lowLevel = '1';
+            document.body.appendChild(backdrop);
+        } else if (!show && existingBackdrop) {
+            existingBackdrop.remove();
+        }
+    }
+
+    document.addEventListener('click', function(event) {
+        const closeButton = event.target.closest('[data-low-level-close="1"]');
+        if (closeButton) {
+            toggleLowLevelModal(false);
+        }
+    });
+
+    function getLowLevelItems(final) {
+
+        // $('#itemTableBody').html('');
+        // $('#itemTable').hide();
+
+        if( final ){
+
+            let selectedItems = [];
+            $('#itemTableBody .item-check:checked').each(function() {
+                selectedItems.push($(this).val());
+            });
+
+            $.ajax({
+            url: "{{ route('store.get-low-level-items') }}",
+            type: "POST",
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            dataType: 'json',
+            success: function(res) {
+                if( res.status == 1 ){
+
+                    if( res.data.length > 0 ){
+
+                        let html = '';
+                        res.data.forEach(item => {
+
+                            if (selectedItems.some(i => i == item.id || i.id == item.id)) {
+
+                                let unitPrice = parseFloat(item.item_unit_price) || 0;
+                                let subUnitNo = parseFloat(item.unit_sub_no) || 0;
+
+                                let totalPrice = (item.unit_qty * unitPrice) + (item.sub_unit_qty * (unitPrice / subUnitNo));
+
+                                html += `
+                                    <tr>
+                                        <td>
+                                            <select class="form-control" name="item_id[]">
+                                                    <option data-price="${unitPrice.toFixed(2)}" data-sub-unit-no="${subUnitNo}" value="${item.id}">
+                                                        ${item.item_name}
+                                                    </option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <div class="input-group mt-1">
+                                                <input style="padding-left: 0.50rem;" class="form-control col-7" onkeyup="valueCalculations(this);" type="number" name="unit_qty[]" value="${item.unit_qty}" placeholder="Qty" />
+                                                <input class="form-control col-5" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="${item.unit}" placeholder="Unit" />
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="input-group mt-1" style="width: 100%;">
+                                                <input class="form-control col-7" type="number" style="padding-left: 0.50rem;" onkeyup="valueCalculations(this);" name="sub_unit_qty[]" value="${item.sub_unit_qty}" placeholder="Sub Qty" />
+                                                <input class="form-control col-5" readonly type="text" name="sub_unit_name[]" value="${item.sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <input class="form-control col-9" onkeyup="valueCalculations(this);" type="number" style="padding-left: 0.50rem;" name="rate[]" value="${unitPrice.toFixed(2)}" placeholder="Rate Per QTY" />
+                                        </td>
+                                        <td>
+                                            <div class="col-auto">
+                                                <div class="input-group mb-2">
+                                                    <input type="number" class="form-control gst" onkeyup="valueCalculations(this);" name="gst[]" placeholder="GST" value="">
+                                                    <div class="input-group-prepend">
+                                                        <div class="input-group-text">%</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="col-auto">
+                                                <div class="input-group mb-2">
+                                                    <input type="number" class="form-control discount" onkeyup="valueCalculations(this);" name="discount[]" placeholder="Discount" value="">
+                                                    <div class="input-group-prepend">
+                                                        <div class="input-group-text">%</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input class="form-control col-9" readonly type="number" style="padding-left: 0.50rem;" name="total_price[]" value="${totalPrice.toFixed(2)}" placeholder="Rate Per QTY" />
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+                                        </td>
+                                        <input type="hidden" name="unit_id[]" value="${item.unit_id}">
+                                        <input type="hidden" name="sub_unit_id[]" value="${item.sub_unit_id}">
+                                        <input type="hidden" name="item_detail_id[]" value="">
+                                    </tr>
+                                `;
+                            }
+                        });
+
+                        toggleLowLevelModal(false);
+                        $('#chargeTable').append(html);
+                    }
+                }
+            },
+            error: function() {
+                console.log('Error fetching low level items.');
+            }
+        });
+
+        } else{
+
+            $.ajax({
+                url: "{{ route('store.get-low-level-items') }}",
+                type: "POST",
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if( res.status == 1 ){
+
+                        if( res.data.length > 0 ){
+
+                            let html = '';
+                            res.data.forEach(item => {
+
+                                let unitPrice = parseFloat(item.item_unit_price) || 0;
+                                let subUnitNo = parseFloat(item.unit_sub_no) || 0;
+                                let po_exists = ' <span class="badge badge-success">(PO Not Exists)</span>'
+                                if( item.is_exist_in_po && item.is_exist_in_po != 0 ){
+                                    po_exists = ' <span class="badge badge-danger">(PO Exists)</span>'
+                                }
+
+                                html += `
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="item_id[]" value="${item.id}" class="input-group item-check" />
+                                        </td>
+                                        <td>${item.item_name} ${po_exists}</td>
+                                        <td>
+                                            <input type="number" readonly class="form-control" value="${item.unit_qty}" />
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+
+                            $('#itemTableBody').html(html);
+                            $('#itemTable').show();
+                            toggleLowLevelModal(true);
+
+                        }
+                    } else {
+                        alert('No low level items found.');
+                    }
+                },
+                error: function() {
+                    console.log('Error fetching low level items.');
+                }
+            });
+
+        }
+
+    }
+
+    function getReq() {
+
+    let requisition_ids = $('#requisition_id').val() || [];
+    $('#chargeTable').html('');
+
+    if (requisition_ids.length) {
+        $.ajax({
+            url: "{{ route('store.get-req-items') }}",
+            type: "post",
+            data: {
+                requisition_ids: requisition_ids,
+                current_po_id: "{{ @$response->id ?? 0 }}",
+                _token: '{{ csrf_token() }}',
+            },
+            dataType: 'json',
+            success: function(res) {
+
+                if (res.status) {
+
+                    let html = '';
+
+                    res.data.forEach(item => {
+
+                        let itemValue   = item.item_id;
+                        let itemText    = item.item_name || '';
+                        let unit        = item.unit_name || '';
+                        let sub_unit    = item.sub_unit_name || '';
+                        let sub_unit_no = item.sub_unit_no || 1;
+                        let unitPrice   = parseFloat(item.item_unit_price) || 0;
+
+                        let tol = Number(item.unit_qty * sub_unit_no) + Number(item.sub_unit_qty);
+                        let unit_qty    = Math.floor(tol / sub_unit_no);
+                        let sub_unit_qty= tol % sub_unit_no;
+
+                        let totalPrice  = (item.unit_qty * unitPrice) +
+                                          (item.sub_unit_qty * (unitPrice / sub_unit_no));
+
+                        if (unit_qty > 0 || sub_unit_qty > 0) {
+                            html += `
+                                <tr>
+                                    <td>
+                                        <select class="form-control" name="item_id[]">
+                                            <option data-price="${unitPrice.toFixed(2)}"
+                                                    data-sub-unit-no="${sub_unit_no}"
+                                                    value="${itemValue}">
+                                                ${itemText}
+                                            </option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <div class="input-group mt-1">
+                                            <input class="form-control col-7"
+                                                   style="padding-left:0.50rem;"
+                                                   onkeyup="valueCalculations(this);"
+                                                   type="number"
+                                                   name="unit_qty[]"
+                                                   value="${unit_qty}"
+                                                   placeholder="Qty" />
+                                            <input class="form-control col-5"
+                                                   style="padding-left:0.50rem;"
+                                                   readonly
+                                                   type="text"
+                                                   name="unit_name[]"
+                                                   value="${unit}"
+                                                   placeholder="Unit" />
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group mt-1" style="width:100%;">
+                                            <input class="form-control col-7"
+                                                   style="padding-left:0.50rem;"
+                                                   onkeyup="valueCalculations(this);"
+                                                   type="number"
+                                                   name="sub_unit_qty[]"
+                                                   value="${sub_unit_qty}"
+                                                   placeholder="Sub Qty" />
+                                            <input class="form-control col-5"
+                                                   style="padding-left:0.50rem;"
+                                                   readonly
+                                                   type="text"
+                                                   name="sub_unit_name[]"
+                                                   value="${sub_unit}"
+                                                   placeholder="Sub Unit" />
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input class="form-control col-9"
+                                               style="padding-left:0.50rem;"
+                                               onkeyup="valueCalculations(this);"
+                                               type="number"
+                                               name="rate[]"
+                                               value="${unitPrice.toFixed(2)}"
+                                               placeholder="Rate Per QTY" />
+                                    </td>
+                                    <td>
+                                        <div class="col-auto">
+                                            <div class="input-group mb-2">
+                                                <input type="number"
+                                                       class="form-control gst"
+                                                       onkeyup="valueCalculations(this);"
+                                                       name="gst[]"
+                                                       placeholder="GST"
+                                                       value="">
+                                                <div class="input-group-prepend">
+                                                    <div class="input-group-text">%</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="col-auto">
+                                            <div class="input-group mb-2">
+                                                <input type="number"
+                                                       class="form-control discount"
+                                                       onkeyup="valueCalculations(this);"
+                                                       name="discount[]"
+                                                       placeholder="Discount"
+                                                       value="">
+                                                <div class="input-group-prepend">
+                                                    <div class="input-group-text">%</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input class="form-control col-9"
+                                               style="padding-left:0.50rem;"
+                                               readonly
+                                               type="number"
+                                               name="total_price[]"
+                                               value="${totalPrice.toFixed(2)}"
+                                               placeholder="Total Rate" />
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+                                    </td>
+                                    <input type="hidden" name="unit_id[]" value="${item.unit_id}">
+                                    <input type="hidden" name="sub_unit_id[]" value="${item.sub_unit_id}">
+                                    <input type="hidden" name="item_detail_id[]" value="">
+                                </tr>
+                            `;
+                        }
+                    });
+
+                    $('#chargeTable').html(html);   // 👈 append once
+                } else {
+                    alert('Requisition not found');
+                }
+            }
+        });
+    } else {
+        $('#chargeTable').html('');
+    }
+}
+
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('yourFormId');
+        if (!form) {
+            return;
+        }
+
+        let isProcessing = false;
+        let clickedButton = null;
+
+        form.addEventListener('click', function (event) {
+            const button = event.target.closest('button[type="submit"][data-form-submit="true"]');
+            if (button) {
+                clickedButton = button;
+            }
+        });
+
+        form.addEventListener('submit', function (event) {
+            if (isProcessing) {
+                event.preventDefault();
+                return;
+            }
+
+            const button = clickedButton || form.querySelector('button[type="submit"][data-form-submit="true"]');
+            if (button) {
+                isProcessing = true;
+                button.disabled = true;
+                const spinner = '<i class="fa fa-spinner fa-spin mr-2"></i>';
+                button.dataset.originalText = button.dataset.originalText || button.innerHTML;
+                button.innerHTML = spinner + 'Processing...';
+            }
+        });
+    });
+</script>
+@endpush

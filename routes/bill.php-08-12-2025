@@ -1,0 +1,53 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Bill\BillController;
+use App\Http\Controllers\Bill\PDFController;
+use App\Http\Controllers\Bill\EmrController;
+
+
+Route::middleware(['auth'])->prefix('billing/{section}')->group(function () {
+    Route::controller(BillController::class)->group(function () {
+        Route::get('/bill-details/{bill_id}', 'billing_details')->name('bill.billing-details');
+        Route::get('/edit-bill/{bill_id}', 'edit_bill')->name('bill.edit-bill');
+        Route::get('/create-bill/{bill_id}', 'create_bill')->name('bill.create-bill');
+        Route::get('/create-receipt/{bill_id}', 'create_receipt')->name('bill.create-receipt');
+        Route::get('/edit-receipt/{pay_id}', 'edit_receipt')->name('bill.edit-receipt');
+        Route::get('/delete-receipt/{pay_id}', 'delete_receipt')->name('bill.delete-receipt');
+        Route::get('/all-receipt/{bill_id}', 'get_receipt')->name('bill.get-receipt');
+        Route::get('/all-billing/{bill_id}', 'get_billing')->name('bill.get-billing');
+        Route::get('/all-refund/{bill_id}', 'get_refund')->name('bill.get-refund');
+        Route::get('/refund/{bill_id}', 'refund')->name('bill.refund');
+        Route::get('/requisition/{bill_id}', 'requisition')->name('bill.requisition');
+
+        Route::post('/insert-receipt', 'insert_receipt')->name('bill.insert-receipt');
+        Route::post('/update-receipt', 'update_receipt')->name('bill.update-receipt');
+        Route::post('/insert-bill', 'insert_bill')->name('bill.insert-bill');
+        Route::post('/update-bill', 'update_bill')->name('bill.update-bill');
+        Route::post('/update-refund', 'update_refund')->name('bill.update-refund');
+    });
+    Route::controller(PDFController::class)->group(function () {
+        Route::get('/print-payment-receipt/{id}', 'print_payment_receipt')->name('bill.print-payment-receipt');
+        Route::get('/print-bill/{bill_id}', 'print_bill')->name('bill.print-bill');
+        Route::get('/print-prescription/{bill_id}/{type}', 'print_prescription')->name('bill.print-prescription');
+        Route::get('/print-addmission-form/{ipd_id}/{type}', 'print_addmission_form')->name('bill.print-addmission-form');
+        Route::get('/print-discharge-summary/{ipd_id}/{type}', 'print_discharge_summary')->name('bill.print-discharge-summary');
+        Route::post('/print-requisition', 'print_requisition')->name('bill.print-requisition');
+
+        Route::get('/print-e-prescription/{bill_id}/{type}', 'print_e_prescription')->name('bill.print-e-prescription');
+
+    });
+    Route::controller(EmrController::class)->group(function () {
+        Route::get('/create-prescription/{section_id?}/{emr_id?}', 'create_prescription')->name('bill.create-prescription');
+        Route::post('/emr-save', 'emr_store')->name('bill.emr-save');
+        Route::post('/emr-update', 'emr_update')->name('bill.emr-update');
+
+        Route::get('/create-ipd-prescription/{section_id?}/{emr_id?}', 'create_ipd_prescription')->name('bill.create-ipd-prescription');
+        Route::post('/ipd-emr-save', 'ipd_emr_store')->name('bill.ipd-emr-save');
+        Route::post('/ipd-emr-update', 'ipd_emr_update')->name('bill.ipd-emr-update');
+
+
+
+
+    });
+});

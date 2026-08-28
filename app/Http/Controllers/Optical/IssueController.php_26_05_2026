@@ -1,0 +1,1055 @@
+<?php
+
+namespace App\Http\Controllers\Optical;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Yajra\Datatables\DataTables;
+use App\Models\Department;
+use App\Models\OpItem;
+use App\Models\State;
+use App\Models\User;
+use App\Models\Patient;
+use App\Models\OpSurgeryCase;
+use App\Models\OpEnquiry;
+use App\Models\StProductIssue;
+use App\Models\StProductIssueDetail;
+use App\Models\StRequisition;
+use App\Models\StRequisitionItem;
+use App\Models\StStock;
+use App\Models\Charge;
+use App\Models\OtPackage;
+use App\Models\OtPackageDetail;
+use App\Models\OtRegistration;
+use App\Models\OtRegPackageDetail;
+use DB;
+use Illuminate\Support\Facades\Auth;
+use App\Models\OpRegister;
+use App\Models\Billing;
+use App\Models\BillingDetail;
+use App\Models\OpBillingDetail;
+use App\Models\Payment;
+use App\Models\OpPowerType;
+use App\Models\OpRecord;
+use App\Models\Header;
+use App\Models\OpStock;
+
+class IssueController extends Controller
+{
+    // Optical Billing
+    public function optical_billing(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = OpRegister::select(
+                'op_registers.id', 'p.id as patient_id', 'p.name as patient_name',
+                'p.gender', 'p.dob_year', 'p.dob_month', 'p.dob_day', 'p.phone', 'p.address', 
+                'b.id as billing_id', 'b.total_payment', 'b.due_amount', 'b.bill_date',
+                'op_registers.status', 'b.bill_status'
+            )
+                ->join('patients  as p', 'p.id', '=', 'op_registers.patient_id')
+                ->join('billings  as b', 'b.section_id', '=', 'op_registers.id')
+                ->where('b.section', 'OP')
+                ->where('op_registers.is_active', 1)
+                ->where('op_registers.is_delete', 0)
+                ->where('op_registers.enquiry_id', 0)
+                ->orderBy('op_registers.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('patient', function ($row) {
+                    $patientBtn = '<a href="' . route('hr.patient-profile-details', ed($row->patient_id, true)) . '" data-placement="left" data-toggle="tooltip" title="Click here for patient details" style="cursor: pointer !important" data-original-title="Click here for patient details">
+                    ' . $row->patient_name . ' (' . $row->patient_id . ')
+                    <br>
+                    <i class="fa fa-venus-mars text-blue"></i> ' . $row->gender . '
+                    <i class="fa fa-calendar-plus-o text-blue ml-1"></i> ' . $row->dob_year . 'Y ' . $row->dob_month . 'M ' . $row->dob_day . 'D
+                    <br><i class="fa fa-phone text-primary"></i> ' . $row->phone . '
+                </a>';
+                    return $patientBtn;
+                })
+                ->addColumn('bill_date', function ($row) {
+                    return date('d-m-Y h:i A', strtotime($row->bill_date));
+                })
+                ->addColumn('bill_amount', function ($row) {
+                    return '<span>Total Payment: ' . $row->total_payment . '</span><br><span>Due Amount: ' . $row->due_amount . '</span>';
+                })
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="'.route('bill.billing-details', ['op', ed($row->billing_id, true)]).'" class="btn btn-primary btn-sm mx-1" title="Click here to show bill details"><i class="fa fa-eye"></i> View</a>';
+                    return $actionBtn;
+                })
+                ->addColumn('color_status', function($row){
+                    if($row->bill_status == 3){
+                        return 5;
+                    }else{
+                        if($row->due_amount > 0){
+                            return 1;
+                        } else{
+                            if($row->status >= 3){
+                               return $row->status;
+                            }elseif($row->status < 3){
+                                return 2;
+                            }
+                        }
+                    }
+                })
+                ->rawColumns(['action', 'patient', 'bill_date', 'bill_amount','color_status'])
+                ->make(true);
+        }
+        return view('optical.issue.issue-list');
+    }
+
+    public function add_billing()
+    {
+        $title = 'Add';
+        $department = Department::where('status', '0')->orderBy('id', 'desc')->get();
+
+        $stockIds = DB::table('op_stocks')->select(DB::raw('MAX(id) as stock_id'))
+                    ->groupBy('item_id')->get();
+
+        // print_r($stockIds);die;
+        $item_list = OpItem::select('op_items.id', 'op_items.item_name', 
+                    'op_stocks.unit_sub_no', 'op_stocks.unit_mrp', 
+                    'op_stocks.unit_qty', 'op_stocks.unit', 'op_stocks.sub_unit_qty', 'op_stocks.sub_unit')
+                    ->join('op_stocks', 'op_stocks.item_id', '=', 'op_items.id')
+                    ->where('is_active', '1')
+                    ->where('is_delete', '0')
+                    ->whereIn('op_stocks.id', $stockIds->pluck('stock_id'))
+                    ->orderBy('op_stocks.id', 'desc')
+                    ->get();
+        // print_r($item_list);die;
+        $states = State::where('country_id', '1')->get();
+        $data = compact('department', 'item_list', 'title', 'states');
+        return view('optical.issue.add-item-issue')->with($data);
+
+    }
+
+    public function edit_optical_billing($id)
+    {
+        $id = ed($id, false);
+        $title = 'Edit';
+        $department = StDepartment::where('status', '0')->orderBy('id', 'desc')->get();
+        $item_list = StItem::where('is_active', '1')->where('is_delete', '0')->orderBy('id', 'desc')->get();
+        $req = StRequisition::where('is_delete', '0')->where('is_given', '0')->get();
+        $edit = StProductIssue::where('id', $id)->where('is_delete', 0)->first();
+        if ($edit->status == 1) {
+            return back()->with('error', "Item Issued can't Edit this!");
+        }
+        $edit_info = StProductIssueDetail::select('st_product_issue_details.*', 'st_items.item_name', 'st_items.sub_unit_no')
+            ->join('st_items', 'st_items.id', '=', 'st_product_issue_details.item_id')
+            ->where('st_product_issue_details.issue_id', $id)
+            ->where('st_product_issue_details.is_delete', 0)
+            ->get();
+
+        $data = compact('department', 'item_list', 'title', 'edit', 'edit_info', 'req');
+        return view('store.add-item-issue')->with($data);
+    }
+
+    public function optical_billing_details($id)
+    {
+        $id = ed($id, false);
+        $data = StProductIssue::select(
+            'st_product_issue.*',
+            'd.department_name',
+            'u.name as created_by'
+        )
+            ->join('st_departments  as d', 'd.id', '=', 'st_product_issue.department_id')
+            ->join('users as u', 'u.id', '=', 'st_product_issue.generated_by')
+            ->where('st_product_issue.id', $id)
+            ->first();
+        $item_list = StProductIssueDetail::select(
+            'st_product_issue_details.*',
+            'st_items.item_name'
+        )
+            ->join('st_items', 'st_items.id', '=', 'st_product_issue_details.item_id')
+            ->where('st_product_issue_details.issue_id', $id)
+            ->where('st_product_issue_details.is_delete', 0)
+            ->get();
+        $data = compact('data', 'item_list');
+        return view('store.issue-info')->with($data);
+    }
+
+    public function update_billing(Request $request, $id = 0)
+    {
+
+        $request->validate([
+            'appointment_date' => 'required',
+            'name' => 'required',
+            'gender' => 'required',
+            'phone' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'uhid' => 'nullable|exists:patients,id',
+            'prescription' => 'nullable|mimes:jpg,jpeg,png,pdf|max:10000'
+        ]);
+        // dd($request);
+
+
+
+
+        DB::beginTransaction();
+        try {
+
+            $prescription_filename = null;
+            if( $request->hasFile('prescription')    ){
+
+                $destinationPath = public_path('uploads/optical_patient_prescription');
+                if (!file_exists($destinationPath)) {
+                    mkdir($destinationPath, 0775, true); // create folder with permissions
+                }
+
+                $file = $request->file('prescription');
+                $prescription_filename = time() . '_' . $file->getClientOriginalName();
+                $file->move($destinationPath, $prescription_filename);
+
+            }
+
+            //SAVE in Patient
+            $request->uhid ? $patient = Patient::find($request->uhid) : $patient = new Patient();
+            $patient->name = ucwords($request->name);
+            $patient->phone = $request->phone;
+            $patient->gender = $request->gender;
+            $patient->dob_year = $request->date_of_birth_year ?? 0;
+            $patient->dob_month = $request->date_of_birth_month ?? 0;
+            $patient->dob_day = $request->date_of_birth_day ?? 0;
+            $patient->address = $request->address;
+            $patient->state = $request->state;
+            $patient->district = is_numeric($request->district) ? $request->district : null;
+            $patient->pin_code = $request->pin_no;
+            $patient->save();
+            $patient_id = $patient->id;
+
+            $op = new OpRegister();
+            $op->department_id = $request->department;
+            $op->patient_id = $patient_id;
+            $op->status = $request->status;
+            $op->prescription = $prescription_filename;
+            $op->generate_by = Auth::user()->id;
+            $op->type = $request->uhid ? 'old' : 'new';
+            $op->appointment_date = $request->appointment_date ? date('Y-m-d H:i:s', strtotime($request->appointment_date)) : null;
+            $op->save();
+            $op_id = $op->id;
+
+            //SAVE in Billing Section
+            $bill = new Billing();
+            $bill->uid = Billing::where('section', 'OP')->selectRaw('MAX(CAST(uid AS UNSIGNED)) as max_uid')->value('max_uid') + 1;
+            $bill->section = 'OP';
+            $bill->section_id = $op_id;
+            $bill->bill_date = $request->appointment_date ? date('Y-m-d H:i:s', strtotime($request->appointment_date)) : null;
+            $bill->patient_id = $patient_id;
+            $bill->total = $request->total;
+            $bill->sub_total = $request->total;
+            $bill->discount_amount = $request->total - $request->grand_total;
+            $bill->discount = $request->total_discount ?? 0;
+            $bill->discount_type = $request->discount_type;
+            $bill->discount_status = 'Approved';
+            $bill->total_payment = $request->total_payment;
+            if($request->grand_total > $request->total_payment){
+                $bill->due_amount = $request->grand_total - $request->total_payment;
+                $bill->bill_status = 1;
+            }else{
+                $bill->cradit_amount = $request->total_payment - $request->grand_total;
+                $bill->bill_status = 2;
+            }
+            $bill->grand_total = $request->grand_total;
+            $bill->status = 'Done';
+            $bill->created_by = Auth::user()->id;
+            $bill->save();
+            $bill_id = $bill->id;
+
+            //SAVE in Billing Details
+            foreach ($request->item_name as $key => $value) {
+                // op_items
+                $item = OpItem::select('id','item_name')->where('id', $request->item_name[$key])->first();
+
+                //optical_billing_details
+                $bill_details =  new OpBillingDetail();
+                $bill_details->billing_id = $bill_id;
+                $bill_details->date = $request->appointment_date ? date('Y-m-d H:i', strtotime($request->appointment_date)) : date('Y-m-d H:i:s');
+                $bill_details->item_id = $item->id;
+                $bill_details->item_name = $item->item_name;
+                $bill_details->standard_charges = $request->rate[$key];
+                $bill_details->discount_percentage = $request->discount_in_per[$key];
+                $bill_details->discount_amount = $request->discount_amount[$key];
+                $bill_details->qty = $request->qty[$key];
+                $bill_details->amount = $request->amount[$key];
+                $bill_details->save();
+            }
+
+            //SAVE in Payment
+            if (count($request->payment_amount) > 0) {
+                foreach($request->payment_amount as $key => $value){
+
+                    if($request->payment_amount[$key] > 0){
+
+                        $payment = new Payment();
+                        $payment->billing_id = $bill_id;
+                        $payment->patient_id = $patient_id;
+                        $payment->section = 'OP';
+                        $payment->section_id = $op_id;
+                        $payment->payment_amount = $request->payment_amount[$key];
+                        $payment->payment_mode = $request->payment_mode[$key];
+                        $payment->payment_bank = $request->payment_mode[$key] == 'Cash' ? null : $request->bank_name;
+                        $payment->payment_recived_by = Auth::user()->id;
+                        $payment->payment_date = date('Y-m-d H:i');
+                        $payment->save();
+
+                    }
+                }
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+        if($request->submit == 'close'){
+            return redirect()->route('optical.optical-billing')->with('success', 'Optical Registration Sucessfully');
+        }else{
+            return redirect()->route('optical.add-billing')->with('success', 'Optical Registration Sucessfully');
+        }
+    }
+
+    // Eye Examination
+    public function eye_examination(Request $request)
+    {
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        if ($request->ajax()) {
+
+            $data = OpEnquiry::select(
+                    'op_enquiries.*',
+                    'u1.salutation as bs',
+                    'u1.name as booking_name',
+                    'u2.salutation as ds',
+                    'u2.name as doctor_name',
+                    'b.id as billing_id'
+                )
+                ->leftJoin('op_registers as reg', function ($join) {
+                    $join->on('op_enquiries.id', '=', 'reg.enquiry_id')->where('op_enquiries.is_register', '=', '1');
+                })
+                ->leftJoin('billings as b', function ($join) {
+                    $join->on('b.section_id', '=', 'reg.id')
+                         ->where('b.section', '=', 'OP');
+                })
+                ->join('users as u1', 'u1.id', '=', 'op_enquiries.booking_by')
+                ->join('users as u2', 'u2.id', '=', 'op_enquiries.doctor_id')
+                ->where('op_enquiries.is_delete', '0')
+                ->orderBy('op_enquiries.id', 'DESC');
+
+            // Filter based on field_name and field_value
+            /*if (!empty($request->field_name) && !empty($request->field_value)) {
+                if ($request->field_name === 'op_enquiries.doctor_id') {
+                    $data->where('op_enquiries.doctor_id', $request->select_value);
+                } else {
+                    $data->where($request->field_name, 'LIKE', '%' . $request->field_value . '%');
+                }
+            }*/
+
+            if (!empty($request->field_name) && !empty($request->field_value)) {
+                $data->where($request->field_name, 'LIKE', '%' . $request->field_value . '%');
+            } else if ($request->field_name === 'op_enquiries.doctor_id') {
+                $data->where('op_enquiries.doctor_id', $request->select_value);
+            }
+
+            // Filter by date range
+            if (!empty($request->from_date)) {
+                $data->whereDate('op_enquiries.appointment_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('op_enquiries.appointment_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Get the collection
+            $collection = $data->get();
+
+            // Sort using Carbon: date desc, time asc
+            $sorted = $collection->sort(function ($a, $b) {
+                $dateA = \Carbon\Carbon::parse($a->appointment_date);
+                $dateB = \Carbon\Carbon::parse($b->appointment_date);
+
+                // First, compare date descending
+                if ($dateA->eq($dateB)) {
+                    // If dates are equal, compare time ascending
+                    $timeA = \Carbon\Carbon::parse($a->appointment_time);
+                    $timeB = \Carbon\Carbon::parse($b->appointment_time);
+                    return $timeA->greaterThan($timeB) ? 1 : ($timeA->lessThan($timeB) ? -1 : 0);
+                }
+                return $dateA->lessThan($dateB) ? 1 : -1; // Descending
+            })->values(); // Re-index
+
+            return Datatables::of($sorted)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    if ($row->is_register) {
+                        $actionBtn = '<a href="' . route('bill.billing-details', ['op', ed($row->billing_id, true)]) . '" class="btn btn-success btn-sm mx-1" title="View"><i class="fa fa-eye"></i> View</a>';
+                    } else {
+                        $actionBtn = '<a href="' . route('optical.eye-exam-info', ed($row->id, true)) . '" class="btn btn-primary btn-sm mx-1" title="Register"><i class="fa fa-file"></i> Register</a>';
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this optical enquiry!\')" href="' . route('optical.delete-eye-exam', ed($row->id, true)) . '" class="btn btn-sm btn-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    }
+                    return $actionBtn;
+                })
+                ->addColumn('app_date', function ($row) {
+                    $date = \Carbon\Carbon::parse($row->appointment_date)->format('d-m-Y');
+                    $time = \Carbon\Carbon::parse($row->appointment_time)->format('h:i A');
+                    return $date . ' ' . $time;
+                })
+                ->rawColumns(['action', 'app_date'])
+                ->make(true);
+        }
+        $data = compact('doctor');
+        return view('optical.issue.appointments')->with($data);
+    }
+
+    public function register_examination(Request $request)
+    {
+        $doctor_id = $request->doctor_id;
+        $slot = [];
+        $user = null;
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        if ($doctor_id) {
+            $slot['id'] = $request->slot_id;
+            $slot['time'] = $request->from_time;
+            $slot['date'] = dateFor($request->date);
+            $user = User::select('id', 'name', 'department_id')->where('id', $doctor_id)->first();
+        }
+        $data = compact('department', 'doctor', 'user', 'slot');
+        return view('optical.issue.add-enquiry')->with($data);
+    }
+
+    public function update_examination(Request $request)
+    {
+        $request->validate([
+            'doctor'            => 'required',
+            'appointment_date'  => 'required',
+            'appointment_time'  => 'required',
+            'name'              => 'required',
+            'gender'            => 'required',
+            'uhid'              => 'nullable|exists:patients,id',
+            'phone'             => 'nullable|digits:10'
+        ]);
+
+        $data = new OpEnquiry();
+        $data->department_id = $request->department;
+        $data->doctor_id = $request->doctor;
+        $data->appointment_date  = $request->appointment_date;
+        $data->appointment_time = $request->appointment_time;
+        $data->uhid = $request->uhid;
+        $data->name = ucwords(strtolower($request->name));
+        $data->phone = $request->phone;
+        $data->gender = $request->gender;
+        $data->dob_year = $request->date_of_birth_year;
+        $data->dob_month = $request->date_of_birth_month;
+        $data->dob_day = $request->date_of_birth_day;
+        $data->address = $request->address;
+        $data->booking_by = Auth::user()->id;
+        if ($data->save()) {
+            return redirect()->route('optical.register-examination')->with('success', 'Enquiry Booked Sucessfully');
+        } else {
+            return redirect()->route('optical.eye-examination')->with('error', 'Please try again!');
+        }
+    }
+
+    public function eye_exam_info($id)
+    {
+        $id = ed($id, false);
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $states = State::where('country_id', '1')->get();
+        $charges = Charge::select('charges.id', 'charges.charge_name', 'chs.charge_amount')
+            ->join('charges_has_sections as chs', 'chs.charge_id', '=', 'charges.id')
+            ->join('charges_sections as cs', 'cs.id', '=', 'chs.charge_section_id')
+            ->where('cs.charges_section_name', 'OPD')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+        if ($id) {
+            $enq = OpEnquiry::where('id', $id)->first();
+        } else {
+            $enq = null;
+        }
+        $data = compact('department', 'doctor', 'enq', 'states', 'charges');
+        // dd($data);
+        return view('optical.issue.exam-info')->with($data);
+    }
+
+    public function delete_eye_exam($id)
+    {
+        $id = ed($id, false);
+        $data = OpEnquiry::where('id', $id)->first();
+        $data->is_delete = 1;
+        $data->update();
+        return redirect()->back()->with('success', 'Appointment deleted successfully!');
+    }
+
+    public function optical_register(Request $request)
+    {
+        $request->validate([
+            'appointment_date' => 'required',
+            'cons_doctor' => 'required',
+            'name' => 'required',
+            'gender' => 'required',
+            'phone' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'uhid' => 'nullable|exists:patients,id',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            //SAVE in Patient
+            $request->uhid ? $patient = Patient::find($request->uhid) : $patient = new Patient();
+            $patient->name = ucwords($request->name);
+            $patient->phone = $request->phone;
+            $patient->gender = $request->gender;
+            $patient->dob_year = $request->date_of_birth_year ?? 0;
+            $patient->dob_month = $request->date_of_birth_month ?? 0;
+            $patient->dob_day = $request->date_of_birth_day ?? 0;
+            $patient->address = $request->address;
+            $patient->state = $request->state;
+            $patient->district = is_numeric($request->district) ? $request->district : null;
+            $patient->pin_code = $request->pin_no;
+            $patient->save();
+            $patient_id = $patient->id;
+
+            //SAVE in OP Details
+            $op = new OpRegister();
+            $op->department_id = $request->department ? $request->department : User::where('id',$request->cons_doctor)->first()->department_id;
+            $op->doctor_id = $request->cons_doctor;
+            $op->patient_id = $patient_id;
+            $op->generate_by = Auth::user()->id;
+            $op->type = $request->uhid ? 'old' : 'new';
+            $op->appointment_date = $request->appointment_date ? date('Y-m-d H:i:s', strtotime($request->appointment_date)) : null;
+            $op->enquiry_id = $request->enq_id;
+            $op->referred_by = $request->referred_by;
+            $op->provider = $request->provider;
+            $op->market_by = $request->market_by;
+            $op->save();
+            $op_id = $op->id;
+
+            //SAVE in Billing Section
+            $total_ot_amount = 0;
+            $bill = new Billing();
+            $bill->uid = Billing::where('section', 'OP')->selectRaw('MAX(CAST(uid AS UNSIGNED)) as max_uid')->value('max_uid') + 1;
+            $bill->section = 'OP';
+            $bill->section_id = $op_id;
+            $bill->bill_date = date('Y-m-d H:i:s');
+            $bill->patient_id = $patient_id;
+            $bill->doctor_id = $request->cons_doctor;
+            $bill->total = $request->total;
+            $bill->sub_total = $request->total;
+            $bill->discount_amount = $request->total - $request->grand_total;
+            $bill->discount = $request->total_discount ?? 0;
+            $bill->discount_type = $request->discount_type;
+            $bill->discount_status = 'Approved';
+            $bill->total_payment = $request->total_payment;
+            if($request->grand_total > $request->total_payment){
+                $bill->due_amount = $request->grand_total - $request->total_payment;
+                $bill->bill_status = 1;
+            }else{
+                $bill->cradit_amount = $request->total_payment - $request->grand_total;
+                $bill->bill_status = 2;
+            }
+            $bill->grand_total = $request->grand_total;
+            $bill->status = 'Done';
+            $bill->created_by = Auth::user()->id;
+            $bill->save();
+            $bill_id = $bill->id;
+
+            //SAVE in Billing Details
+            foreach ($request->charge_name as $key => $value) {
+                $charge = Charge::select('charges.*','cc.charges_catagories_name')
+                    ->join('charges_catagories as cc','cc.id','=','charges.sub_category_id')
+                    ->where('charges.id', $request->charge_name[$key])
+                    ->first();
+
+                $bill_details =  new BillingDetail();
+                $bill_details->billing_id = $bill_id;
+                $bill_details->charge_category_id = $charge->category_id;
+                $bill_details->charge_sub_category_id = $charge->sub_category_id;
+                $bill_details->date = date('Y-m-d H:i:s');
+                $bill_details->charge_id = $request->charge_name[$key];
+                $bill_details->charge_name = $charge->charge_name;
+                $bill_details->standard_charges = $request->rate[$key];
+                $bill_details->discount_percentage = $request->discount_in_per[$key];
+                $bill_details->discount_amount = $request->discount_amount[$key];
+                $bill_details->qty = $request->qty[$key];
+                $bill_details->amount = $request->amount[$key];
+                $bill_details->save();
+            }
+
+            //SAVE in Payment
+            if (count($request->payment_amount) > 0) {
+                foreach($request->payment_amount as $key=>$value){
+                    if($request->payment_amount[$key] > 0){
+                        $payment = new Payment();
+                        $payment->billing_id = $bill_id;
+                        $payment->patient_id = $patient_id;
+                        $payment->section = 'OP';
+                        $payment->section_id = $op_id;
+                        $payment->payment_amount = $request->payment_amount[$key];
+                        $payment->payment_mode = $request->payment_mode[$key];
+                        $payment->payment_bank = $request->payment_mode[$key] == 'Cash' ? null : $request->bank_name;
+                        $payment->payment_recived_by = Auth::user()->id;
+                        $payment->payment_date = date('Y-m-d H:i');
+                        $payment->save();
+                    }
+                }
+            }
+
+            //credit use
+            /*if (count($request->adjust_credit_amount ?? []) > 0) {
+                foreach($request->adjust_credit_amount as $key=>$value){
+                    if($request->adjust_credit_amount[$key] > 0){
+                        $credit = new PatientCraditAmount();
+                        $credit->billing_id = $bill_id;
+                        $credit->patient_id = $patient_id;
+                        $credit->date = date('Y-m-d H:i:s');
+                        $credit->amount = $request->adjust_credit_amount[$key];
+                        $credit->type = 'debit';
+                        $credit->remarks = 'reused';
+                        $credit->use_bill_id = $request->credit_bill[$key];
+                        $credit->generated_by = Auth::user()->id;
+                        $credit->save();
+
+                        $upbill = Billing::find($request->credit_bill[$key]);
+                        $upbill->cradit_amount = $upbill->cradit_amount - $request->adjust_credit_amount[$key];
+                        $upbill->cradituse_bill_id = $upbill->cradituse_bill_id.'_'.$bill_id;
+                        $upbill->cradituse_bill_amount = $upbill->cradituse_bill_amount.'_'.$request->adjust_credit_amount[$key];
+                        $upbill->save();
+                    }
+                }
+            }*/
+
+            if($request->enq_id){
+                $enq = OpEnquiry::find($request->enq_id);
+                $enq->is_register = 1;
+                $enq->update();
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+
+        return redirect()->route('optical.eye-examination')->with('success', 'Optical eye examination Registration Sucessfully');
+
+    }
+    // Surgery Planning
+    public function surgery_planning(Request $request)
+    {
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        if ($request->ajax()) {
+            $data = OpSurgeryCase::select(
+                'op_surgery_cases.*',
+                'u1.salutation as bs',
+                'u1.name as booking_name',
+                'u2.salutation as ds',
+                'u2.name as doctor_name',
+                'p.name as patient_name',
+                'p.dob_year',
+                'p.phone',
+            )
+                ->leftJoin('users as u1', 'u1.id', '=', 'op_surgery_cases.generated_by')
+                ->leftJoin('users as u2', 'u2.id', '=', 'op_surgery_cases.doctor_id')
+                ->leftJoin('patients as p', 'p.id', '=', 'op_surgery_cases.patient_id')
+                ->where('op_surgery_cases.is_delete', '0');
+
+            // Filter based on field_name and field_value
+            if (!empty($request->field_name) && !empty($request->field_value)) {
+                if ($request->field_name === 'op_surgery_cases.doctor_id') {
+                    $data->where('op_surgery_cases.doctor_id', $request->field_value);
+                } else {
+                    $data->where($request->field_name, 'LIKE', '%' . $request->field_value . '%');
+                }
+            }
+
+            // Filter by date range
+            if (!empty($request->from_date)) {
+                $data->whereDate('op_surgery_cases.planning_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+            }
+            if (!empty($request->to_date)) {
+                $data->whereDate('op_surgery_cases.planning_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+            }
+
+            // Get the collection
+            $collection = $data->get();
+
+            // Sort using Carbon: date desc, time asc
+            $sorted = $collection->sort(function ($a, $b) {
+                $dateA = \Carbon\Carbon::parse($a->planning_date);
+                $dateB = \Carbon\Carbon::parse($b->planning_date);
+
+                // First, compare date descending
+                if ($dateA->eq($dateB)) {
+                    // If dates are equal, compare time ascending
+                    $timeA = \Carbon\Carbon::parse($a->planning_date);
+                    $timeB = \Carbon\Carbon::parse($b->planning_date);
+                    return $timeA->greaterThan($timeB) ? 1 : ($timeA->lessThan($timeB) ? -1 : 0);
+                }
+                return $dateA->lessThan($dateB) ? 1 : -1; // Descending
+            })->values(); // Re-index
+
+            return Datatables::of($sorted)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('optical.surgery-planning-details', ed($row->id, true)) . '" class="btn btn-primary btn-sm mx-1" title="View"><i class="fa fa-eye"></i> View</a>';
+                    return $actionBtn;
+                })
+                // ->addColumn('app_date', function($row){
+                //     $date = \Carbon\Carbon::parse($row->appointment_date)->format('d-m-Y');
+                //     $time = \Carbon\Carbon::parse($row->appointment_time)->format('h:i A');
+                //     return $date . ' ' . $time;
+                // })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+        $data = compact('doctor');
+        return view('optical.surgery.surgery')->with($data);
+    }
+
+    public function surgery_planning_details($id)
+    {
+
+        $id = ed($id, false);
+        $surgery = OpSurgeryCase::select(
+            'op_surgery_cases.*',
+            'u1.salutation as bs',
+            'u1.name as booking_name',
+            'u2.salutation as ds',
+            'u2.name as doctor_name'
+        )
+            ->leftJoin('users as u1', 'u1.id', '=', 'op_surgery_cases.generated_by')
+            ->leftJoin('users as u2', 'u2.id', '=', 'op_surgery_cases.doctor_id')
+            ->where('op_surgery_cases.id', $id)
+            ->first();
+
+        $patient = Patient::select('patients.*', 'states.name as state_name', 'districts.name as district_name')
+            ->leftJoin('states', 'states.id', '=', 'patients.state')
+            ->leftJoin('districts', 'districts.id', '=', 'patients.district')
+            ->where('patients.id', $surgery->patient_id)
+            ->first();
+
+        $doctors = User::where('user_type', 'doctor')->where('is_active', '1')->get();
+        $department = Department::where('status', '0')->get();
+        $otpackages = OtPackage::where('status', '0')->get();
+
+        $data = compact('surgery', 'patient', 'doctors', 'department', 'otpackages');
+        // dd($data);
+        return view('optical.surgery.surgery-details')->with($data);
+    }
+
+    public function register_surgery_planning(Request $request)
+    {
+        $doctor_id = $request->doctor_id;
+        $slot = [];
+        $user = null;
+        $department = Department::where('status', '0')->get();
+        $states = State::where('country_id', '1')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        if ($doctor_id) {
+            $slot['id'] = $request->slot_id;
+            $slot['time'] = $request->from_time;
+            $slot['date'] = dateFor($request->date);
+            $user = User::select('id', 'name', 'department_id')->where('id', $doctor_id)->first();
+        }
+        $data = compact('department', 'doctor', 'user', 'slot', 'states');
+        return view('optical.surgery.register')->with($data);
+    }
+
+    public function update_surgery_planning(Request $request, $id = 0)
+    {
+        $request->validate([
+            'uhid' => 'nullable|exists:patients,id',
+            'phone' => 'required|digits:10',
+            'name' => 'required',
+            'gender' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'planning_date' => 'required',
+            'eye' => 'required',
+            'surgery_type' => 'required',
+            'diagnosis' => 'required',
+            'priority' => 'required',
+            'aadhar_card_no' => 'nullable|digits:12'
+        ]);
+
+        DB::beginTransaction();
+        try {
+            //SAVE in Patient
+            $request->uhid ? $patient = Patient::find($request->uhid) : $patient = new Patient();
+            $patient->name = ucwords($request->name);
+            $patient->phone = $request->phone;
+            $patient->gender = $request->gender;
+            $patient->marital_status = $request->marital_status;
+            $patient->guardian_name = $request->guardian_name;
+            $patient->guardian_realation = $request->relation;
+            $patient->guardian_contact_no = $request->guardian_contact_no;
+            $patient->date_of_birth = $request->date_of_birth;
+            $patient->dob_year = $request->date_of_birth_year;
+            $patient->dob_month = $request->date_of_birth_month;
+            $patient->dob_day = $request->date_of_birth_day;
+            $patient->address = $request->address;
+            $patient->state = $request->state;
+            $patient->district = is_numeric($request->district) ? $request->district : null;
+            $patient->pin_code = $request->pin_code;
+            $patient->identification_name = 'Aadhar Card';
+            $patient->identification_number = $request->aadhar_card_no;
+            $patient->save();
+            $patient_id = $patient->id;
+
+            $id ? $data = OpSurgeryCase::find($request->uhid) : $data = new OpSurgeryCase();
+            $data->patient_id = $patient_id;
+            $data->doctor_id = $request->doctor;
+            $data->dept_id = $request->department;
+            $data->planning_date = date('Y-m-d', strtotime($request->planning_date));
+            $data->eye = $request->eye;
+            $data->surgery_type = $request->surgery_type;
+            $data->diagnosis = $request->diagnosis;
+            $data->priority = $request->priority;
+            $data->status = $request->status;
+            $data->generated_by = Auth::user()->id;
+            $data->save();
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+        return redirect()->route('optical.surgery-planning')->with('success', 'Eye Surgery Registration Sucessfully');
+    }
+
+    public function update_surgery(Request $request, $id)
+    {
+        // dd($request->all());
+        if ($request->status == 'scheduled') {
+            $request->validate([
+                'planning_date' => 'required',
+                'doctor' => 'required',
+                'eye' => 'required',
+                'surgery_type' => 'required',
+                'diagnosis' => 'required',
+                'priority' => 'required',
+                'schedule_date' => 'required',
+                'schedule_form_time' => 'required',
+                'schedule_to_time' => 'required',
+                'package_id'        => 'required',
+            ]);
+        } else {
+            $request->validate([
+                'planning_date' => 'required',
+                'doctor' => 'required',
+                'eye' => 'required',
+                'surgery_type' => 'required',
+                'diagnosis' => 'required',
+                'priority' => 'required',
+            ]);
+        }
+
+        DB::beginTransaction();
+        try {
+            $path = public_path('assets/images/SurgeryConsent');
+            if ($request->file('consent_file')) {
+                $consent_file = "consent-file-" . time() . "." . $request->file('consent_file')->getClientOriginalExtension();
+                $request->file('consent_file')->move($path, $consent_file);
+            } else {
+                $consent_file = null;
+            }
+
+            $data = OpSurgeryCase::find($id);
+            $data->doctor_id = $request->doctor;
+            $data->dept_id = $request->department;
+            $data->package_id = $request->package_id;
+            $data->planning_date = date('Y-m-d', strtotime($request->planning_date));
+            $data->eye = $request->eye;
+            $data->surgery_type = $request->surgery_type;
+            $data->diagnosis = $request->diagnosis;
+            $data->priority = $request->priority;
+            if ($consent_file) {
+                $data->consent_file = $consent_file;
+            }
+            $data->status = $request->status;
+            if ($request->status == 'scheduled') {
+                $data->schedule_date = date('Y-m-d', strtotime($request->schedule_date));
+                $data->schedule_form_time = date('H:i:s', strtotime($request->schedule_form_time));
+                $data->schedule_to_time = date('H:i:s', strtotime($request->schedule_to_time));
+                $data->schedule_by = Auth::user()->id;
+                $data->schedule_at = date('Y-m-d H:i:s');
+            }
+            $data->save();
+
+            DB::commit();
+            if ($request->submit == 'ot') {
+                // Redirect to OT Module
+                $Operation = OtPackage::where('id', $request->package_id)->first();
+                $ot = new OtRegistration();
+                $ot->patient_id = $data->patient_id;
+                // $ot->ipd_id = $request->ipd_id;
+                $ot->cons_doc = $data->doctor_id;
+                $ot->planned_date = $request->schedule_date ? date('Y-m-d H:i', strtotime($request->schedule_date)) : date('Y-m-d H:i:s');
+                $ot->package_id = $request->package_id;
+                $ot->operation_name = $Operation->package_name;
+                $ot->department_id = $data->dept_id;
+                $ot->amount = $Operation->package_amount;
+                $ot->optical_surgery_id = $data->id;
+                $ot->status = 'Planned';
+                $ot->register_by = Auth::user()->id;
+                $ot->save();
+                $ot_reg_id = $ot->id;
+                $packageDetails = OtPackageDetail::where('package_id', $request->package_id)->get();
+                foreach ($packageDetails as $detail) {
+                    $charge = Charge::select('charges.*', 'cc.charges_catagories_name')
+                        ->join('charges_catagories as cc', 'cc.id', '=', 'charges.sub_category_id')
+                        ->where('charges.id', $detail->charge_id)
+                        ->first();
+                    if ($charge) {
+                        $ot_package_detail = new OtRegPackageDetail();
+                        $ot_package_detail->ot_reg_id = $ot_reg_id;
+                        $ot_package_detail->ot_package_id = $request->package_id;
+                        $ot_package_detail->charge_id = $detail->charge_id;
+                        $ot_package_detail->charge_name = $charge->charge_name;
+                        $ot_package_detail->rate = $detail->rate;
+                        $ot_package_detail->save();
+                    }
+                }
+                return redirect()->route('ot.ot-info', ['id' => ed($ot_reg_id, true)])->with('success', 'Operation Request updated successfully.');
+            }
+        } catch (Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+        return redirect()->route('optical.surgery-planning')->with('success', 'Eye Surgery Registration Sucessfully');
+    }
+
+    public function view_examination($id)
+    {
+        $id = ed($id, false);
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $states = State::where('country_id', '1')->get();
+        $charges = Charge::select('charges.id', 'charges.charge_name', 'chs.charge_amount')
+            ->join('charges_has_sections as chs', 'chs.charge_id', '=', 'charges.id')
+            ->join('charges_sections as cs', 'cs.id', '=', 'chs.charge_section_id')
+            ->where('cs.charges_section_name', 'OPD')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+        if ($id) {
+            $enq = OpEnquiry::where('id', $id)->first();
+        } else {
+            $enq = null;
+        }
+        $data = compact('department', 'doctor', 'enq', 'states', 'charges');
+        // dd($data);
+        return view('optical.issue.view-examination')->with($data);
+    }
+
+    public function update_eye_lens($sec_id){
+        $sec_id = ed($sec_id, false);
+        $OpRecords = OpRecord::where('op_register_id', $sec_id)->get();
+        $bill = Billing::where('section_id', $sec_id)->where('section', 'OP')->first();
+        $data = compact('OpRecords', 'bill');
+        return view('optical.issue.update-eye-lens')->with($data);
+
+    }
+
+    public function update_eye_power(Request $request, $sec_id = 0, $id = 0)
+    {
+        // print_r($request->all());die;
+        // echo print_r($request->spherical[1]);die;
+        $id = ed($id, false);
+        $sec_id = ed($sec_id, false);     
+        $is_patient = Patient::find($id);
+        $isOpRegister = OpRegister::find($sec_id);
+        $billing_details = Billing::where('section', 'OP')->where('section_id', $sec_id)->first();
+        if( $is_patient && $isOpRegister ){
+            if( $request->has('records') ){
+                foreach( $request->records as $key => $value ) {
+
+                    $eyeRecord = OpRecord::find($key);
+                    $eyeRecord->spherical = $value[0];
+                    $eyeRecord->cylindrical = $value[1];
+                    $eyeRecord->axis = $value[2];
+                    $eyeRecord->pupil_distance = $value[3];
+                    $eyeRecord->add_power = $value[4];
+                    $eyeRecord->save();
+
+                }
+
+            } else {
+
+                foreach( $request->spherical as $key => $value ) {
+
+                    // print_r($value);die;
+                    foreach( $value as $key2 => $eyeValue ){
+
+                        if( !empty($value[$key2]) ){
+
+                            $eyeRecord = new OpRecord();
+                            $eyeRecord->type_id = $key;
+                            $eyeRecord->patient_id = $id;
+                            $eyeRecord->op_register_id = $sec_id;
+                            $eyeRecord->rx = $key2;
+                            $eyeRecord->spherical = $request->spherical[$key][$key2];
+                            $eyeRecord->cylindrical = $request->cylindrical[$key][$key2];
+                            $eyeRecord->axis = $request->axis[$key][$key2];
+                            $eyeRecord->pupil_distance = $request->pupil_distance[$key][$key2];
+                            $eyeRecord->add_power = $request->add_power[$key][$key2];
+                            $eyeRecord->created_by = auth()->id();
+                            $eyeRecord->save();
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+            return redirect()->route('bill.billing-details', ['op', ed($billing_details->id, true)]) ->with('success', 'Eye power updated successfully.');
+
+        } else {
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+        
+    }
+
+    public function print_eye_power($sec_id, $header)
+    {
+        $sec_id = ed($sec_id, false);
+        $OpRecords = OpRecord::where('op_register_id', $sec_id)->get();
+
+        if($header == 'withheader'){
+            $header_image = Header::where('header_name', 'opd_prescription')->first();
+        }else{
+            $header_image = null;
+        }
+        $OpRegisterDetails = OpRegister::select('p.name as patient_name', 'op_registers.appointment_date')
+                ->join('patients  as p', 'p.id', '=', 'op_registers.patient_id')
+                ->where('op_registers.is_active', 1)
+                ->where('op_registers.is_delete', 0)
+                ->where('op_registers.id', $sec_id)
+                ->first();
+
+        $data = compact('OpRecords', 'OpRegisterDetails', 'header_image');
+        return view('Bill.print.print-eye-power')->with($data);
+
+    }
+
+    public function available_item_qty(Request $request){
+
+        $id = $request->itemId;
+
+        $totalItemIssue = OpBillingDetail::where('item_id', $id)->sum('qty');
+        $totalItemStock = OpStock::where('item_id', $id)->sum('total_qty');
+        $totalItemStock = $totalItemStock - $totalItemIssue;
+        if( $totalItemStock > 0 ){
+            return response()->json(['status' => 'success', 'qty' => $totalItemStock]);
+        }else{
+            return response()->json(['status' => 'error', 'message' => 'Item qty not found']);
+        }
+
+    }
+
+}

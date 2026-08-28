@@ -1,0 +1,236 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+
+class MiscellaneousApiController extends Controller
+{
+    public function index(Request $request, ?int $id = null): JsonResponse
+    {
+        $query = DB::table('miscellanies')
+            ->leftJoin('miscellaneous_payments as mp', 'mp.miscellaneous_id', '=', 'miscellanies.id')
+            ->leftJoin('users as created_by_users', 'created_by_users.id', '=', 'miscellanies.created_by')
+            ->leftJoin('users as verified_by_users', 'verified_by_users.id', '=', 'miscellanies.verified_by')
+            ->leftJoin('users as approved_by_users', 'approved_by_users.id', '=', 'miscellanies.approved_by')
+            ->leftJoin('expense_ledger_masters', 'expense_ledger_masters.id', '=', 'miscellanies.expense_ledger_masters_id')
+            ->leftJoin('tds_duties_taxes_ledger_masters', 'tds_duties_taxes_ledger_masters.id', '=', 'miscellanies.tds_duties_taxes_ledger_masters_id')
+            ->leftJoin('st_vendors as creditor_master', 'creditor_master.id', '=', 'miscellanies.service_provider')
+            ->select([
+                // miscellanies - DB fields only
+                'miscellanies.id as miscellanies__bill_id',
+                'miscellanies.bill_no as miscellanies__bill_no',
+                'miscellanies.voucher_date as miscellanies__voucher_date',
+                'miscellanies.voucher_number as miscellanies__voucher_number',
+                'miscellanies.reference_number as miscellanies__reference_number',
+                'miscellanies.total_amount as miscellanies__total_amount',
+                'miscellanies.created_at as miscellanies__bill_date',
+                'miscellanies.due_date as miscellanies__due_date',
+                'miscellanies.narration as miscellanies__narration',
+
+                // creditor_master
+                'creditor_master.vendor_name as creditor_master__creditor_name',
+                'creditor_master.short_name as creditor_master__short_name',
+                'creditor_master.pan_number as creditor_master__pan_number',
+                'creditor_master.gstin as creditor_master__gstin',
+                'creditor_master.gst_registration_type as creditor_master__gst_reg_type',
+                'creditor_master.state as creditor_master__state_code',
+                'creditor_master.place_of_supply as creditor_master__place_of_supply',
+                'creditor_master.tds_applicable as creditor_master__tds_applicable',
+                'creditor_master.tds_deductee_type as creditor_master__tds_deductee_type',
+                'creditor_master.tds_nature_of_payment as creditor_master__tds_nature_payment',
+                'creditor_master.is_lower_deduction as creditor_master__tds_lower_deduction',
+                'creditor_master.lower_deduction_rate as creditor_master__tds_lower_ded_rate',
+                'creditor_master.lower_deduction_cert_no as creditor_master__tds_cert_no',
+                'creditor_master.address as creditor_master__address_line1',
+                'creditor_master.address_line_2 as creditor_master__address_line2',
+                'creditor_master.pin_code as creditor_master__pincode',
+                'creditor_master.opening_balance as creditor_master__opening_balance',
+                'creditor_master.credit_limit as creditor_master__credit_limit',
+                'creditor_master.credit_days as creditor_master__credit_days',
+                'creditor_master.maintain_bill_wise as creditor_master__maintain_billwise',
+
+                // expense ledger
+                'expense_ledger_masters.ledger_name as expense_ledger_masters__ledger_name',
+                'expense_ledger_masters.ledger_name as expense_ledger_masters__expense_ledger_name',
+                'expense_ledger_masters.ledger_group as expense_ledger_masters__ledger_group',
+                'expense_ledger_masters.tds_applicable as expense_ledger_masters__tds_applicable',
+                'expense_ledger_masters.tds_nature_payment as expense_ledger_masters__tds_nature_payment',
+                'expense_ledger_masters.tds_rate as expense_ledger_masters__tds_rate',
+                'expense_ledger_masters.tds_threshold as expense_ledger_masters__tds_threshold',
+                'expense_ledger_masters.gst_applicable as expense_ledger_masters__gst_applicable',
+                'expense_ledger_masters.created_at as expense_ledger_masters__created_at',
+                'expense_ledger_masters.updated_at as expense_ledger_masters__updated_at',
+                'expense_ledger_masters.default_cost_centre as expense_ledger_masters__default_cost_centre',
+                'expense_ledger_masters.gst_charge_type as expense_ledger_masters__gst_charge_type',
+                'expense_ledger_masters.sac_hsn_code as expense_ledger_masters__sac_hsn_code',
+                'expense_ledger_masters.igst_ledger_name as expense_ledger_masters__igst_ledger_name',
+                'expense_ledger_masters.cgst_ledger_name as expense_ledger_masters__cgst_ledger_name',
+                'expense_ledger_masters.sgst_ledger_name as expense_ledger_masters__sgst_ledger_name',
+                'expense_ledger_masters.rcm_output_gst_ledger as expense_ledger_masters__rcm_output_gst_ledger',
+                'expense_ledger_masters.cost_centre_applicable as expense_ledger_masters__cost_centre_applicable',
+                'expense_ledger_masters.gst_rate as expense_ledger_masters__gst_rate',
+                'expense_ledger_masters.opening_balance as expense_ledger_masters__opening_balance',
+                'expense_ledger_masters.description as expense_ledger_masters__description',
+
+                // tds duties taxes ledger
+                'tds_duties_taxes_ledger_masters.tds_ledger_name as tds_duties_taxes_ledger_masters__tds_ledger_name',
+                'tds_duties_taxes_ledger_masters.under_group as tds_duties_taxes_ledger_masters__under_group',
+                'tds_duties_taxes_ledger_masters.tds_section_code as tds_duties_taxes_ledger_masters__tds_section_code',
+                'tds_duties_taxes_ledger_masters.tds_section_desc as tds_duties_taxes_ledger_masters__tds_section_desc',
+                'tds_duties_taxes_ledger_masters.deductee_type as tds_duties_taxes_ledger_masters__deductee_type',
+                'tds_duties_taxes_ledger_masters.tds_rate as tds_duties_taxes_ledger_masters__tds_rate',
+                'tds_duties_taxes_ledger_masters.surcharge_applicable as tds_duties_taxes_ledger_masters__surcharge_applicable',
+                'tds_duties_taxes_ledger_masters.surcharge_rate as tds_duties_taxes_ledger_masters__surcharge_rate',
+                'tds_duties_taxes_ledger_masters.cess_applicable as tds_duties_taxes_ledger_masters__cess_applicable',
+                'tds_duties_taxes_ledger_masters.cess_rate as tds_duties_taxes_ledger_masters__cess_rate',
+                'tds_duties_taxes_ledger_masters.tds_payment_code as tds_duties_taxes_ledger_masters__tds_payment_code',
+                'tds_duties_taxes_ledger_masters.tds_type as tds_duties_taxes_ledger_masters__tds_type',
+                'tds_duties_taxes_ledger_masters.annual_threshold as tds_duties_taxes_ledger_masters__annual_threshold',
+                'tds_duties_taxes_ledger_masters.single_txn_threshold as tds_duties_taxes_ledger_masters__single_txn_threshold',
+                'tds_duties_taxes_ledger_masters.nature_of_payment as tds_duties_taxes_ledger_masters__nature_of_payment',
+                'tds_duties_taxes_ledger_masters.opening_balance as tds_duties_taxes_ledger_masters__opening_balance',
+
+                // users
+                'created_by_users.id as created_by_users__id',
+                'created_by_users.name as created_by_users__name',
+
+                'verified_by_users.id as verified_by_users__id',
+                'verified_by_users.name as verified_by_users__name',
+
+                'approved_by_users.id as approved_by_users__id',
+                'approved_by_users.name as approved_by_users__name'
+            ])
+            ->latest('miscellanies.created_at');
+
+        $isLookupRequest = $this->applyLookupFilter($query, $request, $id);
+
+        $rows = $query->get();
+
+        $data = $this->formatJoinedRows($rows);
+
+        if ($isLookupRequest && $data->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'count' => 0,
+                'data' => [],
+                'message' => 'Miscellaneous record not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'count' => $data->count(),
+            'data' => $data[0],
+            'message' => 'Miscellanies fetched successfully.',
+        ]);
+    }
+
+    protected function applyLookupFilter($query, Request $request, ?int $routeId = null): bool
+    {
+        $id = $request->input('id', $routeId);
+
+        if ($id !== null && $id !== '') {
+            $query->where('miscellanies.id', $id);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function formatJoinedRows(Collection $rows): Collection
+    {
+        return $rows
+            ->groupBy('miscellanies__id')
+            ->map(function (Collection $group) {
+                $firstRow = $group->first();
+
+                $miscellanies = $this->extractPrefixedData($firstRow, 'miscellanies') ?? [];
+
+                // hardcoded fields push here
+                $miscellanies = array_merge($miscellanies, [
+                    'voucher_type' => 'Purchase',
+                    'voucher_date' => $firstRow->miscellanies__voucher_date ?? '',
+                    'company_name' => 'ABC Pvt Ltd',
+                    'party_ledger_name' => $this->extractPrefixedData($firstRow, 'creditor_master'),
+                    'party_net_amount' => $firstRow->miscellanies__total_amount ?? 0,
+                    'party_dr_cr' => 'Cr',
+                    'bill_ref_type' => 'New Ref',
+                    'bill_ref_no' => $firstRow->miscellanies__bill_no ?? 'N/A',
+                    'bill_date' => $firstRow->miscellanies__bill_date ?? null,
+                    'due_date'  => $firstRow->miscellanies__due_date ?? null,
+                    'bill_amount'   => $firstRow->miscellanies__total_amount ?? 0,
+                    'narration' => $firstRow->miscellanies__narration ?? '',
+                    'expense_ledger_name' => $this->extractPrefixedData($firstRow, 'expense_ledger_masters'),
+                    'expense_amount'   => $firstRow->miscellanies__total_amount ?? 0,
+                    'expense_dr_cr' => 'Cr',
+                    'expense_cost_centre' => $firstRow->expense_ledger_masters__default_cost_centre ?? '',
+                    'gst_charge_type' => $firstRow->expense_ledger_masters__gst_charge_type ?? '',
+                    'gst_ledger_name' => $firstRow->expense_ledger_masters__igst_ledger_name ?? $firstRow->expense_ledger_masters__cgst_ledger_name ?? $firstRow->expense_ledger_masters__sgst_ledger_name ?? '',
+                    'gst_amount' => $firstRow->miscellanies__total_amount * ($firstRow->expense_ledger_masters__gst_rate / 100) ?? 0,
+                    'gst_gst_rate' => $firstRow->expense_ledger_masters__gst_rate ?? 0,
+                    'gst_dr_cr' => 'Cr',
+                    'rcm_ledger_name' => $firstRow->rcm_ledger_masters__rcm_ledger_name ?? '',
+                    'rcm_amount' => $firstRow->miscellanies__total_amount ?? 0,
+                    'rcm_dr_cr' => 'Cr',
+                    'tds_ledger_name' => $this->extractPrefixedData($firstRow, 'tds_duties_taxes_ledger_masters'),
+                    'tds_tds_section' => $this->extractPrefixedData($firstRow, 'tds_duties_taxes_ledger_masters')['tds_section'] ?? '',
+                    'tds_tds_amount' => $firstRow->miscellanies__total_amount * ($firstRow->tds_duties_taxes_ledger_masters__tds_rate / 100) ?? 0,
+                    'tds_tds_rate' => $firstRow->tds_duties_taxes_ledger_masters__tds_rate ?? 0,
+                    'tds_dr_cr' => 'Cr',
+                    'tds_is_lower_ded' => $firstRow->tds_duties_taxes_ledger_masters__is_lower_ded ?? 0,
+                    'tds_surcharge_amount' => $firstRow->miscellanies__total_amount * ($firstRow->tds_duties_taxes_ledger_masters__surcharge_rate / 100) ?? 0,
+                    'tds_cess_amount' => $firstRow->miscellanies__total_amount * ($firstRow->tds_duties_taxes_ledger_masters__cess_rate / 100) ?? 0,
+
+                    'created_by_users_id' =>  $firstRow->created_by_users__id,
+                    'created_by_users_name' =>  $firstRow->created_by_users__name,
+
+                    'verified_by_users_id' =>  $firstRow->verified_by_users__id,
+                    'verified_by_users_name' =>  $firstRow->verified_by_users__name,
+
+                    'approved_by_users_id' =>  $firstRow->approved_by_users__id,
+                    'approved_by_users_name' =>  $firstRow->approved_by_users__name
+
+                ]);
+
+                return [
+                    'expense_voucher_transaction' => $miscellanies,
+                    // 'creditor_master' => $this->extractPrefixedData($firstRow, 'creditor_master'),
+                    // 'expense_ledger_masters' => $this->extractPrefixedData($firstRow, 'expense_ledger_masters'),
+                    // 'tds_duties_taxes_ledger_masters' => $this->extractPrefixedData($firstRow, 'tds_duties_taxes_ledger_masters'),
+                    // 'created_by_users' => $this->extractPrefixedData($firstRow, 'created_by_users'),
+                    // 'verified_by_users' => $this->extractPrefixedData($firstRow, 'verified_by_users'),
+                    // 'approved_by_users' => $this->extractPrefixedData($firstRow, 'approved_by_users')
+                ];
+            })
+            ->values();
+    }
+
+    protected function extractPrefixedData(object $row, string $prefix): ?array
+    {
+        $data = [];
+
+        foreach ((array) $row as $key => $value) {
+            $prefixToken = $prefix . '__';
+
+            if (!str_starts_with($key, $prefixToken)) {
+                continue;
+            }
+
+            $data[substr($key, strlen($prefixToken))] = $value;
+        }
+
+        if ($data === []) {
+            return null;
+        }
+
+        $nonNullValues = array_filter($data, fn ($value) => $value !== null);
+
+        return $nonNullValues === [] ? null : $data;
+    }
+}

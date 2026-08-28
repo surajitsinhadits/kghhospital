@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<title>Commission Report</title>
+<meta charset="utf-8">
+
+<head>
+    <link href="{{ asset('public/assets/plugins/datatable/css/buttons.bootstrap4.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/plugins/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/css/icons.css') }}" rel="stylesheet" />
+</head>
+
+<body>
+
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0;
+            padding: 0;
+        }
+
+        @media print {
+
+            html,
+            body {
+                width: 25cm;
+                margin: 0 !important;
+                padding: 5 !important;
+                overflow: hidden;
+                font-family: 'verdana';
+            }
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #ffffff;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        table {
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        tr {
+            width: 100%;
+            height: auto;
+        }
+
+        @media print {
+            #printButton {
+                display: none;
+            }
+        }
+    </style>
+
+    <div style="padding: 0px 7px 30px 120px;width: 93%;">
+        <div style="margin: 10px 0px 0px 503px" id="printButton">
+            <button class="btn btn-primary btn-sm" onclick="printpage()"><i class="fa fa-print"></i>Print</button>
+            <a href="{{ $back }}" class="btn btn-danger btn-sm"><i class="fa fa-times"></i>Close</a>
+        </div>
+        <!-- ==========================================code here================================== -->
+        <table style="width: 100%;border-collapse: collapse">
+            <tr style="text-align: center;">
+                <td>
+                    <img src="{{ asset('public/assets/images/header') }}/{{ $header_image->logo }}"
+                        alt="logo" style="width: 80%;">
+                </td>
+            </tr>
+        </table>
+
+        <table style="width: 97%; border-collapse: collapse;margin-top: 1%;margin: 10px 0px 10px 13px;">
+            <tbody>
+                <tr>
+                    <td colspan="2" style="text-align: center;font-size: 19px; font-weight: bold; color:#0072b7">
+                        <b>Commission Report</b>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:13px; border:1px solid #000;">
+            <thead class="bg-primary text-white">
+                <tr class="border">
+                    <th style="padding:8px; border:1px solid #000; width:5%;">#</th>
+                    <th style="padding:8px; border:1px solid #000; width:10%;">Bill ID</th>
+                    <th style="padding:8px; border:1px solid #000; width:10%;">Patient Name</th>
+                    <th style="padding:8px; border:1px solid #000; width:10%;">Charge Name</th>
+                    <th style="padding:8px; border:1px solid #000; width:10%;">User Name</th>
+                    <th style="padding:8px; border:1px solid #000; width:10%;">Total Amount</th>
+                    <th style="padding:8px; border:1px solid #000; width:10%;">Discount</th>
+                    <th style="padding:8px; border:1px solid #000; width:10%;">Discount Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php
+                    $total = 0;
+                @endphp
+                @if(isset($results) && $results != '')
+                    @foreach($results as $list)
+                    @php
+                        $total += $list->discount_amount;
+                    @endphp
+                    <tr>
+                        <th style="padding:6px; border:1px solid #000;">{{ $loop->iteration }}</th>
+                        <td style="padding:6px; border:1px solid #000;">{{ $list->bill_uid }} </td>
+                        <td style="padding:6px; border:1px solid #000;">{{ $list->patient_name }}</td>
+                        <td style="padding:6px; border:1px solid #000;">{{ $list->charge_name }}</td>
+                        <td style="padding:6px; border:1px solid #000;">
+                            @if( $list->referred_by_name )
+                                {{ $list->referred_by_name }}
+                            @elseif( $list->market_by_name )
+                                {{ $list->market_by_name }}
+                            @elseif( $list->provider_name )
+                                {{ $list->provider_name }}
+                            @endif
+                        </td>
+                        <td style="padding:6px; border:1px solid #000;">{{ $list->charge_amount }}</td>
+                        <td style="padding:6px; border:1px solid #000;">{{ $list->discount }}</td>
+                        <td style="padding:6px; border:1px solid #000;">{{ $list->discount_amount }}</td>
+                    </tr>
+                    @endforeach
+                @endif
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="7">Total Commission</th>
+                    <th>{{ $total }}</th>
+                </tr>
+            </tfoot>
+        </table>
+
+        <span style="padding:10px 25px;line-height: 20px;font-weight:500;font-size:11px;float: left;">PREPARED BY: {{ Auth::user()->name }}</span>
+        <span style="padding:10px 30px;line-height: 20px;font-weight:500;font-size:11px;float: right;">Date: {{ dateFor(date('d-m-Y h:i:s'), true) }}</span>
+
+    </div>
+</body>
+<script>
+    function printpage() {
+        window.print();
+    }
+</script>
+
+</html>

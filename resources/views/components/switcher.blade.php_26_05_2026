@@ -1,0 +1,150 @@
+<!--=========================================== Start Switcher =================================== -->
+@php
+    $notice_details = DB::table('notices')->where('is_active', '1')->where('is_delete', '0')->get();
+@endphp
+<div class="switcher-wrapper">
+    <div class="demo_changer">
+        <div class="demo-icon bg_dark" style="background:#f5e52a"><i class="fas fa-search text-blue"></i></div>
+        <div class="form_holder switcher-sidebar">
+            <div class="row">
+                <div class="predefined_styles">
+                    <div class="swichermainleft border-bottom">
+                        <div class="p-3">
+                            <div class="row">
+                                <ul class="card-list text-nowrap" style="width:100%">
+                                    {{--  <li
+                                        style="background-color: #11a3a3; height: 38px;    color: white;
+                                        font-size: 21px;">
+                                        <i class="fa fa-flag text-white"></i>&nbsp;&nbsp;<b> NOTICE BOARD
+                                        </b>&nbsp;&nbsp;<i class="fa fa-flag text-white"></i>
+                                    </li>  --}}
+                                    <ul>
+                                        @if (!empty($notice_details[0]->id))
+                                            <marquee direction="up" onmouseover="this.stop();"
+                                                onmouseout="this.start();"
+                                                style="height: 150px; font-size: 17px; background-color: #feffaf75;">
+                                                @foreach ($notice_details as $value)
+                                                    <li style="padding: 10px 15px; margin: 0; line-height: 1.4;">
+                                                        <span style="font-weight: 600; color: {!! $value->priority_level == 'high' ? 'red' : ($value->priority_level == 'medium' ? 'orange' : 'green') !!}">
+                                                            @if ($value->priority_level == 'high')
+                                                            @else
+                                                                *
+                                                            @endif
+                                                            &nbsp;&nbsp;{!! $value->notice !!}
+                                                        </span>
+                                                    </li>
+                                                @endforeach
+                                            </marquee>
+                                        @else
+                                    </ul>
+                                    {{--  <li style="background-color:#a8ffff">... No data found ...</li>  --}}
+                                    @endif
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {{--  <div class="swichermainleft">
+                        <h4><i class="fas fa-search text-danger"></i> Search any Bill</h4>
+                        <div class="p-3">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <form action="{{route('hr.search-by-bill')}}" method="post">
+                                        @csrf
+                                        <div class="row">
+                                            <div class="col-md-5">
+                                                <input name="p_uhid_bill" type="text" placeholder="By UHID" class="form-control" />
+                                            </div>
+                                            <div class="col-md-5">
+                                                <input name="bill_no" type="text" placeholder="By Bill No" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button class="btn btn-primary btn-sm" type="submit"><i class="fa fa-search text-white"></i></button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>  --}}
+                    <div class="swichermainleft">
+                        {{--  <h4><i class="fas fa-search text-danger"></i> Global Search</h4>  --}}
+                        <h4> Global Search</h4>
+                        <div class="p-3">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <input name="p_uhid" onkeyup="fetch_global_data()" type="text"
+                                                id="p_uhid" placeholder="UHID" class="form-control" />
+                                        </div>
+                                        <div class="col-md-5">
+                                            <input name="p_name" onkeyup="fetch_global_data()" type="text"
+                                                id="p_name" placeholder="Name" class="form-control" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <input name="p_mobile" onkeyup="fetch_global_data()" type="text"
+                                                id="p_mobile" placeholder="Ph no." class="form-control" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="swichermainleft border-top">
+                        <div class="p-3">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <table class="table card-table table-vcenter text-nowrap table-success">
+                                        <thead class="bg-success text-white">
+                                            <tr>
+                                                <th class="text-white">PATIENT DETAILS</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="search_patient_data_in_global">
+                                            <tr>
+                                                <td>... No data found ...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function fetch_global_data() {
+        var uhid = $('#p_uhid').val();
+        var p_mobile = $('#p_mobile').val();
+        var p_name = $('#p_name').val();
+        var div_data = '';
+        $('#search_patient_data_in_global').empty();
+        $.ajax({
+            url: "{{ route('hr.patient-search-in-global') }}",
+            type: "POST",
+            data: {
+                _token: '{{ csrf_token() }}',
+                Patientuhid: uhid,
+                Patientmobile: p_mobile,
+                Patientname: p_name,
+            },
+            success: function(response) {
+                $.each(response.all_patient, function(key, value) {
+                    div_data +=
+                        `<tr><td><a  href="{{ route('hr.patient-profile-details', '') }}/${btoa(JSON.stringify(value.id))}" >${value.name|| ''} ( ${value.id} )<br>${value.phone} || ${value.dob_year || 0 }Y ${value.dob_month || 0}M ${value.dob_day || 0}D <br> ${value.address|| ''}</a></td></tr>`
+                });
+                $('#search_patient_data_in_global').append(div_data);
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+
+    }
+</script>
+<!-- =========================================== End Switcher =================================== -->

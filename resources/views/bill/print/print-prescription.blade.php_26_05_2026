@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Prescription</title>
+    <link href="{{ asset('public/assets/plugins/datatable/css/buttons.bootstrap4.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/plugins/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/css/icons.css') }}" rel="stylesheet" />
+</head>
+<body>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0;
+        }
+
+        @media print {
+
+            html,
+            body {
+                font-family: 'verdana';
+                margin: 0 !important;
+                padding: 0px 40px 0px 27px !important;
+                overflow: hidden;
+            }
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #ffffff;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        table,
+        th,
+        td {
+
+            border-collapse: collapse;
+        }
+
+        tr {
+            width: 100%;
+            height: auto;
+        }
+
+        @media print {
+            #printButton {
+                display: none;
+            }
+        }
+    </style>
+    <div style="padding: 0px 7px 0px 7px;">
+        <div style="margin: 10px 0px 0px 503px" id="printButton">
+            <button class="btn btn-primary btn-sm" onclick="printpage()"><i class="fa fa-print"></i> Print</button>
+            <a class="btn btn-danger btn-sm" onclick="window.close()"><i class="fa fa-times"></i> Close</a>
+        </div>
+
+        <!-- ==========================================code here================================== -->
+        <table style="width: 100%;border-collapse: collapse">
+            @if (@$header_image->logo)
+            <table>
+                <tr style="text-align: center;">
+                    <td>
+                        <img src="{{ asset('public/assets/images/header') }}/{{ @$header_image->logo }}" alt="logo"
+                            style="width: 80%;">
+                    </td>
+                </tr>
+            </table>
+            @else
+            <br><br><br><br><br><br><br><br><br>
+            @endif
+            <table>
+                <tr>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:800;">
+                        <b>Date :
+                            {{ @$bill->bill_date ? dateFor($bill->bill_date, true) : '' }}</b>
+                    </td>
+                    <td
+                        style="text-align: left;font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:320px;font-weight:800;">
+                        <b>UHID No :
+                            {{ @$patient_details->id }}
+                        </b>
+                    </td>
+                    <td rowspan="2" style="text-align: center;border: 1px solid #899499;width: 160px;height: 45px;">
+                        @php
+                            $generatorPNG = new Picqer\Barcode\BarcodeGeneratorPNG();
+                        @endphp
+                        <img src="data:image/png;base64,{{ base64_encode($generatorPNG->getBarcode('@$patient_details->id', $generatorPNG::TYPE_CODE_128)) }}"
+                            style="width: 150px;height: 40px;">
+                    </td>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:550px;font-weight:800;">
+                        <b>{{ strtoupper($section) }} No : {{ @$bill->section_id }} </b>
+                    </td>
+                    @if($section == 'opd')
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:550px;font-weight:800;">
+                        <b>Token No : {{ @$token_no }} </b>
+                    </td>
+                    @endif
+                </tr>
+            </table>
+            <table style="width: 100%; ;margin: 10px 0px 0px 0px;border: 1px solid #899499;border-collapse: collapse;">
+                <tr>
+                    <td style="border:2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+
+                        <span style="padding:20px 0px 0px 5px;">PATIENT NAME : <b style="font-weight:800;">
+                                {{ @$patient_details->name }}</b></span><br>
+                        <span style="padding:20px 10px 10px 5px;line-height: 20px;">GENDER : <b
+                                style="font-weight:800;">{{ @$patient_details->gender }}</b> || AGE : <b style="font-weight:800;">
+                                {{ @$patient_details->dob_year == null ? '' : @$patient_details->dob_year . 'Y' }}
+                                {{ @$patient_details->dob_month == null ? '' : @$patient_details->dob_month . 'M' }}
+                                {{ @$patient_details->dob_day == null ? '' : @$patient_details->dob_day . 'D' }}</b></span><br>
+                        <span style="padding:20px 0px 0px 5px;">MOB NO : <b style="font-weight:800;">
+                                {{ @$patient_details->phone }}</b></span><br>
+                        <span style="padding:20px 10px 10px 5px;line-height: 20px;">Address :
+                            {{ @$patient_details->address }},{{ @$patient_details->district_name }},{{ @$patient_details->state_name }}{{ @$patient_details->pin_code }}</span><br>
+
+                    </td>
+                    <td style="border: 2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                        <span style="padding:0px 10px 10px 15px;font-weight:800; "><b style="font-weight:800;">CONSULTANT
+                                DOCTOR : </b></span><br>
+                        <span style="padding:0px 10px 10px 15px;font-weight:800;"><b style="font-weight:800;">
+                                {{ @$doctor_info->salutation }} {{ @$doctor_info->name }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">{{ @$doctor_info->specialization }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">{{ @$doctor_info->qualification }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">REG NO - {{ @$doctor_info->empId }}</b></span><br>
+                    </td>
+                </tr>
+            </table>
+            <table style="width: 100%; ;margin: 10px 0px 0px 0px;border: 1px solid #899499;border-collapse: collapse;">
+                <tr>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                        <b>Height : </b>
+                    </td>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                        <b>Weight : </b>
+                    </td>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                        <b>BP : </b>
+                    </td>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                        <b>Temp : </b>
+                    </td>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                        <b>Pulse : </b>
+                    </td>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                        <b>RR : </b>
+                    </td>
+                </tr>
+            </table>
+
+        </table>
+        <!-- =================================================================================================== -->
+    </div>
+</body>
+<script>
+    // Disable the browser's back button
+    history.pushState(null, null, location.href);
+    window.addEventListener('popstate', function(event) {
+        history.pushState(null, null, location.href);
+    });
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 116 || (event.ctrlKey && event.keyCode === 82)) {
+            event.preventDefault();
+        }
+    });
+
+    function printpage() {
+        window.print();
+    }
+</script>
+
+</html>

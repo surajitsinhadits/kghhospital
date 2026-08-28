@@ -1,0 +1,523 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Item Issue</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="card">
+            <div class="card-header d-block card_hearder_mimi">
+                <div class="row">
+                    <div class="col-md-6 card-title card_hearder_mimi_text">
+                        {{ $title }} Item Issue
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="myForm" action="{{ route('store.update-item-issue', @$edit->id) }}">
+                    @csrf
+                    <div class="card-body">
+                        <div class="col-md-12">
+                            <div class="row">
+                                <div class="col-md-3 mt-3">
+                                <label class="date-format">Date <span class="text-danger">*</span></label>
+                                <input type="text" class="dateTimePickr" name="date" id="date" value="{{ old('date', @$edit->date ? dateFor($edit->date, true) : date('d-m-Y h:i A')) }}" required />
+                                @error('date')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                                </div>
+                                <div class="col-md-3 mt-3">
+                                    <label class="form-label">Department <span class="text-danger">*</span></label>
+                                    <select name="department" id="department" class="form-control select2-show-search">
+                                        <option value="">Select One.....</option>
+                                        @foreach ($department as $value)
+                                            <option value="{{ @$value->id }}" {{ @$edit->department_id == @$value->id ? 'selected' : '' }}>{{ @$value->department_name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('department')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                                <div class="col-md-3 mt-3">
+                                    <label class="form-label">Status <span class="text-danger">*</span></label>
+                                    <select name="status" class="form-control" required>
+                                        <option value="0">Issue Incomplete</option>
+                                        <option value="1">Issue complete</option>
+                                    </select>
+                                    @error('status')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                                <div class="col-md-3 mt-3">
+                                    <label class="form-label">Requisition No <span class="text-danger">*</span></label>
+                                    {{-- <input class="form-control" type="text" id="requisition_id" value="{{ old('requisition_id', @$edit->requisition_id) }}" name="requisition_id" /> --}}
+                                    <select name="requisition_id" class="form-control select2-show-search" id="requisition_id" onchange="getReq()" required>
+                                        <option value="">Select Requisition</option>
+                                        @foreach ($req as $val)
+                                            <option value="{{ @$val->id }}" {{ old('requisition_id', @$edit->requisition_id) == @$val->id ? 'selected' : '' }}>REQ#{{ @$val->id }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('requisition_id')
+                                    <span class="text-danger">{{ $message }}</span>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border-bottom mt-4">
+                            <div class="table-responsive">
+                                <table class="table card-table table-vcenter text-nowrap border" id="data-table">
+                                    <thead class="bg-primary text-white">
+                                        <tr>
+                                            <th class="text-white" style="width: 30%">Item Name <span class="text-danger">*</span></th>
+                                            <th class="text-white" style="width: 10%">Batch No<span class="text-danger">*</span></th>
+                                            <th class="text-white" style="width: 10%">Exp. Date<span class="text-danger">*</span></th>
+                                            <th class="text-white" style="width: 10%">Unit Qty<span class="text-danger">*</span></th>
+                                            <th class="text-white" style="width: 10%">Unit<span class="text-danger">*</span></th>
+                                            <th class="text-white" style="width: 10%">Sub Unit Qty<span class="text-danger">*</span></th>
+                                            <th class="text-white" style="width: 10%">Sub Unit<span class="text-danger">*</span></th>
+                                            <th class="text-white" style="width: 18%">Avi. Qty<span class="text-danger">*</span></th>
+                                            <th  class="text-white" style="width: 2%"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="chargeTable">
+                                        @if(!@$edit->requisition_id)
+                                        <tr id="row">
+                                            <td>
+                                                <select class="form-control select2-show-search" id="item_name0" onchange="getProductBatchDetails(this.value, 0)">
+                                                    <option value="">Select One.....</option>
+                                                    @foreach ($item_list as $value)
+                                                    <option value="{{ $value->id }}">{{ $value->item_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                             <td>
+                                                <select class="form-control select2-show-search" onchange="getProductDetailsbyBatch(this.value, 0)" id="part_no0">
+                                                    <option value="">Select One...</option>
+                                                </select>
+                                             </td>
+                                            <td>
+                                                <input class="form-control" readonly type="text" id="exp_date0" value="0" />
+                                            </td>
+                                            <td>
+                                                <input class="form-control"  type="number" min="0" id="unit_qty0" value="0" step="0.1" />
+                                            </td>
+                                            <td>
+                                                <input class="form-control" readonly type="text" id="unit0" />
+                                            </td>
+                                            <td>
+                                                <input class="form-control"  type="number" min="0" id="sub_unit_qty0" value="0" step="0.1" />
+                                            </td>
+                                            <td>
+                                                <input class="form-control" readonly type="text" id="sub_unit0"  />
+                                            </td>
+                                            <td>
+                                                <input class="form-control"  type="text" id="avi_qty0"  readonly />
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-success btn-sm"  onclick="validation()" type="button">+</button>
+                                            </td>
+                                        </tr>
+                                        @endif
+                                        @foreach (@$edit_info ?? [] as $key => $info)
+                                        @php $key++; @endphp
+                                        <tr>
+                                            <td>
+                                                <input class="form-control" type="hidden" name="uppid[]" value="{{ $info->id }}"/>
+                                                <select class="form-control select2-show-search" id="item_name{{ $key }}" name="item_name[]">
+                                                    <option value="{{ $info->item_id }}">{{ $info->item_name }}</option>
+                                                </select>
+                                            </td>
+                                             <td>
+                                                <select class="form-control select2-show-search" id="part_no{{ $key }}" name="part_no[]">
+                                                    <option value="{{ $info->part_no }}">{{ $info->part_no }}</option>
+                                                </select>
+                                             </td>
+                                            <td>
+                                                <input class="form-control" type="text" name="exp_date[]" id="exp_date{{ $key }}" value="{{ dateFor($info->exp_date) }}" />
+                                            </td>
+                                            <td>
+                                                <input class="form-control"  type="number" min="0" name="unit_qty[]" id="unit_qty{{ $key }}" value="{{ $info->unit_qty }}" step="0.1" />
+                                            </td>
+                                            <td>
+                                                <input class="form-control" type="text" name="unit[]" id="unit{{ $key }}" value="{{ $info->unit }}" readonly/>
+                                            </td>
+                                            <td>
+                                                <input class="form-control" type="number" min="0" name="sub_unit_qty[]" id="sub_unit_qty{{ $key }}" value="{{ $info->sub_unit_qty }}" step="0.1" />
+                                            </td>
+                                            <td>
+                                                <input class="form-control" type="text" name="sub_unit[]" id="sub_unit{{ $key }}" value="{{ $info->sub_unit }}" readonly />
+                                            </td>
+                                            <td>
+                                                <input class="form-control"  type="text" name="avi_qty" id="avi_qty{{ $key }}" readonly />
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="mt-5">
+                            <div class="col-md-6 mt-3">
+                                <label class="form-label" style="margin: 3px 0px 0px 0px">Note</label>
+                                <textarea class="form-control" name="note">{{ old('note',@$edit->note)}}</textarea>
+                                @error('note')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mb-4">
+                        <input type="hidden" name="action_type" id="action_type" value="0">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="submit" onclick="setConfirmFlag(true)" class="btn btn-success">Save & Issue</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="myModal" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <h4 class="modal-title text-danger">Are you sure? After Issue you can't Edit or Delete!</h4>
+                    <label class="form-label my-3">Requisition Status <span class="text-danger">*</span></label>
+                    <div class="form-check d-flex">
+                        <input style="width:20px;margin: 0px 8px;" type="radio" name="recheck_status" value="0" id="grnstatus1" checked>
+                        <label style="margin-bottom: 0px;" for="grnstatus1">Issue Incomplete</label>
+                        <input style="width:20px;margin: 0px 8px;" type="radio" name="recheck_status" value="1" id="grnstatus2">
+                        <label style="margin-bottom: 0px;" for="grnstatus2">Issue Complete</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+<script>
+    let requireConfirm = false;
+    function setConfirmFlag(flag) {
+        requireConfirm = flag;
+    }
+    $(document).on('click', '.modal-footer button', function(){
+        var selectedValue = $('input[name="recheck_status"]:checked').val();
+        $('#status').val(selectedValue);
+        $('#action_type').val(1);
+        $('#myForm').submit();
+    });
+    document.getElementById('myForm').addEventListener('submit', function (e) {
+        const partNoInputs = document.querySelectorAll('select[name="part_no[]"]');
+        let allFilled = true;
+        partNoInputs.forEach(function(input) {
+            if (input.value.trim() == '') {
+                allFilled = false;
+                input.classList.add('is-invalid'); // Optionally add a class for styling
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        });
+
+        if (!allFilled) {
+            alert('Please fill in all Part No');
+            e.preventDefault();
+            return;
+        }
+        if (requireConfirm) {
+            // const confirmed = confirm("Are you sure? After Issue you can't Edit or Delete!");
+            // if (!confirmed) {
+            //     e.preventDefault();
+            // }
+            $('#myModal').modal('show');
+            e.preventDefault();
+        }
+    });
+    document.querySelector('#data-table').addEventListener('input', function (event) {
+        if (event.target && event.target.id === 'unit_qty') {
+            var row = event.target.closest('tr');
+            validateQty(row);
+        }
+    });
+    function validateQty(row) {
+        var unit_qty = parseFloat(row.querySelector('#unit_qty0').value) || 0;
+        var avi_qty = parseFloat(row.querySelector('#avi_qty0').value) || 0;
+        if (unit_qty > avi_qty) {
+            row.querySelector('#unit_qty0').value = 0;
+        }
+    }
+    function getProductBatchDetails(item_id) {
+        $('#part_no0').html('');
+        $('#part_no0').html('<option value="">Select One...</option>');
+        $.ajax({
+            url: "{{ route('store.get-batch-details') }}",
+            type: "POST",
+            data: {
+                _token: '{{ csrf_token() }}',
+                itemId: item_id,
+            },
+            success: function(response) {
+                $.each(response.batch, function(key, value) {
+                    $('#part_no0').append(`<option value="${value.part_no}">${value.part_no}</option>`);
+                });
+                $('#unit_qty0').val('');
+                $('#unit0').val('');
+                $('#sub_unit_qty0').val('');
+                $('#sub_unit0').val('');
+                $('#exp_date0').val('');
+                $('#avi_qty0').val('');
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+    }
+    function getProductDetailsbyBatch(part_no, id, item = 0) {
+        var item_id = item ? item : $('#item_name'+id).val();
+        console.log(part_no, item_id);
+        $.ajax({
+            url: "{{ route('store.get-product-details') }}",
+            type: "POST",
+            data: {
+                _token: '{{ csrf_token() }}',
+                partNo: part_no,
+                itemId: item_id,
+            },
+            success: function(response) {
+                $('#exp_date'+id).val(response.exp_date);
+                $('#avi_qty'+id).val(response.avi_qty);
+                // With this corrected version:
+                let currentMax = parseInt($('#unit_qty'+id).attr('max')) || 0;
+                let newMax = parseInt(response.unit_qty) || 0;
+                if (currentMax && newMax) {
+                    $('#unit_qty'+id).attr('max', Math.min(currentMax, newMax));
+                } else if (newMax) {
+                    $('#unit_qty'+id).attr('max', newMax);
+                }
+                // Optionally, if you always want to set to response.unit_qty:
+                $('#unit_qty'+id).attr('max', newMax);
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+    }
+    function avilable_qty(item_id,row){
+        if (item_id != '') {
+            $.ajax({
+                url: "#",
+                type: "post",
+                data: {
+                    itemId: item_id,
+                    _token: '{{ csrf_token() }}',
+                },
+                dataType: 'json',
+                success: function(res) {
+                    $('#avi_qty'+row).val(res);
+                }
+            });
+        }
+    }
+    function validation(){
+        var itemSelect = $('#item_name').val();
+        var unitqty = $('#unit_qty').val();
+        var subunitqty = $('#sub_unit_qty').val();
+
+        if(itemSelect == ''){
+            alert('Please Select a Item !!!');
+        }
+        // if(unitqty == '' || unitqty == 0){
+        //     alert('Please Enter Quantity !!!');
+        // }
+        if((unitqty == '' || unitqty <= 0) && subunitqty <= 0) {
+            alert('Please Enter Quantity !!!');
+            return;
+        }else{
+            addNewrow();
+        }
+    }
+    function addNewrow() {
+        var table = document.getElementById("data-table");
+        var newRow = table.insertRow(table.rows.length);
+
+        var ItemSelect = $('#item_name0');
+        var selectedOption = ItemSelect.find('option:selected');
+        var itemValue = selectedOption.val();
+        var itemText = selectedOption.text();
+
+        var unit = $('#unit0').val();
+        var unit_qty = $('#unit_qty0').val();
+        var sub_unit = $('#sub_unit0').val();
+        var sub_unit_qty = $('#sub_unit_qty0').val();
+        var batch_no = $('#part_no0').val();
+        var exp_date = $('#exp_date0').val();
+
+        var cell1 = newRow.insertCell(0);
+        var cell2 = newRow.insertCell(1);
+        var cell3 = newRow.insertCell(2);
+        var cell4 = newRow.insertCell(3);
+        var cell5 = newRow.insertCell(4);
+        var cell6 = newRow.insertCell(5);
+        var cell7 = newRow.insertCell(6);
+        var cell8 = newRow.insertCell(7);
+        var cell9 = newRow.insertCell(8);
+
+
+        var selectHTML = '<select class="form-control" id="item_name'+newRow+'" name="item_name[]"><option value="' + itemValue + '">' + itemText + '</option></select>';
+        cell1.innerHTML = selectHTML;
+
+        var inputHTML1 = '<input type="text" id="part_no'+newRow+'" name="part_no[]" readonly class="form-control" value="' + batch_no + '">';
+        cell2.innerHTML = inputHTML1;
+
+        var inputHTML2 = '<input type="date" id="exp_date'+newRow+'" name="exp_date[]" readonly class="form-control" value="' + exp_date + '">';
+        cell3.innerHTML = inputHTML2;
+
+        var inputHTML3 = '<input type="text" id="unit_qty'+newRow+'" name="unit_qty[]" readonly class="form-control" value="' + unit_qty + '" />';
+        cell4.innerHTML = inputHTML3;
+
+        var inputHTML4 = '<input type="text" id="unit'+newRow+'" name="unit[]" readonly class="form-control" value="' + unit + '" />';
+        cell5.innerHTML = inputHTML4;
+
+        var inputHTML5 = '<input type="text" id="sub_unit_qty'+newRow+'" name="sub_unit_qty[]" readonly class="form-control" value="' + sub_unit_qty + '" />';
+        cell6.innerHTML = inputHTML5;
+
+        var inputHTML6 = '<input type="text" id="sub_unit'+newRow+'" name="sub_unit[]" readonly class="form-control" value="' + sub_unit + '" />';
+        cell7.innerHTML = inputHTML6;
+
+        var blankCellHTML = ''; // Leave the cell blank
+        cell8.innerHTML = blankCellHTML; // Add the blank cell after "Rate"
+
+        var inputHTML7 = '<button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>';
+        cell9.innerHTML = inputHTML7;
+        const selectElement = document.getElementById("item_name");
+        selectElement.selectedIndex = 0;
+        $('#item_name').val('').trigger('change');
+
+        $('#unit').val('');
+        $('#part_no').val('');
+        $('#exp_date').val('');
+        $('#unit_qty').val(0);
+        $('#sub_unit').val('');
+        $('#sub_unit_qty').val(0);
+        $('#avi_qty').val(0);
+
+    }
+    function removeRow(button) {
+        var table = document.getElementById("data-table");
+        var row = button.parentNode.parentNode;
+        table.deleteRow(row.rowIndex);
+    }
+    function getReq(){
+        $('#chargeTable tr:not(:first)').remove();
+        var requisition_id = $('#requisition_id').val();
+        if (requisition_id) {
+            $.ajax({
+                url: "{{ route('store.get-req-details') }}",
+                type: "post",
+                data: {
+                    requisition_id: requisition_id,
+                    _token: '{{ csrf_token() }}',
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if (res.status) {
+                        let table = document.getElementById("data-table");
+                        let rowCount = table.rows.length;
+                        $('#department').val(res.data.department_id).trigger('change');
+                        $('#chargeTable tr:first').hide();
+                        res.data.items.forEach(item => {
+                            // Extract values from each item
+                            let itemValue = item.item_id;
+                            let itemText = item.item_name || '';
+                            let unit = item.unit_name || '';
+                            let sub_unit = item.sub_unit_name || '';
+                            let sub_unit_no = item.sub_unit_no || 1;
+                            let tol = Number(item.unit_qty * sub_unit_no) + Number(item.sub_unit_qty);
+                            let avi = Number(item.iunit_qty * sub_unit_no) + Number(item.isubunit_qty);
+                            let rem = tol - avi;
+                            let unit_qty = Math.floor(rem / sub_unit_no);
+                            let sub_unit_qty = rem % sub_unit_no;
+
+                            if((unit_qty > 0) || (sub_unit_qty > 0)){
+                                // Create new row
+                                let newRow = table.insertRow(table.rows.length);
+
+                                newRow.insertCell(0).innerHTML =
+                                    `<select class="form-control" name="item_name[]">
+                                        <option value="${itemValue}">${itemText}</option>
+                                    </select>
+                                    <input type="hidden" id="unit_details${rowCount}" name="unit_details[]" class="form-control" value="${sub_unit_no}" />`;
+
+                                newRow.insertCell(1).innerHTML =
+                                    `<select class="form-control" name="part_no[]" onchange="getProductDetailsbyBatch(this.value, ${rowCount}, '${itemValue}')">
+                                        <option value="">Select Batch</option>
+                                        ${item.batch_info.map(batch => `<option value="${batch.part_no}">${batch.part_no}</option>`).join('')}
+                                    </select>`
+
+
+                                // const cell1 = newRow.insertCell(1);
+                                // cell1.innerHTML = `
+                                //     <select class="form-control" name="part_no[]"
+                                //             onchange="getProductDetailsbyBatch(this.value, ${rowCount}, '${itemValue}')">
+                                //         <option value="">Select Batch</option>
+                                //         ${
+                                //             item.batch_info
+                                //                 .map((batch, index) => `
+                                //                     <option value="${batch.part_no}" ${index === 0 ? 'selected' : ''}>
+                                //                         ${batch.part_no}
+                                //                     </option>
+                                //                 `)
+                                //                 .join('')
+                                //         }
+                                //     </select>
+                                // `;
+                                // if (item.batch_info && item.batch_info.length > 0) {
+                                //     const select = cell1.querySelector('select');
+                                //     select.value = item.batch_info[0].part_no;
+                                //     getProductDetailsbyBatch(select.value, rowCount, itemValue);
+                                // }
+
+
+
+                                newRow.insertCell(2).innerHTML =
+                                    `<input type="date" name="exp_date[]" id="exp_date${rowCount}" readonly class="form-control" value="" />`;
+
+                                newRow.insertCell(3).innerHTML =
+                                    `<input type="number" name="unit_qty[]" id="unit_qty${rowCount}" onkeyup="getamount(${rowCount})" class="form-control" value="${unit_qty}" max="${unit_qty}" min="0" step="0.1" />`;
+
+                                newRow.insertCell(4).innerHTML =
+                                    `<input type="text" name="unit[]" readonly class="form-control" value="${unit}" />`;
+
+                                newRow.insertCell(5).innerHTML =
+                                    `<input type="number" name="sub_unit_qty[]" id="sub_unit_qty${rowCount}" onkeyup="getamount(${rowCount})" class="form-control" value="${sub_unit_qty}" max="${sub_unit_no}" min="0" step="0.1" />`;
+
+                                newRow.insertCell(6).innerHTML =
+                                    `<input type="text" name="sub_unit[]" readonly class="form-control" value="${sub_unit}" />`;
+
+                                newRow.insertCell(7).innerHTML =
+                                    `<input type="text" id="avi_qty${rowCount}" readonly class="form-control" value="0" />
+                                    <input type="hidden" id="remaining${rowCount}" value="0" />`;
+
+                                newRow.insertCell(8).innerHTML =
+                                    `<button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>`;
+                            }
+                            rowCount++;
+                        });
+                    } else {
+                        alert('Requisition not found');
+                    }
+                }
+            });
+        }else{
+            $('#chargeTable tr:first').show();
+        }
+    }
+</script>
+@endpush

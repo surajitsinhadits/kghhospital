@@ -1,0 +1,258 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{ $title }}</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <h4 class="card-title card_hearder_mimi_text">DUE REPORTS</h4>
+                </div>
+                <div class="card-body">
+                    <div class="col-md-12 border-right">
+                        <form method="GET" action="{{ $action }}">
+                            <div class="whitebackground">
+                                <div class="row ">
+                                    <div class="col-sm-2">
+                                        <div class="form-group">
+                                            <select name="section" id="section" class="form-control">
+                                                <option value="">Select Section</option>
+                                                @foreach (['OPD','EMG','IPD','DAYCARE','INVESTIGATION','OT','OP'] as $sec)
+                                                    <option value="{{ $sec }}"
+                                                        {{ @$request_data['section'] == $sec ? 'selected' : '' }}>
+                                                        {{ $sec == 'OP' ? 'OPTICAL' : $sec }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('section')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-2">
+                                        <div class="form-group">
+                                            <input type="text" class="form-control datePickr"
+                                                value="{{ dateFor(@$request_data['from_date']) }}" id="fromDate"
+                                                name="from_date" placeholder="Choose From Date">
+                                            @error('from_date')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-2">
+                                        <div class="form-group">
+                                            <input type="text" class="form-control datePickr"
+                                                value="{{ dateFor(@$request_data['to_date']) }}" id="toDate" name="to_date"
+                                                placeholder="Choose To Date">
+                                            @error('to_date')
+                                                <span class="text-danger">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-2">
+                                        <div class="form-group d-flex">
+                                            <button type="submit" class="btn btn-primary px-3 mr-2"><i
+                                                    class="fas fa-search"></i> Search</button>
+                                            <a href="{{ $action }}" class="btn btn-warning px-3 mr-2"><i
+                                                    class="fas fa-history"></i> Reset</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="whitebackground">
+                        <table class="table table-bordered table-striped" id="myTable">
+                            <thead>
+                                <tr>
+                                    <th>SL</th>
+                                    <th>Bill ID</th>
+                                    <th>Bill Date</th>
+                                    <th>Patient Name</th>
+                                    <th>Net Amount</th>
+                                    <th>Paid Amount</th>
+                                    <th>Due Amount</th>
+                                    <th>Created By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($result as $key => $item)
+                                    <tr>
+                                        <td>{{ $key + 1 }}</td>
+                                        <td>
+                                            <a href="{{ route('bill.billing-details', [$item->section == 'DAYCARE' ? 'ipd' : strtolower($item->section), ed($item->id, true)]) }}">
+                                                {{ $item->uid }}
+                                                <span class="badge badge-gradient-primary mx-2">{{ $item->section }}</span>
+                                            </a>
+                                        </td>
+                                        <td>{{ dateFor($item->bill_date, true) }}</td>
+                                        <td>{{ strtoupper($item->patient_name) }} ({{ $item->patient_id }})</td>
+                                        <td>₹{{ number_format($item->grand_total, 2) }}</td>
+                                        <td>₹{{ number_format($item->total_payment, 2) }}</td>
+                                        <td>₹{{ number_format($item->due_amount, 2) }}</td>
+                                        <td>{{ $item->name }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('js')
+    <script>
+        $(function() {
+            // Helper: timestamp for filenames
+            function ts() {
+                const d = new Date();
+                return d.toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            }
+
+            // Values to use in exported headers
+            const reportTitle = @json($title ?? 'Due Reports');
+            const orgName = @json(config('app.name', 'Application'));
+            const generatedAt = new Date().toLocaleString();
+
+            $('#myTable').DataTable({
+                pageLength: 50,
+                dom: "<'row mb-2'<'col-sm-6'B><'col-sm-6'f>>" +
+                    "tr" +
+                    "<'row mt-2'<'col-sm-5'i><'col-sm-7'p>>",
+                buttons: [
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Download Excel',
+                        title: 'Due Reports',
+                        filename: 'due-reports_' + ts(),
+                        exportOptions: { columns: ':visible:not(.no-export)' },
+                        customizeData: function(data) {
+                            // Strip currency symbols/commas so Excel treats as numbers
+                            for (let i = 0; i < data.body.length; i++) {
+                                [4, 5, 6].forEach(idx => {
+                                    if (data.body[i][idx] != null) {
+                                        data.body[i][idx] = String(data.body[i][idx]).replace(/[₹,]/g, '');
+                                    }
+                                });
+                            }
+                        }
+                    },
+                    {
+                        extend: 'pdfHtml5',
+                        text: 'Download PDF',
+                        title: 'Due Reports',
+                        filename: 'due-reports_' + ts(),
+                        orientation: 'landscape',
+                        pageSize: 'A4',
+                        exportOptions: { columns: ':visible:not(.no-export)' },
+                        customize: function(doc) {
+                            // Basic styles
+                            doc.defaultStyle.fontSize = 10;
+                            doc.styles.tableHeader.fontSize = 12;
+
+                            // Optional footer with generated timestamp
+                            doc.footer = function(currentPage, pageCount) {
+                                return {
+                                    margin: [40, 0, 40, 20],
+                                    columns: [
+                                        { text: 'Generated: ' + generatedAt, alignment: 'left', fontSize: 9, color: '#666' },
+                                        { text: '', alignment: 'center' },
+                                        { text: '', alignment: 'right' }
+                                    ]
+                                };
+                            };
+
+                            // Make all columns auto width
+                            if (doc.content && doc.content[1] && doc.content[1].table) {
+                                doc.content[1].table.widths =
+                                    Array(doc.content[1].table.body[0].length).fill('*');
+                            }
+                        }
+                    },
+                    {
+                        extend: 'print',
+                        text: 'Print',
+                        exportOptions: { columns: ':visible:not(.no-export)' },
+                        customize: function(win) {
+                            // Ensure base font-size is readable
+                            $(win.document.body).css('font-size', '10pt');
+
+                            // Settings for the header image sizing
+                            const headerUrl = "{{ asset('public/assets/images/header/kgh.png') }}";
+                            const headerImgWidthPercent = 95; // 100% = full table width
+                            const headerImgHeightMM = 25;      // height in mm (adjust as needed)
+
+                            const $table = $(win.document.body).find('table');
+                            const $thead = $table.find('thead');
+
+                            // Determine visible column count (respecting colvis/hidden columns)
+                            let colCount = 0;
+                            $thead.find('tr:first th').each(function() {
+                                if ($(this).css('display') !== 'none') colCount++;
+                            });
+                            if (colCount === 0) {
+                                colCount = $table.find('tr:first th').length || 1;
+                            }
+
+                            // Rows to inject into THEAD so they repeat on every printed page:
+                            const imageRow = `
+                                <tr class="repeat-print-header">
+                                    <th colspan="${colCount}" style="border:none; padding:0;">
+                                        <img src="${headerUrl}" alt="Header"
+                                             style="width:${headerImgWidthPercent}%; height:${headerImgHeightMM}mm; object-fit:contain;">
+                                    </th>
+                                </tr>
+                            `;
+                            const titleRow = `
+                                <tr class="repeat-print-title">
+                                    <th colspan="${colCount}" style="border:none; padding:0 0 6px 0; text-align:center;">
+                                        <div style="font-weight:700; font-size:12pt;">${reportTitle}</div>
+                                    </th>
+                                </tr>
+                            `;
+
+                            // Prepend in reverse order so final order is: titleRow (top), imageRow, then your table header
+                            $thead.prepend(imageRow);
+                            $thead.prepend(titleRow);
+
+                            // Print-specific CSS
+                            const printCss = `
+                                @media print {
+                                    thead { display: table-header-group; }
+                                    tfoot { display: table-footer-group; }
+                                    .dt-print-title { display: none !important; }
+
+                                    .repeat-print-title th,
+                                    .repeat-print-header th {
+                                        background: #fff !important;
+                                        border: none !important;
+                                        padding: 0 !important;
+                                    }
+                                    .repeat-print-title div {
+                                        line-height: 1.2;
+                                    }
+
+                                    table.dataTable { page-break-inside: auto; }
+                                    table.dataTable tr { page-break-inside: avoid; page-break-after: auto; }
+                                }
+                            `;
+                            $(win.document.head).append('<style type="text/css">' + printCss + '</style>');
+
+                            // Tighten table styling for print
+                            $table.addClass('compact').css('font-size', '10pt');
+                        }
+                    },
+                    {
+                        extend: 'colvis',
+                        text: 'Columns'
+                    }
+                ]
+            });
+        });
+    </script>
+@endpush

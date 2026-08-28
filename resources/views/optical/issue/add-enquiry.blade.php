@@ -1,0 +1,258 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Register</title>
+@endpush
+@push('css')
+<style>
+    .enquiry {
+        background-image: url('{{url("public/assets/images/optical.jpg")}}');
+        background-size: cover;
+        background-repeat: no-repeat; width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+    .enquiry-card {
+        width: 70%;
+        margin: auto;
+        margin-top: 12%;
+        box-shadow: 1px 3px 17px 9px rgb(83 84 7);
+    }
+    .newuserlisttchange, .newdesignadd {
+        margin: 10px 0px 0px 0px;
+    }
+</style>
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-md-12 enquiry">
+            <div class="enquiry-card">
+                <div class="card-header d-block card_hearder_mimi">
+                    <div class="row">
+                        <div class="col-md-6 card-title card_hearder_mimi_text"> NEW REGISTER </div>
+                        <div class="col-md-6 text-right">
+                            <div class="d-block">
+                                <a href="{{Route('optical.eye-examination')}}" class="btn btn-danger btn-sm">
+                                    <i class="fa fa-times"></i> Close
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0" style="background-color:#f7ffd0">
+                    <div class="opdneedit">
+                        <div class="row no-gutters">
+                            <div class="row no-gutters">
+                                <div class="col-lg-12 col-xl-12">
+                                    <form method="POST" id="yourFormId" action="{{Route('optical.update-examination')}}">
+                                        @csrf
+                                        <div class="options px-5 pt-1 pb-3">
+                                            <div class="row">
+                                                <div class="form-group col-md-3">
+                                                    <label for="department">Department</label>
+                                                    <select name="department" class="form-control select2-show-search" onchange="getDoctor(this.value)" id="department">
+                                                        <option value="">All</option>
+                                                        @foreach ($department as $dept)
+                                                        <option value="{{$dept->id}}" {{ old('department', $user ? $user->department_id : '') == $dept->id ? 'selected' : '' }}>
+                                                            {{$dept->department_name}}
+                                                        </option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('department')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <label for="doctor">Doctor <span class="text-danger">*</span></label>
+                                                    <select name="doctor" class="form-control select2-show-search" id="doctor">
+                                                        <option value="">Select Doctor</option>
+                                                        @foreach ($doctor as $doc)
+                                                        <option value="{{$doc->id}}" {{ old('doctor', $user ? $user->id : '') == $doc->id ? 'selected' : '' }}>
+                                                            Dr. {{$doc->name}}
+                                                        </option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('doctor')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <label class="date-format">Appointment Date <span class="text-danger">*</span></label>
+                                                <input type="text" class="datePickr" name="appointment_date" id="appointment_date" value="{{ old('appointment_date', @$slot['date'] ?? date('d-m-Y')) }}">
+                                                    @error('appointment_date')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <label class="date-format">Slot Time <span class="text-danger">*</span></label>
+                                                    <input type="text" class="timePickr" name="appointment_time" id="appointment_time" value="{{ old('appointment_time', @$slot['time']) }}">
+                                                    @error('appointment_time')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3 newaddappon">
+                                                    <label for="uhid">UHID</label>
+                                                    <input type="number" id="uhid" onkeyup="getPatient(this.value,'id')" value="{{ old('uhid') }}" name="uhid" class="form-control" readonly>
+                                                    @error('uhid')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3 newaddappon">
+                                                    <label for="phone1">Mobile No.</label>
+                                                    <input type="text" id="patient_ph_no" onkeyup="getPatient(this.value,'phone')" maxlength="10" name="phone" class="form-control" value="{{ old('phone') }}">
+                                                    @error('phone')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-6 custom-field" style="margin-top: 10px;">
+                                                    <label for="name">Name <span class="text-danger">*</span></label>
+                                                    <input type="text" id="name" class="text-capitalize" value="{{ old('name') }}" name="name" onkeyup="getPatient(this.value,'name')" autofocus>
+                                                    @error('name')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="col-md-12">
+                                                    <div class="card-body hospital_allcardbodydesign" style="display:none" id="search_result">
+                                                        <div class="">
+                                                            <div class="table-responsive">
+                                                                <table class="table table-hover card-table table-vcenter text-nowrap border" style="background-color:#d9d9d9;border:1px solid black !important">
+                                                                    <thead class="text-white" style="background-color:#5e6545">
+                                                                        <tr class="border-left">
+                                                                            <th class="text-white">UHID</th>
+                                                                            <th class="text-white">Patient Name</th>
+                                                                            <th class="text-white">Age</th>
+                                                                            <th class="text-white">Phone</th>
+                                                                            <th class="text-white">Address</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="search_result_row"></tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-group col-md-3 newuserlisttchange">
+                                                    <label for="gender">Gender <span class="text-danger">*</span></label>
+                                                    <select name="gender" class="form-control" id="gender">
+                                                        <option value="">Select Gender</option>
+                                                        <option value="Male" {{ old('gender') == 'Male' ? 'selected' : '' }}> Male</option>
+                                                        <option value="Female" {{ old('gender') == 'Female' ? 'selected' : '' }}> Female</option>
+                                                        <option value="Others" {{ old('gender') == 'Others' ? 'selected' : '' }}> Others</option>
+                                                    </select>
+                                                    @error('gender')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+
+                                                <div class="form-group col-md-3">
+                                                    <div class="row">
+                                                        <div class="col-lg-4 newdesignadd">
+                                                            <label for="date_of_birth_year"> Year</label>
+                                                            <input type="text" id="date_of_birth_year" name="date_of_birth_year" value="{{ old('date_of_birth_year') }}">
+                                                            @error('date_of_birth_year')<small class="text-danger">{{$message}}</small>@enderror
+                                                        </div>
+                                                        <div class="col-lg-4 newdesignadd">
+                                                            <label for="date_of_birth_month"> Month</label>
+                                                            <input type="text" id="date_of_birth_month" name="date_of_birth_month" value="{{ old('date_of_birth_month') }}">
+                                                            @error('date_of_birth_month')<small class="text-danger">{{$message}}</small>@enderror
+                                                        </div>
+                                                        <div class="col-lg-4 newdesignadd">
+                                                            <label for="date_of_birth_day"> Day</label>
+                                                            <input type="text" id="date_of_birth_day" name="date_of_birth_day" value="{{ old('date_of_birth_day') }}">
+                                                            @error('date_of_birth_day')<small class="text-danger">{{$message}}</small>@enderror
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-6 newdesignadd">
+                                                    <label for="address"> Address</label>
+                                                    <input type="text" id="address" name="address" value="{{ old('address') }}">
+                                                    @error('address')<small class="text-danger">{{$message}}</small>@enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="text-center mt-2 mb-3">
+                                            <button class="btn btn-primary submitBtn" type="submit" name="save" value="new">
+                                                <i class="fa fa-file text-success"></i> Save &amp; New
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+<script>
+	function getPatient(val,col) {
+		var div_data = '';
+		$('#search_result').attr('style', 'display:none', true);
+		$('#search_result_row').html('');
+		if (val && col) {
+			$.ajax({
+				url: "{{ route('opd.get-patients') }}",
+				type: "POST",
+				data: {
+					_token: '{{ csrf_token() }}',
+					field: col,
+					value: val,
+				},
+				success: function(response) {
+					if (response.success && (response.patients.length > 0)) {
+						$('#search_result').removeAttr('style', true);
+						$.each(response.patients, function(key, value) {
+                            let patientData = encodeURIComponent(JSON.stringify(value));
+							div_data += `<tr class="color_hover_charnge" onclick="selectPatient('${patientData}')" style="cursor: pointer !important;">
+                                <td>${value.uhid || value.id}</td>
+                                <td>${value.name}</td>
+                                <td>${value.dob_year || 0}Y ${value.dob_month || 0}M ${value.dob_day || 0}D</td>
+                                <td>${value.phone}</td>
+                                <td>${value.address}</td>
+                            </tr>`;
+						});
+						$('#search_result_row').html(div_data);
+					}
+				},
+				error: function(error) {
+					console.log(error);
+				}
+			});
+		}
+	}
+
+    function selectPatient(data) {
+        let patient = JSON.parse(decodeURIComponent(data));
+        $('#uhid').val(patient.id);
+        $('#name').val(patient.name);
+        $('#patient_ph_no').val(patient.phone);
+        $('#gender').val(patient.gender).trigger('change');
+        $('#date_of_birth_month').val(patient.dob_month);
+        $('#date_of_birth_day').val(patient.dob_day);
+        $('#date_of_birth_year').val(patient.dob_year);
+        $('#address').val(patient.address);
+        $('#search_result_row').html('');
+        $('#search_result').attr('style', 'display:none', true);
+    }
+
+    function getDoctor(department_id) {
+        if (department_id) {
+            $('#doctor').html('<option vaule="">Select Doctor</option>');
+            $.ajax({
+                url: "{{Route('opd.get-doctors')}}",
+                type: "POST",
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    dept_id: department_id,
+                },
+                success: function(response) {
+                    if (response.success && (response.doctors.length > 0)) {
+                        $.each(response.doctors, function(key, value) {
+                            $('#doctor').append(`<option value="${value.id}">${value.salutation} ${value.name}</option>`);
+                        });
+                    }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+    }
+</script>
+@endpush

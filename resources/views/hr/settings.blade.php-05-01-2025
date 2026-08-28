@@ -1,0 +1,86 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{$title}} - {{hospital('title')}}</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="card">
+            <div class="card-header card_hearder_mimi">
+                <div class="card-title card_hearder_mimi_text">General Settings</div>
+            </div>
+            <div class="card-body">
+                <form class="form-horizontal" enctype="multipart/form-data" method="POST"
+                    action="{{route('hr.update-general-setting-details')}}">
+                    @csrf
+                    <div class="col-md-12">
+                        <div class="row border px-4">
+                            <div class="col-md-6 generaldesignadd">
+                                <label for="title">Title <span class="text-danger">*</span></label>
+                                <input type="text" value="{{hospital('title')}}" id="title" name="title">
+                                @error('title')
+                                <span class="text-danger">{{$message}}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-6 generaldesignadd">
+                                <label for="email">Email <span class="text-danger">*</span></label>
+                                <input type="email" value="{{hospital('email')}}" id="email" name="email">
+                                @error('email')
+                                <span class="text-danger">{{$message}}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-12 generaldesignadd">
+                                <label for="address">Address <span class="text-danger">*</span></label>
+                                <input type="text" value="{{hospital('address')}}" id="address" name="address">
+                                @error('address')
+                                <span class="text-danger">{{$message}}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-4 generaldesignadd">
+                                <label for="hf_id">HF ID</label>
+                                <input type="text" value="{{hospital('hf_id')}}" id="hf_id" name="hf_id">
+                                @error('hf_id')
+                                <span class="text-danger">{{$message}}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-4 generaldesignadd">
+                                <label for="hmis_id">HMIS ID</label>
+                                <input type="text" value="{{hospital('hmis_id')}}" id="hmis_id" name="hmis_id">
+                                @error('hmis_id')
+                                <span class="text-danger">{{$message}}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-4 generaldesignadd">
+                                <label for="phone_no">Phone No. <span class="text-danger">*</span></label>
+                                <input type="text" value="{{hospital('phone_no')}}" id="phone_no" name="phone_no">
+                                @error('phone_no')
+                                <span class="text-danger">{{$message}}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-4 generaldesignadd">
+                                <label for="logo">Logo (245px x 48px)</label>
+                                <input type="file"  id="logo" name="logo" accept=".jpeg,.png,.jpg">
+                                <input type="hidden"  name="old_logo" value="{{hospital('logo')}}">
+                                <img id="blah" width="50px" height="30px" src="{{ asset('public/' .hospital('logo')) }}" alt="Logo image">
+                            </div>
+                            <div class="col-md-4 generaldesignadd">
+                                <label for="logo">Small Logo (70px x 70px)</label>
+                                <input type="file"  id="small_logo"  name="small_logo" accept=".jpeg,.png,.jpg">
+                                <input type="hidden"  name="old_small_logo" value="{{hospital('small_logo')}}">
+                                <img id="blah" width="50px" height="30px" src="{{ asset('public/' .hospital('small_logo')) }}" alt="Logo image">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-9 mt-5">
+                                <button type="submit" class="btn btn-primary"><i class="fa fa-check-circle"></i> Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+@endpush

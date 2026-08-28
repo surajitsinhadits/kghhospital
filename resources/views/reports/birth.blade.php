@@ -1,0 +1,308 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Birth Report</title>
+@endpush
+@push('css')
+    <style>
+        @import url(https://fonts.googleapis.com/css?family=Roboto);
+
+        body {
+            font-family: Roboto, sans-serif;
+        }
+
+        #chart1 {
+            max-width: 100%;
+            margin: 5px auto;
+        }
+
+        #chart2 {
+            max-width: 100%;
+            margin: 5px auto;
+        }
+    </style>
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi justify-content-between">
+                    <h4 class="card-title card_hearder_mimi_text">BIRTH REPORT</h4>
+                </div>
+                <div class="">
+                    <div class="">
+                        <form method="POST" id="filterForm">
+                            @csrf
+                            <div class="whitebackground">
+                            <div class="row">
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        {{-- <label for="gender">Gender</label> --}}
+                                        <select class="form-control mt-1" name="gender" id="gender">
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        {{-- <label for="delivery_mode">Delivery Mode</label> --}}
+                                        <select class="form-control select2-show-search" name="delivery_mode"
+                                            id="delivery_mode">
+                                            <option value="">Select Delivery Mode</option>
+                                            <option value="LUCS">LUCS</option>
+                                            <option value="NORMAL">NORMAL</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        {{-- <label for="fromDate">From Date</label> --}}
+                                        <input type="text" value="" class="form-control datePickr" id="fromDate"
+                                            name="from_date" placeholder="Choose From Date">
+                                    </div>
+                                </div>
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        {{-- <label for="toDate">To Date</label> --}}
+                                        <input type="text" value="" class="form-control datePickr" id="toDate"
+                                            name="to_date" placeholder="Choose To Date">
+                                    </div>
+                                </div>
+                                <div class="col-sm-2">
+                                    <div class="form-group d-flex">
+                                        <button type="submit" class="btn btn-primary px-3 mr-2"><i
+                                            class="fas fa-filter"></i> Filter</button>
+                                        <button type="button" class="btn btn-success px-3 mr-2"
+                                            id="todayBtn"><i
+                                            class="fas fa-calendar-week"></i> Today</button>
+                                        <button type="button" class="btn btn-warning px-3" id="resetBtn"><i
+                                            class="fas fa-history"></i> Reset</button>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="row reportmargin">
+                        <div class="col-md-4">
+                            <div id="chart1" style="height: 389px;"></div>
+                        </div>
+                        <div class="col-md-8">
+                            <div id="chart2" style="height: 389px;"></div>
+                        </div>
+                    </div>
+                    <div class="whitebackground">
+                    <div class="table-responsive" id="table-responsive">
+                        <table class="table table-bordered data-table">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+    <script type="text/javascript">
+        var table;
+        let chart1, chart2;
+        $('#filterForm').on('submit', function(e) {
+            e.preventDefault();
+            window.chartsInitialized = false;
+            table.draw();
+        });
+        $('#todayBtn').on('click', function() {
+            const today = moment().format('DD-MM-YYYY');
+            $('#fromDate').val(today);
+            $('#toDate').val(today);
+            window.chartsInitialized = false;
+            table.draw();
+        });
+        $('#resetBtn').on('click', function() {
+            // Clear all filters
+            $('#gender').val('').trigger('change');
+            $('#delivery_mode').val('').trigger('change');
+            $('#fromDate').val('');
+            $('#toDate').val('');
+
+            // Redraw the DataTable (will trigger serverSide AJAX reload)
+            window.chartsInitialized = false;
+            table.draw();
+        });
+        function setDefaultDatesIfBlank() {
+            let fromDate = $('#fromDate').val();
+            let toDate = $('#toDate').val();
+            if (!fromDate && !toDate) {
+                let today = moment();
+                let sixMonthsAgo = moment().subtract(6, 'months');
+                $('#fromDate').val(sixMonthsAgo.format('DD-MM-YYYY'));
+                $('#toDate').val(today.format('DD-MM-YYYY'));
+            }
+        }
+        $(function() {
+            setDefaultDatesIfBlank();
+            table = $('.data-table').DataTable({
+                processing: true,
+                serverSide: true,
+                pageLength: 50,
+                lengthMenu: [
+                    [50, 100, 200, 300, 400],
+                    [50, 100, 200, 300, 400]
+                ],
+                ajax: {
+                    url: "{{ route('reports.birth') }}",
+                    data: function(d) {
+                        d.gender = $('#gender').val();
+                        d.delivery_mode = $('#delivery_mode').val();
+                        d.from_date = $('#fromDate').val();
+                        d.to_date = $('#toDate').val();
+                    }
+                },
+                columns: [{
+                        data: 'id',
+                        name: 'childcares.id',
+                        title: 'Baby ID',
+                    },
+                    {
+                        data: 'name',
+                        name: 'childcares.name',
+                        title: 'Name',
+                        render: function(data, type, row, meta) {
+                            return `B/O ${row.name}`;
+                        },
+                    },
+                    {
+                        data: 'gender',
+                        name: 'childcares.gender',
+                        title: 'Gender',
+                    },
+                    {
+                        data: 'address',
+                        name: 'childcares.address',
+                        title: 'Address',
+                        render: function(data, type, row, meta) {
+                            return `${row.address} ${row.district ? 'DIST-'+row.district : ''} ${row.state ? 'STATE-'+row.state : ''} ${row.pin_code ? 'PIN-'+row.pin_code : ''}`;
+                        },
+                    },
+                    {
+                        data: 'guardian_name',
+                        name: 'childcares.guardian_name',
+                        title: 'Guardian',
+                    },
+                    {
+                        data: 'doctor_name',
+                        name: 'u.name',
+                        title: 'Under Doctor',
+                    },
+                    {
+                        data: 'cre_date',
+                        name: 'childcares.date_of_birth',
+                        title: 'DOB',
+                    },
+                    // {
+                    //     data: 'weight',
+                    //     name: 'childcares.weight',
+                    //     title: 'Weight',
+                    // },
+                    {
+                        data: 'diagnosis',
+                        name: 'childcares.diagnosis',
+                        title: 'Diagnosis',
+                    },
+                    {
+                        data: 'operation',
+                        name: 'childcares.operation',
+                        title: 'Operation',
+                    },
+                    {
+                        data: 'delivery_mode',
+                        name: 'childcares.delivery_mode',
+                        title: 'Delivery Mode',
+                    },
+                ],
+                rowCallback: function(row, data) {
+                    $(row).css('background-color', '#d3fdf7');
+                }
+            });
+        });
+        $('.data-table').on('xhr.dt', function(e, settings, json) {
+            if (json.recordsTotal > 0) {
+                if (window.chartsInitialized) {
+                    return;
+                }
+                const totals = json.totals;
+                const gender = totals.gender;
+                const delivery_mode = json.totalsByMode.map(item => item.delivery_mode);
+                const totalCount = json.totalsByMode.map(item => Number(item.total_count));
+
+                // Rebuild charts with updated data
+                if (chart1) chart1.destroy();
+                chart1 = new ApexCharts(document.querySelector("#chart1"), {
+                    series: gender,
+                    chart: {
+                        width: '100%',
+                        type: 'pie',
+                    },
+                    labels: ['MALE', 'FEMALE'],
+                    legend: {
+                        position: 'top'
+                    },
+                    responsive: [{
+                        breakpoint: 480,
+                        options: {
+                            chart: {
+                                width: 200
+                            },
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }]
+                });
+                chart1.render();
+
+                if (chart2) chart2.destroy();
+                chart2 = new ApexCharts(document.querySelector("#chart2"), {
+                    series: [{
+                        name: 'Total',
+                        data: totalCount
+                    }],
+                    chart: {
+                        height: 350,
+                        type: 'area',
+                        animations: {
+                            enabled: false
+                        }
+                    },
+                    title: {
+                        text: 'Total Delivery Mode',
+                        align: 'center',
+                        style: {
+                            fontSize: '18px',
+                            fontWeight: 'bold'
+                        }
+                    },
+                    dataLabels: {
+                        enabled: false
+                    },
+                    stroke: {
+                        curve: 'smooth'
+                    },
+                    xaxis: {
+                        type: 'category',
+                        categories: delivery_mode
+                    },
+                });
+                chart2.render();
+
+                window.chartsInitialized = true;
+            } else {
+                if (chart1) chart1.destroy();
+                if (chart2) chart2.destroy();
+            }
+        });
+    </script>
+@endpush

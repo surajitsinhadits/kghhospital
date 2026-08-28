@@ -1,0 +1,278 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Report Upload</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="card">
+        <div class="card-header d-block card_hearder_mimi">
+            <div class="row">
+                <div class="col-md-6 card-title">
+                    <h4 class="pro-user-username mb-3 font-weight-bold text-white">REPORT UPLOAD</h4>
+                </div>
+            </div>
+        </div>
+        <form method="post" action="{{ route('investigation.update-report') }}" enctype="multipart/form-data" id="yourFormId">
+            @csrf
+            <input name="bill_id" type="hidden" value="{{ $report->bill_id }}">
+            <div class="card-body p-0">
+                <div class="card-body border-top">
+                    <div class="col-md-12">
+                        <div class="row">
+                            <div class="col-md-6 border">
+                                <table class="table bordernone">
+                                    <tbody>
+                                        <tr>
+                                            <td class="py-2 px-5 ">
+                                                <span class="font-weight-semibold w-50">Patient Name </span>
+                                            </td>
+                                            <td class="py-2 px-5 "> {{$report->patient_name}} ({{$report->patient_uhid ?? $report->patient_id}}) </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 px-5 ">
+                                                <span class="font-weight-semibold w-50">Patient Age </span>
+                                            </td>
+                                            <td class="py-2 px-5 ">
+                                                {{$report->dob_year ?? 0}}Y {{$report->dob_month ?? 0}}M {{$report->dob_day ?? 0}}D
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 px-5">
+                                                <span class="font-weight-semibold w-50">Mobile No.</span>
+                                            </td>
+                                            <td class="py-2 px-5">
+                                                {{$report->phone}}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 px-5">
+                                                <span class="font-weight-semibold w-50">Gender</span>
+                                            </td>
+                                            <td class="py-2 px-5">
+                                                {{$report->gender}}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="col-md-6 border">
+                                <table class="table bordernone">
+                                    <tbody>
+                                        <tr>
+                                            <td class="py-2 px-5 ">
+                                                <span class="font-weight-semibold w-50">Bill Date </span>
+                                            </td>
+                                            <td class="py-2 px-5 ">{{dateFor($report->bill_created_date, true)}}</td>
+                                        </tr>
+                                        @if ($report->type == 'pathology')
+                                            <tr>
+                                                <td class="py-2 px-5 ">
+                                                    <span class="font-weight-semibold w-50">Collection By (Date) :</span>
+                                                </td>
+                                                <td class="py-2 px-5 ">
+                                                    {{ $report->collected_name }} ({{dateFor($report->sample_collected_at, true)}})
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-5">
+                                                    <span class="font-weight-semibold w-50">Lab Receive By (Date) :</span>
+                                                </td>
+                                                <td class="py-2 px-5">
+                                                    {{ $report->received_name }} ({{dateFor($report->lab_receive_at, true)}})
+                                                </td>
+                                            </tr>
+                                        @elseif ($report->type == 'non-pathology' || $report->type == 'radiology')
+                                            <tr>
+                                                <td class="py-2 px-5 ">
+                                                    <span class="font-weight-semibold w-50">Reffer By :</span>
+                                                </td>
+                                                <td class="py-2 px-5 ">
+                                                    {{ $report->referral_name }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-5">
+                                                    <span class="font-weight-semibold w-50">Under Doctor :</span>
+                                                </td>
+                                                <td class="py-2 px-5">
+                                                    {{ $report->doctor_name }}
+                                                </td>
+                                            </tr>
+                                        @endif
+                                        <tr>
+                                            <td class="py-2 px-5">
+                                                <span class="font-weight-semibold w-50">Report Date :</span>
+                                            </td>
+                                            <td class="py-2 px-5">
+                                                {{ dateFor($report->report_generate_by, true) ?? date('d-m-Y h:i A') }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="investigation_id" value="{{ $report->id }}">
+                    @if ($report->template)
+                        <textarea class="text" name="report_template_result">{{ @$report->report_template_result ?? @$report->template }}</textarea>
+                    @else
+                        <h4 class="text-center text-blue mt-2"><u>{{ $report->charge_name }}</u></h4>
+                        @if ($report->type == 'pathology')
+                            <span style="color:red">** If you want any then just enter - </span>
+                            <span style="color:blue">(when you print report - not shown in report)</span>
+                        @endif
+                        <table class="table card-table table-vcenter text-nowrap border text-center">
+                            <thead class="bg-primary text-white">
+                                <tr>
+                                    <th class="text-white" width="10%">Test For</th>
+                                    <th class="text-white" width="20%">Test Name</th>
+                                    <th class="text-white" width="20%">Result</th>
+                                    <th class="text-white" width="20%">Note</th>
+                                    <th class="text-white" width="10%">Unit</th>
+                                    <th class="text-white" width="20%">Reference Range</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($report_details as $key => $item)
+                                    <input type="hidden" name="report_details_id[]" value="{{ $item->inv_id }}">
+                                    @php
+                                        $max_length = $min_length = null;
+                                        if($item->m_ll == $item->f_ll && $item->m_ll == $item->c_ll && $item->f_ll == $item->c_ll && $item->m_ul == $item->f_ul && $item->m_ul == $item->c_ul && $item->f_ul == $item->c_ul){
+                                            $max_length = $item->m_ul;
+                                            $min_length = $item->m_ll;
+                                        }elseif($report->dob_year > 12 && $report->gender == 'Male'){
+                                            $max_length = $item->m_ul;
+                                            $min_length = $item->m_ll;
+                                        }elseif($report->dob_year > 12 && $report->gender == 'Female'){
+                                            $max_length = $item->f_ul;
+                                            $min_length = $item->f_ll;
+                                        }else{
+                                            $max_length = $item->c_ul;
+                                            $min_length = $item->c_ll;
+                                        }
+                                    @endphp
+                                    <script> range_condi({{ @$item->test_result_value }}, {{ $key }}, {{ $min_length }}, {{ $max_length }}); </script>
+                                    <tr style="background-color: #d9d9d9">
+                                        <td>{{ @$item->lebel }}</td>
+                                        <td>
+                                            {{ @$item->test_parameter }}
+                                            {!! @$item->method ? '<br><b>Method : </b>'.$item->method : '' !!}
+                                        </td>
+                                        <td>
+                                            <input type="text"
+                                                @if($min_length && $max_length)
+                                                    @if(@$item->test_result_value >= $min_length && @$item->test_result_value <= $max_length)
+                                                        style="color:black;font-size: 15px;"
+                                                    @else
+                                                        style="color:red;font-size: 15px;"
+                                                    @endif
+                                                @endif
+                                                name="result[]"
+                                                value="{{ @$item->test_result_value }}"
+                                                id="txtNumber{{ $key }}"
+                                                onkeyup="range_condi(this.value, {{ $key }}, {{ $min_length }}, {{ $max_length }})"
+                                            />
+                                        </td>
+                                        <td>
+                                            <input type="text" name="comment[]" value="{{ @$item->comment }}">
+                                        </td>
+                                        <td>{{ @$item->unit }}</td>
+                                        <td>
+                                            @if($item->m_ll == $item->f_ll && $item->m_ll == $item->c_ll && $item->f_ll == $item->c_ll && $item->m_ul == $item->f_ul && $item->m_ul == $item->c_ul && $item->f_ul == $item->c_ul)
+                                                {{ $item->m_ll }} - {{ $item->m_ul }}
+                                            @else
+                                                @if($item->m_ll && $item->m_ul)
+                                                    Male: {{ $item->m_ll }} - {{ $item->m_ul }}
+                                                @endif
+
+                                                @if($item->f_ll && $item->f_ul)
+                                                    , Female: {{ $item->f_ll }} - {{ $item->f_ul }}
+                                                @endif
+
+                                                @if($item->c_ll && $item->c_ul)
+                                                    , Child: {{ $item->m_ll }} - {{ $item->m_ul }}
+                                                @endif
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        <div class="col-md-12 mt-5">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label>Note</label>
+                                    <textarea class="text" name="note">{{ @$report->note ?? @$report->charge_note }}</textarea>
+                                </div>
+                                @if ($report->type == 'pathology')
+                                <div class="col-md-6">
+                                    <label>Extra Note</label>
+                                    <textarea class="text" name="extra_note">{{ @$report->extra_note }}</textarea>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="col-md-12 mt-3 mb-3">
+                        <div class="row">
+                            @if ($report->type == 'pathology')
+                            <div class="col-md-2">
+                                <span style="font-weight: 700">Vial :</span>
+                                <span style="color:blue">{{@$report->vial_name}}</span>
+                            </div>
+                            <div class="col-md-2">
+                                <span style="font-weight: 700">Sample :</span>
+                                <span style="color:blue">{{@$report->sample_name}}</span>
+                            </div>
+                            <div class="col-md-2">
+                                <span style="font-weight: 700">Instrument Used :</span>
+                                <span style="color:blue">{{@$report->instrument_used}}</span>
+                            </div>
+                            @endif
+                            <div class="col-md-2">
+                                <span style="font-weight: 700">Report update By :</span>
+                                <span style="color:blue">{{Auth::user()->name}}</span>
+                            </div>
+                            <div class="col-md-2">
+                                <label>Select Approval Doctor</label>
+                                <select name="approved_test_doctor" class="form-control select2-show-search">
+                                    <option value="">Select</option>
+                                    @foreach ($doctors as $doc)
+                                    <option value="{{ $doc->id }}" {{ $report->approved_doctor_by == $doc->id ? 'selected' : '' }}>Dr. {{ $doc->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <lebel>Attach Document</lebel>
+                                <input type="file" id="attach_document" name="attach_document" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-3 border-top">
+                        <button class="btn btn-primary mt-4" type="submit" name="save_type" value="only_update">Update Report</button>
+                        <button class="btn btn-danger mt-4" type="submit" name="save_type" value="only_update_and_print"><i class="fa fa-print"></i> Update Report &amp; Print</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection
+@push('js')
+<script>
+    function range_condi(value, i, min, max) {
+        if ($.isNumeric(value)) {
+            if ((value >= min) && (value <= max)) {
+                $('#txtNumber' + i).attr('style', 'color:black;font-size: 15px;');
+            } else {
+                $('#txtNumber' + i).attr('style', 'color:red;font-size: 15px;');
+            }
+        } else {
+            $('#txtNumber' + i).attr('style', 'color:black;font-size: 15px;');
+        }
+    }
+</script>
+@endpush

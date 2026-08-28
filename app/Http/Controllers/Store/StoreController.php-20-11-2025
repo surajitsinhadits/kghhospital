@@ -1,0 +1,1200 @@
+<?php
+
+namespace App\Http\Controllers\Store;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Controller;
+use App\Models\StItemType;
+use App\Models\StCompany;
+use App\Models\StUnit;
+use App\Models\StDepartment;
+use App\Models\StStore;
+use App\Models\StItemCategory;
+use App\Models\StRequisition;
+use App\Models\StItem;
+use App\Models\StStock;
+use App\Models\StIssue;
+use App\Models\StVendor;
+use App\Models\StRequisitionItem;
+use App\Models\StPurchaseDetail;
+use App\Models\StPurchaseOrder;
+use App\Models\StPurchase;
+use App\Models\StReturn;
+use Yajra\Datatables\DataTables;
+use Carbon\Carbon;
+use Exception;
+use DB;
+
+class StoreController extends Controller
+{
+    public function index()
+    {
+
+        $pre7startDate = Carbon::now()->subDays(13)->toDateString();
+        $pre7endDate   = Carbon::now()->subDays(7)->toDateString();
+
+        $last7startDate = Carbon::now()->subDays(6)->toDateString();
+        $last7endDate   = Carbon::now()->toDateString();
+        // echo $last7startDate.' - '.$last7endDate;
+
+        $pre2YearstartDate = Carbon::now()->subDays(730)->toDateString();
+        $pre1YearEndDate   = Carbon::now()->subDays(365)->toDateString();
+
+        $last1YearstartDate = Carbon::now()->subDays(365)->toDateString();
+        $currentDate   = Carbon::now()->toDateString();
+        
+        // start for requisition
+        $preAllRequisition = StRequisition::where('is_delete', 0)
+            ->whereBetween('requisition_date', [$pre7startDate.' 00:00:00', $pre7endDate.' 23:59:59'])
+            ->count();
+
+        $lastAllRequisition = StRequisition::where('is_delete', 0)
+            ->whereBetween('requisition_date', [$last7startDate.' 00:00:00', $last7endDate.' 23:59:59'])
+            ->count();
+
+        $weekPercentageChangeRequition = 0;
+        if( $lastAllRequisition == 0 && $preAllRequisition == 0 ){
+            $weekPercentageChangeRequition = 0;
+        } elseif( !empty($preAllRequisition) && $lastAllRequisition > $preAllRequisition) {
+            $weekPercentageChangeRequition = (($lastAllRequisition - $preAllRequisition) / $preAllRequisition) * 100;
+            $weekPercentageChangeRequition = number_format($weekPercentageChangeRequition, 2); // 2 decimals
+        } elseif( $preAllRequisition > 0 && $lastAllRequisition == 0 ) {
+            $weekPercentageChangeRequition = -100;
+        } elseif( $preAllRequisition == 0 && $lastAllRequisition > 0 ) {
+            $weekPercentageChangeRequition = 100;
+        } elseif( !empty($lastAllRequisition) && $preAllRequisition > $lastAllRequisition ){
+            $weekPercentageChangeRequition = (($lastAllRequisition - $preAllRequisition) / $preAllRequisition) * 100;
+            $weekPercentageChangeRequition = number_format($weekPercentageChangeRequition, 2); // 2 decimals
+        }
+
+        if( $weekPercentageChangeRequition > 0 ){
+            $weekPercentageChangeRequition = '+' . $weekPercentageChangeRequition;
+        }
+        // end for requisition
+
+        // start for purchase order
+        $preAllPurchaseOrder = StPurchaseOrder::where('is_delete', 0)
+            ->whereBetween('po_date', [$pre7startDate.' 00:00:00', $pre7endDate.' 23:59:59'])
+            ->count();
+
+        $lastAllPurchaseOrder = StPurchaseOrder::where('is_delete', 0)
+            ->whereBetween('po_date', [$last7startDate.' 00:00:00', $last7endDate.' 23:59:59'])
+            ->count();
+
+        $weekPercentageChangePurchaseOrder = 0;
+        if( $lastAllPurchaseOrder == 0 && $preAllPurchaseOrder == 0 ){
+            $weekPercentageChangePurchaseOrder = 0;
+        } elseif( !empty($preAllPurchaseOrder) && $lastAllPurchaseOrder > $preAllPurchaseOrder) {
+            $weekPercentageChangePurchaseOrder = (($lastAllPurchaseOrder - $preAllPurchaseOrder) / $preAllPurchaseOrder) * 100;
+            $weekPercentageChangePurchaseOrder = number_format($weekPercentageChangePurchaseOrder, 2); // 2 decimals
+        } elseif( $preAllPurchaseOrder > 0 && $lastAllPurchaseOrder == 0 ) {
+            $weekPercentageChangePurchaseOrder = -100;
+        } elseif( $preAllPurchaseOrder == 0 && $lastAllPurchaseOrder > 0 ) {
+            $weekPercentageChangePurchaseOrder = 100;
+        } elseif( !empty($lastAllPurchaseOrder) && $preAllPurchaseOrder > $lastAllPurchaseOrder ){
+            $weekPercentageChangePurchaseOrder = (($lastAllPurchaseOrder - $preAllPurchaseOrder) / $preAllPurchaseOrder) * 100;
+            $weekPercentageChangePurchaseOrder = number_format($weekPercentageChangePurchaseOrder, 2); // 2 decimals
+        }
+
+        if( $weekPercentageChangePurchaseOrder > 0 ){
+            $weekPercentageChangePurchaseOrder = '+' . $weekPercentageChangePurchaseOrder;
+        }
+        // end for purchase order
+
+        // start for purchase
+        $preAllPurchase = StPurchase::where('is_delete', 0)
+            ->whereBetween('date', [$pre7startDate.' 00:00:00', $pre7endDate.' 23:59:59'])
+            ->count();
+
+        $lastAllPurchase = StPurchase::where('is_delete', 0)
+            ->whereBetween('date', [$last7startDate.' 00:00:00', $last7endDate.' 23:59:59'])
+            ->count();
+
+        $weekPercentageChangePurchase = 0;
+        if( $lastAllPurchase == 0 && $preAllPurchase == 0 ){
+            $weekPercentageChangePurchase = 0;
+        } elseif( !empty($preAllPurchase) && $lastAllPurchase > $preAllPurchase) {
+            $weekPercentageChangePurchase = (($lastAllPurchase - $preAllPurchase) / $preAllPurchase) * 100;
+            $weekPercentageChangePurchase = number_format($weekPercentageChangePurchase, 2); // 2 decimals
+        } elseif( $preAllPurchase > 0 && $lastAllPurchase == 0 ) {
+            $weekPercentageChangePurchase = -100;
+        } elseif( $preAllPurchase == 0 && $lastAllPurchase > 0 ) {
+            $weekPercentageChangePurchase = 100;
+        } elseif( !empty($lastAllPurchase) && $preAllPurchase > $lastAllPurchase ){
+            $weekPercentageChangePurchase = (($lastAllPurchase - $preAllPurchase) / $preAllPurchase) * 100;
+            $weekPercentageChangePurchase = number_format($weekPercentageChangePurchase, 2); // 2 decimals
+        }
+
+        if( $weekPercentageChangePurchase > 0 ){
+            $weekPercentageChangePurchase = '+' . $weekPercentageChangePurchase;
+        }
+        // end for purchase
+
+        $totalItems = StItem::where('is_active', 1)->where('is_delete', 0)->count();
+
+        // last 7 days stock purchase sum
+        $stockPurchasePre7daysSum = StStock::whereBetween('date', [$pre7startDate.' 00:00:00', $pre7endDate.' 23:59:59'])->sum('total');
+
+        $stockPurchaseLast7daysSum = StStock::whereBetween('date', [$last7startDate.' 00:00:00', $last7endDate.' 23:59:59'])->sum('total');
+
+        $weekPercentageChangeStock = 0;
+        if( $stockPurchaseLast7daysSum == 0 && $stockPurchasePre7daysSum == 0 ){
+            $weekPercentageChangeStock = 0;
+        } elseif( !empty($stockPurchasePre7daysSum) && $stockPurchaseLast7daysSum > $stockPurchasePre7daysSum) {
+            $weekPercentageChangeStock = (($stockPurchaseLast7daysSum - $stockPurchasePre7daysSum) / $stockPurchasePre7daysSum) * 100;
+            $weekPercentageChangeStock = number_format($weekPercentageChangeStock, 2); // 2 decimals
+        } elseif( $stockPurchasePre7daysSum > 0 && $stockPurchaseLast7daysSum == 0 ) {
+            $weekPercentageChangeStock = -100;
+        } elseif( $stockPurchasePre7daysSum == 0 && $stockPurchaseLast7daysSum > 0 ) {
+            $weekPercentageChangeStock = 100;
+        } elseif( !empty($stockPurchaseLast7daysSum) && $stockPurchasePre7daysSum > $stockPurchaseLast7daysSum ){
+            $weekPercentageChangeStock = (($stockPurchaseLast7daysSum - $stockPurchasePre7daysSum) / $stockPurchasePre7daysSum) * 100;
+            $weekPercentageChangeStock = number_format($weekPercentageChangeStock, 2); // 2 decimals
+        }
+
+        if( $weekPercentageChangeStock > 0 ){
+            $weekPercentageChangeStock = '+' . $weekPercentageChangeStock;
+        }
+
+        // last 7 days stock issue sum
+        $stockIssuePre7daysSum = StIssue::whereBetween('date', [$pre7startDate.' 00:00:00', $pre7endDate.' 23:59:59'])->sum('total');
+
+        $stockIssueLast7daysSum = StIssue::whereBetween('date', [$last7startDate.' 00:00:00', $last7endDate.' 23:59:59'])->sum('total');
+
+        $weekPercentageChangeIssue = 0;
+        if( $stockIssueLast7daysSum == 0 && $stockIssuePre7daysSum == 0 ){
+            $weekPercentageChangeIssue = 0;
+        } elseif( !empty($stockIssuePre7daysSum) && $stockIssueLast7daysSum > $stockIssuePre7daysSum) {
+            $weekPercentageChangeIssue = (($stockIssueLast7daysSum - $stockIssuePre7daysSum) / $stockIssuePre7daysSum) * 100;
+            $weekPercentageChangeIssue = number_format($weekPercentageChangeIssue, 2); // 2 decimals
+        } elseif( $stockIssuePre7daysSum > 0 && $stockIssueLast7daysSum == 0 ) {
+            $weekPercentageChangeIssue = -100;
+        } elseif( $stockIssuePre7daysSum == 0 && $stockIssueLast7daysSum > 0 ) {
+            $weekPercentageChangeIssue = 100;
+        } elseif( !empty($stockIssueLast7daysSum) && $stockIssuePre7daysSum > $stockIssueLast7daysSum ){
+            $weekPercentageChangeIssue = (($stockIssueLast7daysSum - $stockIssuePre7daysSum) / $stockIssuePre7daysSum) * 100;
+            $weekPercentageChangeIssue = number_format($weekPercentageChangeIssue, 2); // 2 decimals
+        }
+
+        if( $weekPercentageChangeIssue > 0 ){
+            $weekPercentageChangeIssue = '+' . $weekPercentageChangeIssue;
+        }
+
+        // last 2 year stock purchase sum
+        $stockPurchaseLast2yearSum = StStock::whereBetween('date', [$pre2YearstartDate.' 00:00:00', $pre1YearEndDate.' 23:59:59'])->sum('total');
+
+        $stockPurchaseLast1yearSum = StStock::whereBetween('date', [$last1YearstartDate.' 00:00:00', $currentDate.' 23:59:59'])->sum('total');
+
+        $weekPercentageChangeStockYear = 0;
+        if( $stockPurchaseLast1yearSum == 0 && $stockPurchaseLast2yearSum == 0 ){
+            $weekPercentageChangeStockYear = 0;
+        } elseif( !empty($stockPurchaseLast2yearSum) && $stockPurchaseLast1yearSum > $stockPurchaseLast2yearSum) {
+            $weekPercentageChangeStockYear = (($stockPurchaseLast1yearSum - $stockPurchaseLast2yearSum) / $stockPurchaseLast2yearSum) * 100;
+            $weekPercentageChangeStockYear = number_format($weekPercentageChangeStockYear, 2); // 2 decimals
+        } elseif( $stockPurchaseLast2yearSum > 0 && $stockPurchaseLast1yearSum == 0 ) {
+            $weekPercentageChangeStockYear = -100;
+        } elseif( $stockPurchaseLast2yearSum == 0 && $stockPurchaseLast1yearSum > 0 ) {
+            $weekPercentageChangeStockYear = 100;
+        } elseif( !empty($stockPurchaseLast1yearSum) && $stockPurchaseLast2yearSum > $stockPurchaseLast1yearSum ){
+            $weekPercentageChangeStockYear = (($stockPurchaseLast1yearSum - $stockPurchaseLast2yearSum) / $stockPurchaseLast2yearSum) * 100;
+            $weekPercentageChangeStockYear = number_format($weekPercentageChangeStockYear, 2); // 2 decimals
+        }
+
+        if( $weekPercentageChangeStockYear > 0 ){
+            $weekPercentageChangeStockYear = '+' . $weekPercentageChangeStockYear;
+        }
+
+        // last 2 year stock issue sum
+        $stockIssueLast2yearSum = StIssue::whereBetween('date', [$pre2YearstartDate.' 00:00:00', $pre1YearEndDate.' 23:59:59'])->sum('total');
+
+        $stockIssueLast1yearSum = StIssue::whereBetween('date', [$last1YearstartDate.' 00:00:00', $currentDate.' 23:59:59'])->sum('total');
+
+        $weekPercentageChangeIssueYear = 0;
+        if( $stockIssueLast1yearSum == 0 && $stockIssueLast2yearSum == 0 ){
+            $weekPercentageChangeIssueYear = 0;
+        } elseif( !empty($stockIssueLast2yearSum) && $stockIssueLast1yearSum > $stockIssueLast2yearSum) {
+            $weekPercentageChangeIssueYear = (($stockIssueLast1yearSum - $stockIssueLast2yearSum) / $stockIssueLast2yearSum) * 100;
+            $weekPercentageChangeIssueYear = number_format($weekPercentageChangeIssueYear, 2); // 2 decimals
+        } elseif( $stockIssueLast2yearSum > 0 && $stockIssueLast1yearSum == 0 ) {
+            $weekPercentageChangeIssueYear = -100;
+        } elseif( $stockIssueLast2yearSum == 0 && $stockIssueLast1yearSum > 0 ) {
+            $weekPercentageChangeIssueYear = 100;
+        } elseif( !empty($stockIssueLast1yearSum) && $stockIssueLast2yearSum > $stockIssueLast1yearSum ){
+            $weekPercentageChangeIssueYear = (($stockIssueLast1yearSum - $stockIssueLast2yearSum) / $stockIssueLast2yearSum) * 100;
+            $weekPercentageChangeIssueYear = number_format($weekPercentageChangeIssueYear, 2); // 2 decimals
+        }
+
+        if( $weekPercentageChangeIssueYear > 0 ){
+            $weekPercentageChangeIssueYear = '+' . $weekPercentageChangeIssueYear;
+        }
+
+        $allRequisition = StRequisition::select(
+                'st_requisitions.id',
+                'st_requisitions.requisition_date',
+                'd.department_name as department',
+                'u.name as generated_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_requisitions.department_id')
+            ->join('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->where('st_requisitions.is_delete', 0)
+            ->whereBetween('st_requisitions.created_at', [$last7startDate.' 00:00:00', $last7endDate.' 23:59:59'])
+            ->get();
+
+
+        $itemIds = StStock::select('item_id')
+            ->distinct('item_id')
+            ->pluck('item_id');
+        $items = StItem::select('st_items.*','u1.unit','u2.unit as sub_unit')
+            ->join('st_units as u1','u1.id','=','st_items.unit_id')
+            ->join('st_units as u2','u2.id','=','st_items.sub_unit_id')
+            ->whereIn('st_items.id', $itemIds)
+            ->where('st_items.is_delete', 0)
+            ->get();
+        $allItems = [];
+        $stocks = StStock::get();
+        foreach($items as $item){
+
+            $unit_sub_no = $item->sub_unit_no;
+            $remaining_sub = $stocks->where('item_id', $item->id)->sum('present_qty') ?? 0;
+            $remaining_unit = intdiv($remaining_sub, $unit_sub_no);
+            $remaining_sub_unit = $remaining_sub % $unit_sub_no;
+            $qty = $remaining_unit.' '.$item->unit.' '.$remaining_sub_unit.' '.$item->sub_unit;
+
+            $allItems[] = [
+                'id' => $item->id,
+                'item' => $item->item_name,
+                'low_level' => $item->low_level,
+                'unit' => $item->unit,
+                'sub_unit' => $item->sub_unit,
+                'unit_qty' => $remaining_unit,
+                'sub_unit_qty' => $remaining_sub_unit,
+                'total_qty' => $remaining_sub,
+            ];
+
+        }
+
+        $months = [];
+
+        for ($i = 0; $i < 12; $i++) {
+
+            $date = Carbon::now()->subMonths($i);
+            $months[] = [
+                'month_name'    => $date->format('M y'),
+                'start_date'    => $date->copy()->startOfMonth()->toDateString(),
+                'end_date'      => $date->copy()->endOfMonth()->toDateString(),
+            ];
+
+        }
+
+        $months = array_reverse($months);
+
+        $monthWiseStockAmount = []; $monthWiseIssueAmount = [];
+        $categories = [];
+        foreach($months as $month){
+
+            $categories[] = $month['month_name'];
+
+            $stockAmount = StStock::whereBetween('date', [$month['start_date'].' 00:00:00', $month['end_date'].' 23:59:59'])->sum('total');
+            $monthWiseStockAmount[] = (int)$stockAmount;
+
+            $issueAmount = StIssue::whereBetween('date', [$month['start_date'].' 00:00:00', $month['end_date'].' 23:59:59'])->sum('total');
+            $monthWiseIssueAmount[] = (int)$issueAmount;
+
+        }
+
+        return view('store.index', 
+            compact(
+                'lastAllRequisition',
+                'weekPercentageChangeRequition',
+                'lastAllPurchaseOrder',
+                'weekPercentageChangePurchaseOrder',
+                'lastAllPurchase',
+                'weekPercentageChangePurchase',
+                'totalItems',
+                'stockPurchaseLast7daysSum',
+                'weekPercentageChangeStock',
+                'stockIssueLast7daysSum',
+                'weekPercentageChangeIssue',
+                'stockPurchaseLast1yearSum',
+                'weekPercentageChangeStockYear',
+                'stockIssueLast1yearSum',
+                'weekPercentageChangeIssueYear',
+                'allRequisition',
+                'allItems',
+                'monthWiseStockAmount',
+                'monthWiseIssueAmount',
+                'categories'
+
+            )
+        );
+
+    }
+
+    /*
+    // Ekbul 21-08-2025
+    public function index()
+    {
+        $requistion = StRequisition::select(
+                'st_requisitions.*',
+                'd.department_name as department',
+                'u.name as generated_by'
+            )
+            ->join('st_departments as d', 'd.id', '=', 'st_requisitions.department_id')
+            ->join('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->whereDate('st_requisitions.requisition_date', date('Y-m-d'))
+            ->where('st_requisitions.is_delete', 0)
+            ->orderBy('st_requisitions.id', 'DESC')
+            ->get();
+        $itemIds = StStock::select('item_id')
+            ->distinct('item_id')
+            ->pluck('item_id');
+        $items = StItem::select('st_items.*','u1.unit','u2.unit as sub_unit')
+            ->join('st_units as u1','u1.id','=','st_items.unit_id')
+            ->join('st_units as u2','u2.id','=','st_items.sub_unit_id')
+            ->whereIn('st_items.id', $itemIds)
+            ->where('st_items.is_delete', 0)
+            ->get();
+        $pasent_stock = [];
+        $stocks = StStock::get();
+        foreach($items as $item){
+            $unit_sub_no = $item->sub_unit_no;
+            $remaining_sub = $stocks->where('item_id', $item->id)->sum('present_qty') ?? 0;
+            $remaining_unit = intdiv($remaining_sub, $unit_sub_no);
+            $remaining_sub_unit = $remaining_sub % $unit_sub_no;
+            $qty = $remaining_unit.' '.$item->unit.' '.$remaining_sub_unit.' '.$item->sub_unit;
+
+            $pasent_stock[] = [
+                'id' => $item->id,
+                'item' => $item->item_name,
+                'low_level' => $item->low_level,
+                'unit' => $item->unit,
+                'sub_unit' => $item->sub_unit,
+                'unit_qty' => $remaining_unit,
+                'sub_unit_qty' => $remaining_sub_unit,
+                'total_qty' => $remaining_sub,
+            ];
+        }
+        $total['requistion'] = StRequisition::where('is_delete', 0)->count();
+        $total['po'] = StPurchaseOrder::where('is_delete', 0)->count();
+        $total['purchase'] = StPurchase::where('is_delete', 0)->count();
+        $total['stock_price'] = StStock::sum('total');
+        $total['issue_price'] = StIssue::sum('total');
+        $data = compact('pasent_stock','requistion','total');
+        return view('store.index')->with($data);
+    }
+    */
+
+    public function item_type()
+    {
+        $title = 'Item Type';
+        $t1 = 'Item Type List';
+        $t2 = 'Add Item Type';
+        $form = ['type_name'];
+        $head = ['Sl. No.','Item Type Name','Action'];
+        $btn['name'] = 'Add Item Type';
+        $btn['action'] = Route('store.update-item-type');
+        $edit['data'] = null;
+        $edit['url'] = Route('store.edit-item-type');
+        $response = StItemType::orderBy('id', 'desc')->get();
+        $table = 'st_item_types';
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function edit_item_type($id = 0)
+    {
+        if(!$id){
+            return redirect()->route('store.item-type');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Item Type';
+        $t1 = 'Item Type List';
+        $t2 = 'Edit Item Type';
+        $form = ['type_name'];
+        $head = ['Sl. No.', 'Item Type Name','Action'];
+        $btn['name'] = 'Update Item Type';
+        $btn['action'] = Route('store.update-item-type',$id);
+        $edit['data'] =  StItemType::find($id);
+        $edit['reset'] = Route('store.item-type');
+        $edit['url'] = Route('store.edit-item-type');
+        $response = StItemType::orderBy('id', 'desc')->get();
+        $table = "st_item_types";
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function update_item_type(Request $request, $id = 0)
+    {
+        if(!empty($id)){
+            $request->validate([
+                'type_name' => 'required|max:100|unique:st_item_types,type_name,' . $id,
+            ]);
+        }else{
+            $request->validate([
+                'type_name' => 'required|max:100|unique:st_item_types,type_name',
+            ]);
+        }
+
+        $id ? $data = StItemType::find($id) : $data = new StItemType();
+        $data->type_name = $request->type_name;
+        if($data->save()){
+            return redirect()->route('store.item-type')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.item-type')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function item_brand()
+    {
+        $title = 'Company';
+        $t1 = 'Company List';
+        $t2 = 'Add Company';
+        $form = ['company_name'];
+        $head = ['Sl. No.','Company Name','Action'];
+        $btn['name'] = 'Add Company';
+        $btn['action'] = Route('store.update-item-brand');
+        $edit['data'] = null;
+        $edit['url'] = Route('store.edit-item-brand');
+        $response = StCompany::orderBy('id', 'desc')->get();
+        $table = 'st_companies';
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function edit_item_brand($id = 0)
+    {
+        if(!$id){
+            return redirect()->route('store.item-brand');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Company';
+        $t1 = 'Company List';
+        $t2 = 'Edit Company';
+        $form = ['company_name'];
+        $head = ['Sl. No.', 'Company Name','Action'];
+        $btn['name'] = 'Update Company';
+        $btn['action'] = Route('store.update-item-brand',$id);
+        $edit['data'] =  StCompany::find($id);
+        $edit['reset'] = Route('store.item-brand');
+        $edit['url'] = Route('store.edit-item-brand');
+        $response = StCompany::orderBy('id', 'desc')->get();
+        $table = "st_companies";
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function update_item_brand(Request $request, $id = 0)
+    {
+        if(!empty($id)){
+            $request->validate([
+                'company_name' => 'required|max:100|unique:st_companies,company_name,' . $id,
+            ]);
+        }else{
+            $request->validate([
+                'company_name' => 'required|max:100|unique:st_companies,company_name',
+            ]);
+        }
+
+        $id ? $data = StCompany::find($id) : $data = new StCompany();
+        $data->company_name = $request->company_name;
+        if($data->save()){
+            return redirect()->route('store.item-brand')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.item-brand')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function item_unit()
+    {
+        $title = 'Unit';
+        $t1 = 'Unit';
+        $t2 = 'Add Unit';
+        $form = ['unit'];
+        $head = ['Sl. No.','Item Unit','Action'];
+        $btn['name'] = 'Add Unit';
+        $btn['action'] = Route('store.update-item-unit');
+        $edit['data'] = null;
+        $edit['url'] = Route('store.edit-item-unit');
+        $response = StUnit::orderBy('id', 'desc')->get();
+        $table = 'st_units';
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function edit_item_unit($id = 0)
+    {
+        if(!$id){
+            return redirect()->route('store.item-unit');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Unit';
+        $t1 = 'Unit';
+        $t2 = 'Edit Unit';
+        $form = ['unit'];
+        $head = ['Sl. No.', 'Item Unit','Action'];
+        $btn['name'] = 'Update Unit';
+        $btn['action'] = Route('store.update-item-unit',$id);
+        $edit['data'] =  StUnit::find($id);
+        $edit['reset'] = Route('store.item-unit');
+        $edit['url'] = Route('store.edit-item-unit');
+        $response = StUnit::orderBy('id', 'desc')->get();
+        $table = "st_units";
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function update_item_unit(Request $request, $id = 0)
+    {
+        if( !empty($id) ){
+
+            $request->validate([
+                'unit' => 'required|max:100|unique:st_units,unit,' . $id,
+            ]);
+
+        }else{
+
+            $request->validate([
+                'unit' => 'required|max:100|unique:st_units,unit',
+            ]);
+
+        }
+
+        $id ? $data = StUnit::find($id) : $data = new StUnit();
+        $data->unit = $request->unit;
+        if($data->save()){
+            return redirect()->route('store.item-unit')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.item-unit')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function store_department()
+    {
+        $title = 'Store Department';
+        $t1 = 'Store Department List';
+        $t2 = 'Add Store Department';
+        $form = ['department_name'];
+        $head = ['Sl. No.','Department Name','Action'];
+        $btn['name'] = 'Add Department';
+        $btn['action'] = Route('store.update-store-department');
+        $edit['data'] = null;
+        $edit['url'] = Route('store.edit-store-department');
+        $response = StDepartment::orderBy('id', 'desc')->get();
+        $table = 'st_departments';
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function edit_store_department($id = 0)
+    {
+        if(!$id){
+            return redirect()->route('store.store-department');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Store Department List';
+        $t1 = 'Store Department List';
+        $t2 = 'Edit Store Department';
+        $form = ['department_name'];
+        $head = ['Sl. No.', 'Department Name','Action'];
+        $btn['name'] = 'Update Department';
+        $btn['action'] = Route('store.update-store-department',$id);
+        $edit['data'] =  StDepartment::find($id);
+        $edit['reset'] = Route('store.store-department');
+        $edit['url'] = Route('store.edit-store-department');
+        $response = StDepartment::orderBy('id', 'desc')->get();
+        $table = "st_departments";
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function update_store_department(Request $request, $id = 0)
+    {
+        if(!empty($id)){
+            $request->validate([
+                'department_name' => 'required|max:100|unique:st_departments,department_name,' . $id,
+            ]);
+        }else{
+            $request->validate([
+                'department_name' => 'required|max:100|unique:st_departments,department_name',
+            ]);
+        }
+
+        $id ? $data = StDepartment::find($id) : $data = new StDepartment();
+        $data->department_name = $request->department_name;
+        if($data->save()){
+            return redirect()->route('store.store-department')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.store-department')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function item_store()
+    {
+        $title = 'Store Room';
+        $t1 = 'Store Room List';
+        $t2 = 'Add Store Room';
+        $form = ['store_name'];
+        $head = ['Sl. No.','Store Room Name','Action'];
+        $btn['name'] = 'Add Store';
+        $btn['action'] = Route('store.update-item-store');
+        $edit['data'] = null;
+        $edit['url'] = Route('store.edit-item-store');
+        $response = StStore::orderBy('id', 'desc')->get();
+        $table = 'st_stores';
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function edit_item_store($id = 0)
+    {
+        if(!$id){
+            return redirect()->route('store.item-store');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Store Room';
+        $t1 = 'Store Room List';
+        $t2 = 'Edit Store Room';
+        $form = ['store_name'];
+        $head = ['Sl. No.', 'Store Room Name','Action'];
+        $btn['name'] = 'Update Store';
+        $btn['action'] = Route('store.update-item-store',$id);
+        $edit['data'] =  StStore::find($id);
+        $edit['reset'] = Route('store.item-store');
+        $edit['url'] = Route('store.edit-item-store');
+        $response = StStore::orderBy('id', 'desc')->get();
+        $table = "st_stores";
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function update_item_store(Request $request, $id = 0)
+    {
+        if(!empty($id)){
+            $request->validate([
+                'store_name' => 'required|max:100|unique:st_stores,store_name,' . $id,
+            ]);
+        }else{
+            $request->validate([
+                'store_name' => 'required|max:100|unique:st_stores,store_name',
+            ]);
+        }
+
+        $id ? $data = StStore::find($id) : $data = new StStore();
+        $data->store_name = $request->store_name;
+        if($data->save()){
+            return redirect()->route('store.item-store')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.item-store')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function item_catagory()
+    {
+        $title = 'Item Category';
+        $t1 = 'Item Category List';
+        $t2 = 'Add Item Category';
+        $form = ['category_name'];
+        $head = ['Sl. No.','Category Name','Action'];
+        $btn['name'] = 'Add Category ';
+        $btn['action'] = Route('store.update-item-catagory');
+        $edit['data'] = null;
+        $edit['url'] = Route('store.edit-item-catagory');
+        $edit['suburl'] = Route('store.sub-categories');
+        $response = StItemCategory::where('parent_id',0)->orderBy('id', 'desc')->get();
+        $table = 'st_item_categories';
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function edit_item_catagory($id = 0)
+    {
+        if(!$id){
+            return redirect()->route('store.item-catagory');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Item Category';
+        $t1 = 'Item Category List';
+        $t2 = 'Edit Item Category';
+        $form = ['category_name'];
+        $head = ['Sl. No.', 'Category Name','Action'];
+        $btn['name'] = 'Update Category';
+        $btn['action'] = Route('store.update-item-catagory',$id);
+        $edit['data'] =  StItemCategory::find($id);
+        $edit['reset'] = Route('store.item-catagory');
+        $edit['url'] = Route('store.edit-item-catagory');
+        $response = StItemCategory::where('parent_id',0)->orderBy('id', 'desc')->get();
+        $table = "st_item_categories";
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function update_item_catagory(Request $request, $id = 0)
+    {
+        if( !empty($id) ){
+
+            $request->validate([
+                'category_name' => 'required|max:100|unique:st_item_categories,category_name,' . $id,
+            ]);
+
+        } else {
+
+            $request->validate([
+                'category_name' => 'required|max:100|unique:st_item_categories,category_name',
+            ]);
+
+        }
+
+        $id ? $data = StItemCategory::find($id) : $data = new StItemCategory();
+        $data->category_name = $request->category_name;
+        $data->parent_id = @$request->parent_id ?? 0;
+
+        if($data->save()){
+            return redirect()->route('store.item-catagory')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.item-catagory')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function parent_categories()
+    {
+        $categories = StItemCategory::where('parent_id', 0)->get();
+        return response()->json($categories);
+    }
+    public function sub_categories($id)
+    {
+        $id = ed($id, false);
+        $title = 'Item Sub-Category';
+        $t1 = 'Item Sub-Category List';
+        $t2 = 'Add Item Category';
+        $form = ['category_name'];
+        $head = ['Sl. No.', 'Category Name','Action'];
+        $btn['name'] = 'Add Category';
+        $btn['action'] = Route('store.update-item-catagory');
+        $edit['data'] = null;
+        $edit['url'] = Route('store.edit-item-catagory');
+        $response = StItemCategory::where('parent_id',$id)->orderBy('id', 'desc')->get();
+        $table = "st_item_categories";
+        $data = compact('title','t1', 't2', 'form','head','btn','edit','response','table');
+        return view('store.master-form')->with($data);
+    }
+    public function listing_item(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = StItem::select(
+                    'st_items.*',
+                    'c.category_name',
+                    'u.unit',
+                    'su.unit as sub_unit',
+                    's.store_name'
+                )
+                ->join('st_item_categories as c', 'c.id', '=', 'st_items.category_id')
+                ->join('st_units as u', 'u.id', '=', 'st_items.unit_id')
+                ->join('st_units as su', 'su.id', '=', 'st_items.sub_unit_id')
+                ->leftJoin('st_stores as s', 's.id', '=', 'st_items.store_id')
+                ->Where('is_delete', '0')
+                ->orderBy('st_items.id', 'DESC');
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->editColumn('item_name', function ($row) {
+                    $url = route('store.item-info', ['id' => ed($row->id, true)]);
+                    return '<a href="' . $url . '">' . e($row->item_name) . '</a>';
+                })
+                ->addColumn('activate', function ($row) {
+                    $checked = $row->is_active == 1 ? 'checked' : '';
+                    return '<label class="switch">
+                                <input type="checkbox" ' . $checked . '
+                                    onchange="toggleStatus(\'' . $row->id . '\', \'st_items\',\'is_active\', this)">
+                                <span class="slider round"></span>
+                            </label>';
+                })
+                ->addColumn('action', function ($row) {
+                    $edit = route('store.edit-item', ['id' => ed($row->id, true)]);
+                    $delete = route('store.delete-item', ed($row->id, true));
+                    return '<a href="' . $edit . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        //    '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . $delete . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                })
+                ->rawColumns(['item_name', 'action','activate'])
+                ->make(true);
+        }
+        return view('store.item-list');
+    }
+    public function add_item()
+    {
+        $item_type =  StItemType::where('status','0')->orderBy('id', 'desc')->get();
+        $item_category =  StItemCategory::where('parent_id','0')->where('status','0')->orderBy('id', 'desc')->get();
+        $item_subcategory =  StItemCategory::where('parent_id','!=','0')->where('status','0')->orderBy('id', 'desc')->get();
+        $item_company = StCompany::where('status','0')->orderBy('id', 'desc')->get();
+        $store = StStore::where('status','0')->orderBy('id', 'desc')->get();
+        $unit = StUnit::where('status','0')->orderBy('id', 'desc')->get();
+        $data = compact('item_type','item_category','item_subcategory','item_company','store','unit');
+        return view('store.add-item')->with($data);
+    }
+    public function edit_item($id)
+    {
+        $id = ed($id, false);
+        $item_type =  StItemType::where('status','0')->orderBy('id', 'desc')->get();
+        $item_category =  StItemCategory::where('parent_id','0')->where('status','0')->orderBy('id', 'desc')->get();
+        $item_subcategory =  StItemCategory::where('parent_id','!=','0')->where('status','0')->orderBy('id', 'desc')->get();
+        $item_company = StCompany::where('status','0')->orderBy('id', 'desc')->get();
+        $store = StStore::where('status','0')->orderBy('id', 'desc')->get();
+        $unit = StUnit::where('status','0')->orderBy('id', 'desc')->get();
+        $response = StItem::where('id',$id)->orderBy('id', 'desc')->first();
+        $data = compact('item_type','item_category','item_subcategory','item_company','store','unit','response');
+        return view('store.add-item')->with($data);
+    }
+    public function update_item(Request $request, $id = 0)
+    {
+        if( !empty($id) ){
+
+            $request->validate([
+                'type_id'     => 'required',
+                'category_id' => 'required',
+                'item_name'   => 'required|max:100|unique:st_items,item_name,'.$id,
+                'low_level'   => 'required|max:100'
+            ]);
+
+        } else {
+         
+            $request->validate([
+                'type_id'     => 'required',
+                'category_id' => 'required',
+                'item_name'   => 'required|max:100|unique:st_items,item_name',
+                'low_level'   => 'required|max:100',
+                'unit_id'     => 'required|max:100',
+                'sub_unit_no' => 'required',
+                'sub_unit_id' => 'required',
+            ]);
+
+        }
+
+        $id ? $data = StItem::find($id) : $data = new StItem();
+
+        $data->type_id         = $request->type_id;
+        $data->category_id     = $request->category_id;
+        $data->sub_category_id = $request->sub_category_id;
+        $data->item_name       = $request->item_name;
+        $data->low_level       = $request->low_level;
+        $data->company_id      = $request->company_id;
+        $data->store_id        = $request->store_id;
+        $data->hsn_sac_no      = $request->hsn_sac_no;
+        if( empty($id) ){
+            $data->unit_id         = $request->unit_id;
+            $data->sub_unit_no     = $request->sub_unit_no;
+            $data->sub_unit_id     = $request->sub_unit_id;
+        }
+        if($data->save()){
+            return redirect()->route('store.listing-item')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.listing-item')->back()->with('error', 'Something wrong try again!');
+        }
+    }
+    public function delete_item($id)
+    {
+        $id = ed($id, false);
+        $data = StItem::where('id',$id)->first();
+
+        if ($data) {
+            $data->update([
+                'is_delete' => 1
+            ]);
+            return redirect()->route('store.listing-item')->with('success', 'The Item Deleted Successfully');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+    public function add_vendor()
+    {
+        return view('store.add-vendor');
+    }
+    public function edit_vendor($id)
+    {
+        $id = ed($id, false);
+        $response = StVendor::where('id',$id)->orderBy('id', 'desc')->first();
+        $data = compact('response');
+        return view('store.add-vendor')->with($data);
+    }
+    public function listing_vendor()
+    {
+        $response = StVendor::orderBy('id', 'desc')->get();
+       return view('store.vendor-list',compact('response'));
+    }
+    public function update_vendor(Request $request, $id = 0)
+    {
+        $request->validate([
+            'vendor_name'   => 'required|max:100',
+            'phone'         => 'nullable|digits:10',
+            'email'         => 'nullable|email',
+        ]);
+
+        $id ? $data = StVendor::find($id) : $data = new StVendor();
+
+        $data->vendor_name              = $request->vendor_name;
+        $data->email                    = $request->email;
+        $data->phone                    = $request->phone;
+        $data->pin_code                 = $request->pin_code;
+        $data->gstin                    = $request->gstin;
+        $data->contact_person_name      = $request->contact_person_name;
+        $data->address                  = $request->address;
+
+        if($data->save()){
+            return redirect()->route('store.listing-vendor')->with('success', 'Successfully Updated!');
+        }else{
+            return redirect()->route('store.listing-vendor')->back()->with('error', 'Something wrong try again!');
+        }
+    }
+
+    public function getunitqtyDetails(Request $request)
+    {
+        $item = StRequisitionItem::where('st_requisition_items.item_id', $request->itemId)
+            ->where('st_requisition_items.status', 0)
+            ->leftJoin('st_units as unit', 'st_requisition_items.unit_id', '=', 'unit.id')
+            ->leftJoin('st_units as sub_unit', 'st_requisition_items.sub_unit_id', '=', 'sub_unit.id')
+            ->selectRaw('
+                unit.unit as unit,
+                unit.id as unit_id,
+                sub_unit.unit as sub_unit,
+                sub_unit.id as sub_unit_id,
+                SUM(st_requisition_items.due_unit) as total_unit_qty,
+                SUM(st_requisition_items.due_subunit) as total_sub_unit_qty
+            ')
+            ->groupBy(
+                'unit.unit',
+                'unit.id',
+                'sub_unit.unit',
+                'sub_unit.id'
+            )
+            ->first();
+
+        if ($item) {
+            return response()->json([
+                'unit' => $item->unit,
+                'sub_unit' => $item->sub_unit,
+                'unit_id' => $item->unit_id,
+                'sub_unit_id' => $item->sub_unit_id,
+                'total_unit_qty' => $item->total_unit_qty,
+                'total_sub_unit_qty' => $item->total_sub_unit_qty
+            ]);
+        }
+
+        return response()->json([
+            'unit' => '',
+            'sub_unit' => '',
+            'unit_id' => '',
+            'sub_unit_id' => '',
+            'total_unit_qty' => 0,
+            'total_sub_unit_qty' => 0
+        ]);
+    }
+
+    public function item_info($item_id)
+    {
+        $id = ed($item_id, false);
+        $item_details = StItem::select(
+                'st_items.*',
+                'c.category_name',
+                'u.unit',
+                'su.unit as sub_unit',
+                's.store_name',
+                'b.company_name'
+            )
+            ->join('st_item_categories as c', 'c.id', '=', 'st_items.category_id')
+            ->join('st_units as u', 'u.id', '=', 'st_items.unit_id')
+            ->join('st_units as su', 'su.id', '=', 'st_items.sub_unit_id')
+            ->leftJoin('st_stores as s', 's.id', '=', 'st_items.store_id')
+            ->leftJoin('st_companies as b', 'b.id', '=', 'st_items.company_id')
+            ->where('st_items.id',$id)
+            ->Where('is_delete', 0)
+            ->orderBy('st_items.id', 'DESC')
+            ->first();
+        if($item_details){
+            $stocks = StStock::select('st_stocks.*','u.name as created_by','v.vendor_name')
+                ->join('users as u','u.id','=','st_stocks.generated_by')
+                ->join('st_purchases as p','p.id','=','st_stocks.po_id')
+                ->join('st_vendors as v','v.id','=','p.vendor_id')
+                ->where('st_stocks.item_id',$item_details->id)
+                ->get();
+            $issues = StIssue::select('st_issues.*','d.department_name','pi.requisition_id','u.name as created_by')
+                ->join('st_product_issue as pi','pi.id','=','st_issues.issue_id')
+                ->join('st_departments as d','d.id','=','pi.department_id')
+                ->join('users as u','u.id','=','st_issues.generated_by')
+                ->where('item_id',$item_details->id)
+                ->get();
+            $damage = StReturn::select('st_returns.*','d.department_name','v.vendor_name','rm.return_date','u.name as created_by','ui.unit','sui.unit as sub_unit')
+                ->leftJoin('st_return_masters as rm','rm.id','=','st_returns.mas_id')
+                ->leftJoin('st_departments as d','d.id','=','rm.dept_id')
+                ->join('st_vendors as v','v.id','=','rm.vendor_id')
+                ->join('st_items as i','i.id','=','st_returns.item_id')
+                ->join('st_units as ui', 'ui.id', '=', 'i.unit_id')
+                ->join('st_units as sui', 'sui.id', '=', 'i.sub_unit_id')
+                ->join('users as u','u.id','=','rm.return_by')
+                ->where('st_returns.item_id',$item_details->id)
+                ->where('st_returns.status', 1)
+                ->get();
+            $batch_no = StStock::where('item_id', $item_details->id)
+                ->distinct()
+                ->pluck('part_no');
+            $pasent_stock = [];
+            foreach($batch_no as $item){
+                $item_stock = DB::table('st_stocks')
+                    ->where('item_id', $item_details->id)
+                    ->where('part_no', $item)
+                    ->selectRaw('
+                        unit,
+                        sub_unit,
+                        exp_date,
+                        unit_sub_no,
+                        unit_rate,
+                        SUM(present_qty) as present_qty,
+                        SUM(unit_qty) as unit_qty,
+                        SUM(sub_unit_qty) as sub_unit_qty
+                    ')
+                    ->groupBy('unit_sub_no','exp_date','unit','sub_unit','unit_rate')
+                    ->first();
+
+                // $item_issue = DB::table('st_issues')
+                //     ->where('item_id', $item_details->id)
+                //     ->where('part_no', $item)
+                //     ->selectRaw('
+                //         SUM(unit_qty) as unit_qty,
+                //         SUM(sub_unit_qty) as sub_unit_qty
+                //     ')
+                //     ->first();
+
+                $unit_sub_no = $item_stock->unit_sub_no;
+
+                // $stock_unit = $item_stock->unit_qty ?? 0;
+                // $stock_sub  = $item_stock->sub_unit_qty ?? 0;
+
+                // $issue_unit = $item_issue->unit_qty ?? 0;
+                // $issue_sub  = $item_issue->sub_unit_qty ?? 0;
+
+                // Convert to total sub-units
+                // $stock_total_sub = ($stock_unit * $unit_sub_no) + $stock_sub;
+                // $issue_total_sub = ($issue_unit * $unit_sub_no) + $issue_sub;
+
+                // Calculate remaining sub-units
+                // $remaining_sub = max($stock_total_sub - $issue_total_sub, 0);
+                $remaining_sub = $item_stock->present_qty;
+
+                // Convert back to unit + sub-unit
+                $present_unit = intdiv($remaining_sub, $unit_sub_no);
+                $present_sub  = $remaining_sub % $unit_sub_no;
+
+                $pasent_stock[] = [
+                    'part_no' => $item,
+                    'unit' => $item_stock->unit,
+                    'sub_unit' => $item_stock->sub_unit,
+                    'unit_qty' => $present_unit,
+                    'sub_unit_qty' => $present_sub,
+                    'rate' => $item_stock->unit_rate,
+                    'exp_date' => dateFor($item_stock->exp_date),
+                ];
+            }
+        }
+
+        $data = compact('item_details','stocks','issues','damage','pasent_stock');
+        // dd($data);
+        return view('store.item-info')->with($data);
+    }
+    public function getUnitDetails(Request $request)
+    {
+        $item = StItem::where('st_items.id', $request->itemId)
+        ->leftJoin('st_units as unit', 'st_items.unit_id', '=', 'unit.id')
+        ->leftJoin('st_units as sub_unit', 'st_items.sub_unit_id', '=', 'sub_unit.id')
+        ->select([
+            'unit.unit as unit_name',
+            'unit.id as unit_id',
+            'sub_unit.unit as sub_unit_name',
+            'sub_unit.id as sub_unit_id',
+            'st_items.sub_unit_no'
+        ])
+        ->first();
+
+        if ($item) {
+            return response()->json([
+                'unit' => $item->unit_name,
+                'sub_unit' => $item->sub_unit_name,
+                'unit_id' => $item->unit_id,
+                'sub_unit_id' => $item->sub_unit_id,
+                'sub_unit_no' => $item->sub_unit_no
+            ]);
+        }
+
+        return response()->json([
+            'unit' => '',
+            'sub_unit' => '',
+            'unit_id' => '',
+            'sub_unit_id' => '',
+            'sub_unit_no' => ''
+        ]);
+    }
+    public function getBatchDetails(Request $request)
+    {
+        $item = StStock::where('item_id', $request->itemId)
+            ->where('exp_date', '>', Carbon::now())
+            ->get() ?? [];
+
+        return response()->json([
+            'batch' => $item
+        ]);
+    }
+    public function getProductDetails(Request $request)
+    {
+        // $item_stock = StStock::where('item_id', $request->itemId)
+        //     ->where('part_no', $request->partNo)
+        //     ->first();
+        $item_stock = DB::table('st_stocks')
+            ->where('item_id', $request->itemId)
+            ->where('part_no', $request->partNo)
+            ->where(function($query) {
+                $query->whereDate('exp_date', '>=', now())
+                    ->orWhereNull('exp_date');
+            })
+            ->selectRaw('
+                unit,
+                sub_unit,
+                exp_date,
+                unit_sub_no,
+                SUM(unit_qty) as unit_qty,
+                SUM(sub_unit_qty) as sub_unit_qty
+            ')
+            ->groupBy('unit_sub_no','exp_date','unit','sub_unit')
+            ->first();
+        // $item_issue = StIssue::where('item_id', $request->itemId)
+        //     ->where('part_no', $request->partNo)
+        //     ->first();
+        $item_issue = DB::table('st_issues')
+            ->where('item_id', $request->itemId)
+            ->where('part_no', $request->partNo)
+            ->selectRaw('
+                SUM(unit_qty) as unit_qty,
+                SUM(sub_unit_qty) as sub_unit_qty
+            ')
+            ->first();
+
+        // Safely get units and sub-units or default to 0
+        $unit_sub_no = $item_stock->unit_sub_no;
+
+        $stock_unit = $item_stock->unit_qty ?? 0;
+        $stock_sub  = $item_stock->sub_unit_qty ?? 0;
+
+        $issue_unit = $item_issue->unit_qty ?? 0;
+        $issue_sub  = $item_issue->sub_unit_qty ?? 0;
+
+        // Convert to total sub-units
+        $stock_total_sub = ($stock_unit * $unit_sub_no) + $stock_sub;
+        $issue_total_sub = ($issue_unit * $unit_sub_no) + $issue_sub;
+
+        // Calculate remaining sub-units
+        $remaining_sub = max($stock_total_sub - $issue_total_sub, 0);
+
+        // Convert back to unit + sub-unit
+        $present_unit = intdiv($remaining_sub, $unit_sub_no);
+        $present_sub  = $remaining_sub % $unit_sub_no;
+
+        if($item_stock) {
+            return response()->json([
+                'unit' => $item_stock->unit,
+                'sub_unit' => $item_stock->sub_unit,
+                'unit_qty' => $present_unit,
+                'sub_unit_qty' => $present_sub,
+                'exp_date' => dateFor($item_stock->exp_date),
+                'avi_qty' => $present_unit.' '.$item_stock->unit.' '.$present_sub.' '.$item_stock->sub_unit,
+                'remaining' => $remaining_sub,
+            ]);
+        }else{
+            return response()->json([
+                'unit' => '',
+                'sub_unit' => '',
+                'unit_qty' => '',
+                'sub_unit_qty' => '',
+                'exp_date' => '',
+                'avi_qty' => '',
+                'remaining' => ''
+            ]);
+        }
+    }
+}

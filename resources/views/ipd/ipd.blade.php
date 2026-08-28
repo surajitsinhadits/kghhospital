@@ -1,0 +1,233 @@
+@extends('layouts.structure')
+@push('title')
+    <title>IPD</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+        <div class="card">
+            <div class="card-header card_hearder_mimi justify-content-between">
+                <h4 class="card-title card_hearder_mimi_text">IPD / DAYCARE LIST</h4>
+                <div>
+                    <a class="btn btn-sm btn-warning" href="{{Route('ipd.ipd-register')}}">NEW IPD/DAYCARE REGISTER</a>
+                </div>
+            </div>
+            <div class="card-header d-block">
+                <form method="POST" id="filterForm">
+                    @csrf
+                    <div class="row">
+                        <div class="col-sm-2">
+                            <div class="form-group">
+                                <select class="form-control" name="field_name" id="fieldName" onchange="changeField()">
+                                    <option value="">SELECT FIELD</option>
+                                    <option value="p.name">PATIENT NAME</option>
+                                    <option value="p.uhid">UHID</option>
+                                    <option value="p.phone">Phone No</option>
+                                    <option value="ipd_registers.doctor_id">Doctor</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-sm-2" id="textInput">
+                            <div class="form-group">
+                                <input type="text" value="" class="form-control" id="fieldValue" name="field_value" placeholder="Field Value">
+                            </div>
+                        </div>
+                        <div class="col-sm-2 d-none" id="selcetInput">
+                            <div class="form-group">
+                                <select class="form-control select2-show-search" name="select_value" id="selectValue">
+                                    @foreach ($doctor as $doc)
+                                    <option value="{{ $doc->id }}">Dr. {{ $doc->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-sm-2" id="statusInput">
+                            <div class="form-group">
+                                <select class="form-control" name="status_value" id="statusValue">
+									<option value="1">All</option>
+									<option selected value="2">Admitted</option>
+                                    <option value="3">Discharge</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="form-group">
+                                <input type="text" value="" class="form-control datePickr" id="fromDate" name="from_date" placeholder="Choose From Date">
+                            </div>
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="form-group">
+                                <input type="text" value="" class="form-control datePickr" id="toDate" name="to_date" placeholder="Choose To Date">
+                            </div>
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="form-group d-flex">
+                                <button type="submit" class="btn btn-primary px-3 mr-2">Search</button>
+                                <button type="button" class="btn btn-success px-3 mr-2" id="todayBtn">Today</button>
+                                <button type="button" class="btn btn-warning px-3" id="resetBtn">Reset</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" id="table-responsive">
+                    <table class="table table-bordered text-nowrap data-table">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+@push('js')
+<script type="text/javascript">
+    var table;
+    $('#filterForm').on('submit', function(e) {
+        e.preventDefault();
+        table.draw();
+    });
+    $('#todayBtn').on('click', function () {
+        const today = moment().format('DD-MM-YYYY');
+        $('#fromDate').val(today);
+        $('#toDate').val(today);
+        table.draw();
+    });
+    $('#resetBtn').on('click', function () {
+        // Clear all filters
+        $('#fieldName').val('');
+        $('#fieldValue').val('');
+        $('#selectValue').val('');
+        $('#statusValue').val('0').trigger('change');
+        $('#fromDate').val('');
+        $('#toDate').val('');
+
+        // Show text input, hide section select (if needed)
+        $('#textInput').removeClass('d-none');
+        $('#selcetInput').addClass('d-none');
+
+        // Redraw the DataTable (will trigger serverSide AJAX reload)
+        table.draw();
+    });
+    function setDefaultDatesIfBlank() {
+        let fromDate = $('#fromDate').val();
+        let toDate = $('#toDate').val();
+        if (!fromDate && !toDate) {
+            let today = moment();
+            let sixMonthsAgo = moment().subtract(1, 'months');
+            $('#fromDate').val(sixMonthsAgo.format('DD-MM-YYYY'));
+            $('#toDate').val(today.format('DD-MM-YYYY'));
+        }
+    }
+    $(function() {
+		setDefaultDatesIfBlank();
+        table = $('.data-table').DataTable({
+            processing: true,
+            serverSide: true,
+            pageLength: 50,
+            lengthMenu: [
+                [10, 50, 100, 200, 500],
+                [10, 50, 100, 200, 500]
+            ],
+            ajax: {
+                url: "{{ route('ipd.ipd') }}",
+                data: function(d) {
+                    d.field_name = $('#fieldName').val();
+                    d.field_value = $('#fieldValue').val();
+                    d.select_value = $('#selectValue').val();
+                    d.status_value = $('#statusValue').val();
+                    d.from_date = $('#fromDate').val();
+                    d.to_date = $('#toDate').val();
+
+					let doc_id = @json($_GET['doctor_id'] ?? null);
+                    if (doc_id) {
+                        d.field_name = 'ipd_registers.doctor_id';
+                        d.select_value = doc_id;
+                    }
+
+                    // override field_value if section is selected
+                    if (d.field_name === 'ipd_registers.doctor_id') {
+                        d.field_value = d.select_value;
+                    }
+                }
+            },
+            columns: [
+                {
+                    data: null,
+                    name: 'sl_no',
+                    title: 'SN',
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    },
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'id',
+                    name: 'id',
+                    title: 'IPD No',
+                    render: function(data, type, row) {
+                        // let data = `${row.id} <br>`;
+                        // data += `<span class="badge badge-primary">${row.admission_type} PATIENT</span>`;
+                        // row.discharge_status == 1 ? data += `<span style="color:red;font-size:22px">Discharge</span>` : ``;
+                        return `<div class='text-center'>${row.id} <br>
+                            <span class="badge badge-primary">${row.admission_type} PATIENT</span>
+                            ${row.discharge_status == 1 ? '<br><span style="color:red;font-size:15px">Discharged</span>' : ''} </div>`;
+                    },
+                },
+                {
+                    data: 'patient',
+                    name: 'p.name',
+                    title: 'Patient Details',
+                },
+                {
+                    data: 'doctor',
+                    name: 'u1.name',
+                    title: 'Under Doctor',
+                },
+                {
+                    data: 'details',
+                    name: 'd.department_name',
+                    title: 'Details',
+                },
+                {
+                    data: 'bed',
+                    name: 'b.bed_name',
+                    title: 'Bed Details',
+                },
+                {
+                    data: 'overall',
+                    title: 'Overall',
+                },
+                {
+                    data: 'action',
+                    name: 'ipd_registers.admission_type',
+                    title: 'Action'
+                },
+            ],
+            rowCallback: function(row, data) {
+                if (data.due_status) {
+                    $(row).css('background-color', '#ffff9b');
+                }else{
+                    $(row).css('background-color', '#d3fdf7');
+                }
+            }
+        });
+    });
+    changeField();
+    function changeField() {
+        var field = $('#fieldName').val();
+        if (field == 'ipd_registers.doctor_id') {
+            $('#selcetInput').removeClass('d-none');
+            $('#textInput').addClass('d-none');
+        } else {
+            $('#textInput').removeClass('d-none');
+            $('#selcetInput').addClass('d-none');
+        }
+    }
+</script>
+@endpush

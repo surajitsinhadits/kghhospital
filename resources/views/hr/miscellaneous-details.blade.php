@@ -1,0 +1,172 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Miscellaneous Bill {{ $miscellaneous->display_bill_no }} Details</title>
+@endpush
+@push('css')
+    <style>
+        @media print {
+            .detail-actions {
+                display: none !important;
+            }
+            .switcher-wrapper {
+                display: none !important;
+            }
+        }
+    </style>
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title card_hearder_mimi_text_dif mb-0" style="color: #000; font-size: 21px !important;
+    text-transform: capitalize !important; ">Miscellaneous Bill {{ $miscellaneous->display_bill_no }}</h4>
+                        <span class="small">Last updated {{ $miscellaneous->updated_at?->format('d-m-Y h:i A') ?? 'N/A' }}</span>
+                    </div>
+                    @php
+                        $backUrl = route($returnRoute ?? 'hr.account-miscellaneous');
+                    @endphp
+                    <div class="btn-group detail-actions">
+                        <a href="{{ $backUrl }}" class="btn btn-sm btn-light" style="margin-right: 6px">Back to list</a>
+                        <button type="button" class="btn btn-sm btn-light" style="margin-right: 6px" onclick="window.print()">Print</button>
+                        <a href="{{ route('hr.miscellaneous.details.pdf', $miscellaneous) }}" target="_blank" class="btn btn-sm">Download PDF</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless table-sm mb-0">
+                                <tr>
+                                    <th>Bill Purpose</th>
+                                    <td>{{ $miscellaneous->bill_purpose }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Service Provider</th>
+                                    <td>{{ $miscellaneous->serviceProviderVendor?->vendor_name ?? ($miscellaneous->service_provider ?? '-') }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Bill Amount</th>
+                                    <td>₹{{ number_format($miscellaneous->bill_amount, 2) }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Expense Ledger</th>
+                                    <td>{{ $miscellaneous->expenseLedger?->ledger_name ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>TDS Duties Taxes Ledger</th>
+                                    <td>{{ $miscellaneous->tdsLedger?->tds_ledger_name ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>TDS Bill Amount</th>
+                                    <td>{{ $miscellaneous->tds_bill_amount !== null ? '₹' . number_format($miscellaneous->tds_bill_amount, 2) : '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>TDS Percentage</th>
+                                    <td>{{ $miscellaneous->tds_percentage !== null ? number_format($miscellaneous->tds_percentage, 2) . '%' : '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>TDS Deduction Amount</th>
+                                    <td>{{ $miscellaneous->tds_deduction_amount !== null ? '₹' . number_format($miscellaneous->tds_deduction_amount, 2) : '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Payable Amount</th>
+                                    <td>₹{{ number_format($miscellaneous->total_amount ?? 0, 2) }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Total Paid</th>
+                                    <td>₹{{ number_format($miscellaneous->total_paid_amount, 2) }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Remaining Due</th>
+                                    <td>₹{{ number_format($miscellaneous->net_due, 2) }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Due Date</th>
+                                    <td>{{ optional($miscellaneous->due_date)->format('d-m-Y') ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Narration</th>
+                                    <td>{{ $miscellaneous->narration ?: '-' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless table-sm mb-0">
+                                <tr>
+                                    <th>Status</th>
+                                    <td>
+                                        @if ($miscellaneous->payment_status === 'paid')
+                                            <span class="badge badge-success">Paid</span>
+                                        @else
+                                            <span class="badge badge-warning">Due</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Invoice</th>
+                                    <td>
+                                        @if ($miscellaneous->invoice_url)
+                                            <a href="{{ $miscellaneous->invoice_url }}" target="_blank" class="text-primary">View / Download</a>
+                                        @else
+                                            <span class="text-muted">Not provided</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Created By</th>
+                                    <td>{{ $miscellaneous->creator?->name ?? ($miscellaneous->created_by ? 'User #' . $miscellaneous->created_by : 'System') }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Verified By</th>
+                                    <td>{{ $miscellaneous->verifier?->name ?? ($miscellaneous->verified_by ? 'User #' . $miscellaneous->verified_by : '-') }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Approved By</th>
+                                    <td>{{ $miscellaneous->approver?->name ?? ($miscellaneous->approved_by ? 'User #' . $miscellaneous->approved_by : '-') }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Created At</th>
+                                    <td>{{ optional($miscellaneous->created_at)->format('d-m-Y h:i A') ?? 'N/A' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h5 class="mb-3">Payment History</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-bordered table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Amount Paid</th>
+                                        {{-- <th>Discount</th>
+                                        <th>Details</th> --}}
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($payments as $payment)
+                                        <tr>
+                                            <td>{{ $loop->iteration }}</td>
+                                            <td>{{ number_format($payment->amount_paid, 2) }}</td>
+                                            {{-- <td>{{ number_format($payment->discount ?? 0, 2) }}</td>
+                                            <td>{{ $payment->details ?: '-' }}</td> --}}
+                                            <td>{{ optional($payment->paid_at)->format('d-m-Y h:i A') ?? 'N/A' }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted small">No payments recorded yet.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+

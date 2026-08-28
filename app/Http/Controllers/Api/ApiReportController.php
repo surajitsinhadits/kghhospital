@@ -1,0 +1,1798 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Charge;
+use App\Models\ChargesSection;
+use App\Models\Childcare;
+use App\Models\Department;
+use App\Models\Billing;
+use App\Models\Patient;
+use App\Models\BillingDetail;
+use App\Models\DialysisRegister;
+use App\Models\OpdEnquiry;
+use App\Models\DischargeReport;
+use App\Models\EmgRegister;
+use App\Models\IpdRegister;
+use App\Models\OpdRegister;
+use App\Models\User;
+use App\Models\Payment;
+use App\Models\Referral;
+use App\Models\TpaManagement;
+use App\Models\Ward;
+use Illuminate\Support\Facades\DB;
+use App\Models\PatientCraditAmount;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use App\Models\InvestigationRegister;
+use Illuminate\Support\Facades\Auth;
+
+class ApiReportController extends Controller
+{
+	public function __construct() {
+        ini_set('memory_limit', '8000M');
+    }
+
+    public function dashboard()
+    {
+        $opd['total_patient'] = OpdRegister::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $opd['new_patient'] = OpdRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $opd['old_patient'] = OpdRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $emergency['total_patient'] = EmgRegister::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $emergency['new_patient'] = EmgRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $emergency['old_patient'] = EmgRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $ipd['total_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'IPD')
+            ->where('discharge_status', '0')
+            // ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $ipd['new_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'IPD')
+            ->where('type', 'new')
+            ->where('discharge_status', '0')
+            ->count();
+        $ipd['old_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'IPD')
+            ->where('type', 'old')
+            ->where('discharge_status', '0')
+            ->count();
+
+        $daycare['total_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'DAYCARE')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $daycare['new_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'DAYCARE')
+            ->where('type', 'new')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $daycare['old_patient'] = IpdRegister::where('is_delete', 0)
+            ->where('admission_type', 'DAYCARE')
+            ->where('type', 'old')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $investigation['total_patient'] = InvestigationRegister::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $investigation['new_patient'] = InvestigationRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $investigation['old_patient'] = InvestigationRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $dialysis['total_patient'] = DialysisRegister::where('is_delete', 0)
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $dialysis['new_patient'] = DialysisRegister::where('is_delete', 0)
+            ->where('type', 'new')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $dialysis['old_patient'] = DialysisRegister::where('is_delete', 0)
+            ->where('type', 'old')
+            ->whereDate('admission_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        if (false) {
+            $opd['income'] = Payment::where('section', 'OPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $emergency['income'] = Payment::where('section', 'EMG')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $ipd['income'] = Payment::where('section', 'IPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $daycare['income'] = Payment::where('section', 'DAYCARE')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $investigation['income'] = Payment::where('section', 'INVESTIGATION')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+            $dialysis['income'] = Payment::where('section', 'DIALYSIS')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->where('payment_recived_by', Auth::user()->id)
+                ->sum('payment_amount');
+        } else {
+            $opd['income'] = Payment::where('section', 'OPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $emergency['income'] = Payment::where('section', 'EMG')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $ipd['income'] = Payment::where('section', 'IPD')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $daycare['income'] = Payment::where('section', 'DAYCARE')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $investigation['income'] = Payment::where('section', 'INVESTIGATION')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+            $dialysis['income'] = Payment::where('section', 'DIALYSIS')
+                ->whereDate('payment_date', Carbon::now()->format('Y-m-d'))
+                ->sum('payment_amount');
+        }
+
+        $enquiry = OpdEnquiry::where('is_delete', 0)
+            ->whereDate('appointment_date', Carbon::now()->format('Y-m-d'))
+            ->count();
+        $nursery = Childcare::where('is_delete', 0)
+            ->whereDate('date_of_birth', Carbon::now()->format('Y-m-d'))
+            ->count();
+
+        $data = compact('opd', 'emergency', 'ipd', 'daycare', 'investigation', 'dialysis', 'enquiry', 'nursery');
+
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ], 200);
+    }
+	
+	public function doctor_payout_info($id, $date){
+        $request_data = [
+            'from_date' => $date,
+            'section' => $request->section ?? 'OPD',
+        ];
+
+        // Query billing details for selected doctors
+        $response = BillingDetail::select(
+                'billing_details.billing_id',
+                'billings.uid',
+                'patients.name',
+                'billings.patient_id',
+                'billing_details.amount',
+                'billings.bill_date',
+                'billings.section',
+                'users.name as doctor_name',
+                'users.doctor_fees',
+                'users.commission_type',
+                'users.commission_amount',
+                'billing_details.charge_id',
+                'opd_registers.type'
+            )
+            ->join('billings', 'billings.id', '=', 'billing_details.billing_id')
+            ->join('patients', 'patients.id', '=', 'billings.patient_id')
+            ->leftJoin('users', 'users.charge_id', '=', 'billing_details.charge_id')
+            ->join('opd_registers', 'opd_registers.id', '=', 'billings.section_id')
+            ->whereDate('billings.bill_date', date('Y-m-d', strtotime($date)))
+            ->where('billings.section', 'OPD')
+            ->where('billing_details.charge_id', $id)
+            ->get();
+
+        return response()->json(['success' => true,'data' => $response]);
+    }
+	
+	public function get_doctor_list(){
+        $user = User::select()->where('user_type', 'doctor')
+            ->where('is_active', 1)
+            ->where('is_delete', 0)
+            ->get();
+        return response()->json([
+            'success' => true,
+            'data'    => $user,
+        ], 200);
+    }
+	
+
+    public function users_collection(Request $request)
+    {
+        if ($request->isMethod('post')) {
+            $request->validate([
+                'from_date' => ['required', 'date_format:Y-m-d'],
+                'to_date'   => ['required', 'date_format:Y-m-d'],
+            ]);
+
+            $start = Carbon::createFromFormat('Y-m-d', $request->from_date)->startOfDay();
+            $end   = Carbon::createFromFormat('Y-m-d', $request->to_date)->startOfDay();
+
+            if ($end->lt($start)) {
+                [$start, $end] = [$end, $start];
+            }
+        } else {
+            $start = now()->startOfDay();
+            $end   = now()->startOfDay();
+        }
+
+        $endExclusive = $end->copy()->addDay()->startOfDay();
+
+        $payments = DB::table('payments')
+            ->join('patients', 'patients.id', '=', 'payments.patient_id')
+            ->join('users', 'users.id', '=', 'payments.payment_recived_by')
+            ->where('payments.payment_date', '>=', $start->toDateTimeString())
+            ->where('payments.payment_date', '<', $endExclusive->toDateTimeString())
+            ->orderBy('payments.payment_recived_by')
+            ->get([
+                'patients.name as patient_name',
+                'payments.section',
+                'payments.payment_amount',
+                'payments.payment_mode',
+                'payments.payment_date',
+                'payments.payment_recived_by',
+                'users.salutation',
+                'users.name',
+            ]);
+
+        if ($payments->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'data' => ['result' => []],
+            ], 200);
+        }
+
+        $byReceiver = $payments->groupBy('payment_recived_by');
+        $receiverIds = $byReceiver->keys();
+
+        $refundsMap = DB::table('patient_cradit_amounts')
+            ->whereIn('generated_by', $receiverIds)
+            ->where('type', 'debit')
+            ->where('remarks', 'refund')
+            ->where('date', '>=', $start->toDateTimeString())
+            ->where('date', '<', $endExclusive->toDateTimeString())
+            ->groupBy('generated_by')
+            ->pluck(DB::raw('COALESCE(SUM(amount),0) as refund_total'), 'generated_by');
+
+        $result = [];
+        foreach ($byReceiver as $receiverId => $rows) {
+            $first = $rows->first();
+            $name = trim(($first->salutation ?? '') . ' ' . ($first->name ?? ''));
+            $result[] = [
+                'name' => $name,
+                'payment_recived_by' => $receiverId,
+                'payments' => $rows->map(fn($p) => [
+                    'section' => $p->section,
+                    'patient_name' => $p->patient_name,
+                    'payment_amount' => $p->payment_amount,
+                    'payment_mode' => $p->payment_mode,
+                    'payment_date' => $p->payment_date,
+                ])->values(),
+                'payment_refund' => (float) ($refundsMap[$receiverId] ?? 0),
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => compact('result'),
+        ], 200);
+    }
+	
+	public function approval_system(Request $request, $section = null)
+    {
+        $title = 'Approval System';
+
+        if ($section) {
+            $section == 'IPD' ? $newSection = ['IPD', 'DAYCARE'] : $newSection = [$section];
+        } else {
+            $selected_array = array_intersect(
+                ['APPROVAL BILL OPD', 'APPROVAL BILL IPD', 'APPROVAL BILL INVESTIGATION', 'APPROVAL BILL EMG', 'APPROVAL BILL DIALYSIS'],
+                session('permissions')
+            );
+
+            $newSection = array_map(function ($val) {
+                return str_replace('APPROVAL BILL ', '', $val);
+            }, $selected_array);
+
+            if (in_array('IPD', $newSection)) {
+                $newSection[] = 'DAYCARE';
+            }
+        }
+
+        $perPage = (int) $request->input('per_page', 100);
+        $page = max(1, (int) $request->input('page', 1));
+        $offset = ($page - 1) * $perPage;
+
+        $billingQuery = Billing::select('billings.*', 'patients.name as patient_name', 'users.name as created_by_name')
+            ->leftJoin('patients', 'patients.id', '=', 'billings.patient_id')
+            ->leftJoin('users', 'users.id', '=', 'billings.created_by')
+            ->where('billings.bill_status', 1)
+            ->whereIn('billings.section', $newSection)
+            ->where('billings.is_delete', 0)
+            ->orderBy('billings.id', 'DESC');
+
+        $search = $request->input('search_data'); // works for JSON, form, query
+        if (!is_null($search) && $search !== '') {
+            $search = trim($search);
+
+            $billingQuery->where(function ($q) use ($search) {
+                $q->where('patients.name', 'like', "%{$search}%")
+                    ->orWhere('users.name', 'like', "%{$search}%")
+                    ->orWhere('billings.section', 'like', "%{$search}%")
+                    ->orWhere('billings.bill_date', 'like', "%{$search}%");
+
+                if (is_numeric($search)) {
+                    $q->orWhere('billings.id', (int) $search)
+                        ->orWhereRaw("CAST(billings.total_payment AS CHAR) LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("CAST(billings.grand_total   AS CHAR) LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("CAST(billings.total_payment    AS CHAR) LIKE ?", ["%{$search}%"]);
+                }
+            });
+        }
+
+        $total = $billingQuery->count();
+
+        $billing = $billingQuery
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Approval system data fetched successfully ✅',
+            'title'   => $title,
+            'section' => $section,
+            'data'    => $billing,
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => ceil($total / $perPage),
+            ],
+        ], 200);
+    }
+
+    public function approved_list(Request $request, $section = null)
+    {
+        $title = 'Approved List';
+
+        if ($section) {
+            $section == 'IPD' ? $newSection = ['IPD', 'DAYCARE'] : $newSection = [$section];
+        } else {
+            $selected_array = array_intersect(
+                ['APPROVAL BILL OPD', 'APPROVAL BILL IPD', 'APPROVAL BILL INVESTIGATION', 'APPROVAL BILL EMG', 'APPROVAL BILL DIALYSIS'],
+                session('permissions')
+            );
+
+            $newSection = array_map(function ($val) {
+                return str_replace('APPROVAL BILL ', '', $val);
+            }, $selected_array);
+
+            if (in_array('IPD', $newSection)) {
+                $newSection[] = 'DAYCARE';
+            }
+        }
+
+        $perPage = (int) $request->input('per_page', 100);
+        $page = max(1, (int) $request->input('page', 1));
+        $offset = ($page - 1) * $perPage;
+
+        $billingQuery = Billing::select('billings.*', 'patients.name as patient_name', 'users.name as created_by_name')
+            ->leftJoin('patients', 'patients.id', '=', 'billings.patient_id')
+            ->leftJoin('users', 'users.id', '=', 'billings.created_by')
+            ->where('billings.bill_status', 2)
+            ->whereIn('billings.section', $newSection)
+            ->where('billings.is_delete', 0)
+            ->orderBy('billings.id', 'DESC');
+
+        $search = $request->input('search_data'); // works for JSON, form, query
+        if (!is_null($search) && $search !== '') {
+            $search = trim($search);
+
+            $billingQuery->where(function ($q) use ($search) {
+                $q->where('patients.name', 'like', "%{$search}%")
+                    ->orWhere('users.name', 'like', "%{$search}%")
+                    ->orWhere('billings.section', 'like', "%{$search}%")
+                    ->orWhere('billings.bill_date', 'like', "%{$search}%");
+
+                if (is_numeric($search)) {
+                    $q->orWhere('billings.id', (int) $search)
+                        ->orWhereRaw("CAST(billings.total_payment AS CHAR) LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("CAST(billings.grand_total   AS CHAR) LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("CAST(billings.total_payment    AS CHAR) LIKE ?", ["%{$search}%"]);
+                }
+            });
+        }
+
+        $total = $billingQuery->count();
+
+        $billing = $billingQuery
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Approved data fetched successfully ✅',
+            'title'   => $title,
+            'section' => $section,
+            'data'    => $billing,
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => ceil($total / $perPage),
+            ],
+        ], 200);
+    }
+
+    public function approval_list_count()
+    {
+        $results = Billing::select('section', DB::raw('COUNT(section) as total_count'))
+            ->where('bill_status', 1)
+            ->groupBy('section')
+            ->get();
+        return response()->json([
+            'success' => true,
+            'message' => 'Count fetched successfully ✅',
+            'data' => $results
+        ]);
+    }
+	
+	public function collection(Request $request)
+{
+    $validated = $request->validate([
+        'from_date' => ['required', 'date_format:Y-m-d'],
+        'to_date'   => ['required', 'date_format:Y-m-d'],
+    ]);
+
+    // Normalize range (full days, inclusive)
+    $start = Carbon::createFromFormat('Y-m-d', $validated['from_date'])->startOfDay();
+    $end   = Carbon::createFromFormat('Y-m-d', $validated['to_date'])->endOfDay();
+    if ($end->lt($start)) {
+        [$start, $end] = [$end, $start];
+    }
+
+    // --- 1) Refund totals grouped by date (single query) ---
+    // NOTE: backticks around `date` in selectRaw are for MySQL since it's a reserved word.
+    $refundsByDate = PatientCraditAmount::query()
+        ->where('type', 'debit')
+        ->where('remarks', 'refund')
+        ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+        ->selectRaw('DATE(`date`) as d, COALESCE(SUM(amount),0) as total')
+        ->groupBy('d')
+        ->pluck('total', 'd'); // ['YYYY-MM-DD' => total]
+
+    // --- 2) All payments in range, grouped by date in PHP (single query) ---
+    $paymentsByDate = Payment::query()
+        ->selectRaw('section, payment_amount, payment_mode, payment_date, DATE(payment_date) as d')
+        ->whereBetween('payment_date', [$start, $end])
+        ->orderBy('payment_date')
+        ->get()
+        ->groupBy('d'); // 'YYYY-MM-DD' => Collection<Payment>
+
+    // --- 3) Build the full day-by-day result (no extra queries) ---
+    $result = [];
+    for ($d = $start->copy()->startOfDay(); $d->lte($end); $d->addDay()) {
+        $ymd = $d->toDateString();         // 'YYYY-MM-DD'
+        $dmy = $d->format('d-m-Y');        // 'DD-MM-YYYY' for output
+
+        $payments = ($paymentsByDate[$ymd] ?? collect())->map(function ($p) {
+            return [
+                'section'        => $p->section,
+                'payment_amount' => (float) $p->payment_amount,
+                'payment_mode'   => $p->payment_mode,
+                'payment_date'   => $p->payment_date, // keep original datetime
+            ];
+        })->values()->all();
+
+        $result[] = [
+            'date'           => $dmy,
+            'payment_refund' => (float) ($refundsByDate[$ymd] ?? 0),
+            'payments'       => $payments,
+        ];
+    }
+
+    return response()->json([
+        'success' => true,
+        'data'    => $result,
+    ], 200);
+}
+	public function billing_details($section, $bill_id)
+    {
+        $section == 'ot' ? $db = 'ot_registrations' : $db = strtolower($section) . '_registers';
+        $bill = Billing::select('billings.*', 'u1.name as doctor_name', 'u2.name as created_name', 'u3.name as edited_name', 'u4.name as approved_user_name')
+            ->leftJoin('users as u1', 'u1.id', '=', 'billings.doctor_id')
+            ->leftJoin('users as u2', 'u2.id', '=', 'billings.created_by')
+            ->leftJoin('users as u3','u3.id','=','billings.edit_by')
+            ->leftJoin('users as u4','u4.id','=','billings.approved_by')
+            ->leftJoin($db . ' as or', 'or.id', '=', 'billings.section_id')
+            ->where('billings.id', $bill_id)
+            ->first();
+        // dd($db, $bill);
+        if ($bill) {
+            $bill_info = BillingDetail::select('billing_details.*', 'u1.name as doctor_name', 'charges.charge_name as actual_charge_name')
+                ->where('billing_id', $bill->id)
+                ->whereIn('billing_details.is_delete', [0, 1])
+                ->leftJoin('users as u1', 'u1.id', '=', 'billing_details.doctor_id')
+                ->leftJoin('charges', function ($join) {
+                    $join->on('charges.id', '=', 'billing_details.charge_id');
+                    // $join->on('charges.id', '=', 'billing_details.charge_name')->whereRaw('billing_details.charge_name REGEXP "^[0-9]+$"');
+                })
+                ->orderBy('billing_details.date', 'DESC')
+                ->get();
+            if($section == 'op'){
+                $op_check = OpRegister::where('id',$bill->section_id)->first();
+                if($op_check->enquiry_id == 0){
+                    $bill_info = OpBillingDetail::select('op_billing_details.*', 'op_items.item_name as actual_charge_name')
+                        ->where('op_billing_details.billing_id', $bill->id)
+                        ->whereIn('op_billing_details.is_delete', [0, 1])
+                        ->leftJoin('op_items', function ($join) {
+                            $join->on('op_items.id', '=', 'op_billing_details.item_id');
+                        })
+                        ->orderBy('op_billing_details.date', 'DESC')
+                        ->get();
+                }
+            }
+
+            $payments = Payment::select('payments.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'payments.payment_recived_by')
+                ->where('billing_id', $bill->id)
+                ->get();
+            $refund = PatientCraditAmount::select('patient_cradit_amounts.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'patient_cradit_amounts.generated_by')
+                ->where('billing_id', $bill->id)
+                ->where('type', 'debit')
+                ->where('remarks', 'refund')
+                ->get();
+            $reused = PatientCraditAmount::select('patient_cradit_amounts.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'patient_cradit_amounts.generated_by')
+                ->where('billing_id', $bill->id)
+                ->where('type', 'debit')
+                ->where('remarks', 'reused')
+                ->get();
+            $advance_used =  PatientCraditAmount::select('patient_cradit_amounts.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'patient_cradit_amounts.generated_by')
+                ->where('use_bill_id', $bill->id)
+                ->where('type', 'used')
+                ->where('remarks', 'added')
+                ->get();
+        } else {
+            $bill_info = $payments = $refund = $reused = $advance_used = [];
+        }
+        $data = compact('bill', 'bill_info', 'payments', 'refund', 'reused', 'section', 'advance_used');
+		
+		return response()->json([
+            'success' => true,
+            'message' => 'Bill Details fetched successfully ✅',
+            'data' => $data
+        ]);
+        // dd($data);
+        //return view('bill.bill-details')->with($data);
+    }
+	
+	    public function billing_details1($section, $bill_id)
+    {
+        $section == 'ot' ? $db = 'ot_registrations' : $db = strtolower($section) . '_registers';
+        $bill = Billing::select('billings.*', 'u1.name as doctor_name', 'u2.name as created_name', 'u3.enquiry_id as enquiry_id')
+            ->leftjoin('users as u1', 'u1.id', '=', 'billings.doctor_id')
+            ->leftjoin('users as u2', 'u2.id', '=', 'billings.created_by')
+
+            ->leftjoin('op_registers as u3', 'u3.id', '=', 'billings.section_id')
+
+            ->join($db . ' as or', 'or.id', '=', 'billings.section_id')
+            ->where('billings.id', $bill_id)
+            ->first();
+        if ($bill) {
+            $bill_info = BillingDetail::select('billing_details.*', 'u1.name as doctor_name', 'charges.charge_name as actual_charge_name')
+                ->where('billing_id', $bill->id)
+                ->whereIn('billing_details.is_delete', [0, 1])
+                ->leftjoin('users as u1', 'u1.id', '=', 'billing_details.doctor_id')
+                ->leftJoin('charges', function ($join) {
+                    $join->on('charges.id', '=', 'billing_details.charge_id');
+                    // $join->on('charges.id', '=', 'billing_details.charge_name')->whereRaw('billing_details.charge_name REGEXP "^[0-9]+$"');
+                })
+                ->orderBy('billing_details.date', 'DESC')
+                ->get();
+            if ($section == 'op') {
+                $op_check = OpRegister::where('id', $bill->section_id)->first();
+                if ($op_check->enquiry_id == 0) {
+                    $bill_info = OpBillingDetail::select('op_billing_details.*', 'op_items.item_name as actual_charge_name')
+                        ->where('op_billing_details.billing_id', $bill->id)
+                        ->whereIn('op_billing_details.is_delete', [0, 1])
+                        ->leftJoin('op_items', function ($join) {
+                            $join->on('op_items.id', '=', 'op_billing_details.item_id');
+                        })
+                        ->orderBy('op_billing_details.date', 'DESC')
+                        ->get();
+                }
+            }
+
+            $payments = Payment::select('payments.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'payments.payment_recived_by')
+                ->where('billing_id', $bill->id)
+                ->orWhere('section_id', $bill->section_id)
+                ->get();
+            $refund = PatientCraditAmount::select('patient_cradit_amounts.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'patient_cradit_amounts.generated_by')
+                ->where('billing_id', $bill->id)
+                ->where('type', 'debit')
+                ->where('remarks', 'refund')
+                ->get();
+            $reused = PatientCraditAmount::select('patient_cradit_amounts.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'patient_cradit_amounts.generated_by')
+                ->where('billing_id', $bill->id)
+                ->where('type', 'debit')
+                ->where('remarks', 'reused')
+                ->get();
+            $advance_used =  PatientCraditAmount::select('patient_cradit_amounts.*', 'u.name as created_name')
+                ->join('users as u', 'u.id', '=', 'patient_cradit_amounts.generated_by')
+                ->where('use_bill_id', $bill->id)
+                ->where('type', 'used')
+                ->where('remarks', 'added')
+                ->get();
+			$patient_details = Patient::select('patients.*', 'u.name as created_name')
+					->leftJoin('users as u', 'u.id', '=', 'patients.created_by')
+					->where('patients.id', $bill->patient_id)
+					->first();
+        } else {
+            $bill_info = $payments = $refund = $reused = [];
+        }
+        $data = compact('bill', 'bill_info', 'payments', 'refund', 'reused', 'section', 'patient_details');
+        return response()->json([
+            'success' => true,
+            'message' => 'Bill Details fetched successfully ✅',
+            'data' => $data
+        ]);
+    }
+	
+	public function doctor_payout(Request $request)
+    {       
+
+        // Prepare request data
+        $request_data = [
+            'from_date' => $request->from_date ?? now()->subMonth()->toDateString(),
+            'to_date' => $request->to_date ?? now()->toDateString(),
+            'section' => $request->section ?? 'OPD',
+            'doctor' => $request->doctor ?? [],
+        ];
+
+        // Query billing details for selected doctors
+        $opd_doctors = User::select('id', 'empId', 'salutation', 'name', 'doctor_fees', 'commission_type', 'commission_amount', 'charge_id')
+            ->where('user_type', 'doctor')
+            ->where('charge_id', '>', 0)
+            ->get();
+        $opd_billings = BillingDetail::select(
+                'billing_details.amount',
+                'billings.bill_date',
+                'billings.section',
+                'billing_details.charge_id',
+                'opd_registers.type'
+            )
+            ->join('billings', 'billings.id', '=', 'billing_details.billing_id')
+            ->join('opd_registers', 'opd_registers.id', '=', 'billings.section_id')
+            ->where('billings.section', 'OPD')
+            ->whereDate('billings.bill_date', date('Y-m-d', strtotime($request_data['from_date'])))
+            ->where('billing_details.is_delete',0)
+            ->get();
+
+        $opd_doctors_payout = [];
+        foreach($opd_doctors as $val){
+            $patients = $opd_billings->where('charge_id', $val->charge_id)->count();
+            if($patients){
+                $array = [
+                    'doc_name' => $val->name,
+                    'patients' => $patients,
+                    'total' => $patients * $val->doctor_fees,
+                    'doc_paid' => $patients * $val->commission_amount,
+                    'rainbow' => ($patients * $val->doctor_fees) - ($patients * $val->commission_amount),
+                    'new' => $opd_billings->where('charge_id', $val->charge_id)->where('type','new')->count(),
+                    'charge_id' => $val->charge_id,
+                ];
+                $opd_doctors_payout[] = $array;
+            }
+        }
+
+        // return view('reports.doctor-payout', compact('doctors', 'request_data', 'response'));
+        return response()->json([
+            'success' => true,
+            'data'    => $opd_doctors_payout,
+        ], 200);
+    }
+	
+	
+	public function approve($id)
+    {
+        $bill = Billing::find($id);
+        if (!$bill) {
+            return redirect()->back()->with('error', 'Bill not found!');
+        }
+        $bill->edit_status = 1;
+        $bill->bill_status = 2;
+        $bill->approved_by = Auth::user()->id;
+        if ($bill->save()) {
+            return response()->json(['success' => true, 'message' => 'Bill approved successfully ✅'], 200);
+        } else {
+            return response()->json(['success' => false, 'message' => 'Something wrong try again!'], 500);
+        }
+    }
+	
+
+
+    public function get_filteration_for_billing()
+    {
+        // Only select necessary columns
+        $charges = Charge::select('id', 'charge_name')->where('is_active', 1)->where('is_delete', 0)->get();
+        $section = ChargesSection::select('id', 'section_name')->where('status', '0')->get();
+        $users = User::select('id', 'name')->where('user_type', 'user')->get();
+        $doctor = User::select('id', 'name')->where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $referral = Referral::select('id', 'referral_name')->where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::select('id', 'referral_name')->where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::select('id', 'referral_name')->where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => compact('doctor', 'referral', 'provider', 'market_by', 'charges', 'section', 'users')
+        ], 200);
+    }
+    public function billing_reports_api(Request $request)
+    {
+        // return response()->json($request->has('page'));
+        $perPage = 100;
+        $page = max(1, (int)($request->input('page', 1)));
+        $offset = ($page - 1) * $perPage;
+
+        // Build base query with only necessary joins and columns
+        $baseQuery = DB::table('billings')
+            ->select(
+                'billings.id',
+                'billings.uid',
+                'billings.section',
+                'billings.bill_date',
+                'billings.patient_id',
+                'p.name as patient_name',
+                'p.phone',
+                'u.name as doctor_name',
+                'billings.total',
+                'billings.grand_total',
+                'billings.discount_amount',
+                'billings.total_payment',
+                'billings.refund_amount',
+                'billings.due_amount',
+                'billings.cradituse_bill_amount',
+                'r1.referral_name as ref_by',
+                'r2.referral_name as mar_by',
+                'r3.referral_name as pro_by',
+                'billings.bill_status'
+            )
+            ->join('users as u', 'u.id', '=', 'billings.doctor_id')
+            ->leftJoin('referrals as r1', 'r1.id', '=', 'billings.referred_by')
+            ->leftJoin('referrals as r2', 'r2.id', '=', 'billings.market_by')
+            ->leftJoin('referrals as r3', 'r3.id', '=', 'billings.provider')
+            ->join('patients as p', 'p.id', '=', 'billings.patient_id');
+
+        // Efficient filter application
+        $filters = [
+            'section'    => 'billings.section',
+            'user'       => 'billings.created_by',
+            'doctor'     => 'billings.doctor_id',
+            'doctor_type' => 'u.doctor_type',
+            'referral'   => 'billings.referred_by',
+            'market_by'  => 'billings.market_by',
+            'provider'   => 'billings.provider',
+        ];
+        foreach ($filters as $input => $column) {
+            if ($request->filled($input)) {
+                $value = $request->input($input);
+                is_array($value)
+                    ? $baseQuery->whereIn($column, $value)
+                    : $baseQuery->where($column, $value);
+            }
+        }
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('p.name', 'like', "%{$search}%")
+                ->orWhere('p.phone', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%")
+                ->orWhere('billings.total_payment', 'like', "%{$search}%")
+                ->orWhere('billings.grand_total', 'like', "%{$search}%")
+                ->orWhere('billings.section', 'like', "%{$search}%")
+                ->orWhere('billings.bill_date', 'like', "%{$search}%");
+        });
+
+        if ($request->filled('from_date')) {
+            $baseQuery->whereDate('billings.bill_date', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $baseQuery->whereDate('billings.bill_date', '<=', $request->to_date);
+        }
+
+        // Summary query (only summary columns, no extra joins)
+        $summaryQuery = DB::table('billings')
+            ->select(
+                'section',
+                DB::raw('SUM(total) as total'),
+                DB::raw('SUM(discount_amount) as discount_amount'),
+                DB::raw('SUM(grand_total) as grand_total'),
+                DB::raw('SUM(total_payment) as total_payment'),
+                DB::raw('SUM(due_amount) as due_amount')
+            );
+        // Apply same filters to summary query
+        foreach ($filters as $input => $column) {
+            if ($request->filled($input)) {
+                $value = $request->input($input);
+                is_array($value)
+                    ? $summaryQuery->whereIn($column, $value)
+                    : $summaryQuery->where($column, $value);
+            }
+        }
+        if ($request->filled('from_date')) {
+            $summaryQuery->whereDate('billings.bill_date', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $summaryQuery->whereDate('billings.bill_date', '<=', $request->to_date);
+        }
+        $billingSummary = $summaryQuery->groupBy('section')->get();
+
+        // Get total count for pagination
+        $total = (clone $baseQuery)->count();
+
+        // Fetch paginated data
+        $data = $baseQuery
+            ->orderByDesc('billings.id')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
+
+        // Format data (avoid unnecessary PHP processing)
+        $formattedData = $data->map(function ($row) {
+            $row = (array)$row;
+            $row['cre_date'] = $row['bill_date'] ? date('d-m-Y', strtotime($row['bill_date'])) : null;
+
+            // Fast numeric parsing for due/refund/adjustment
+            $row['due_amount_total'] = self::parseAmount($row['due_amount']);
+            $row['refund_amount_total'] = (float)$row['refund_amount'];
+            $row['adjustment_amount_total'] = self::parseAmount($row['cradituse_bill_amount']);
+
+            $row['amounts'] = [
+                'due' => $row['due_amount_total'],
+                'refund' => $row['refund_amount_total'],
+                'adjustment' => $row['adjustment_amount_total'],
+            ];
+            return $row;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'data' => $formattedData,
+                'graph_data' => $billingSummary
+            ],
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => (int)ceil($total / $perPage),
+            ],
+        ], 200);
+    }
+    private static function parseAmount($value)
+    {
+        if (is_string($value) && strpos($value, '_') !== false) {
+            return array_sum(array_map('floatval', explode('_', trim($value, "_"))));
+        }
+        return (float)$value;
+    }
+
+    public function filteration_for_report()
+    {
+        $department = Department::select('id', 'department_name')->where('status', '0')->get();
+        $doctor = User::select('id', 'name')->where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $referral = Referral::select('id', 'referral_name')->where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::select('id', 'referral_name')->where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::select('id', 'referral_name')->where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => compact('department', 'doctor', 'referral', 'provider', 'market_by')
+        ], 200);
+    }
+    public function opd_reports_api(Request $request)
+    {
+        // Default date range: last 6 months if both dates are empty
+        if (empty($request->from_date) && empty($request->to_date)) {
+            $request->merge([
+                'from_date' => now()->subMonths(6)->format('Y-m-d'),
+                'to_date' => now()->format('Y-m-d'),
+            ]);
+        }
+
+        $perPage = 100;
+        $page = max(1, (int)($request->input('page', 1)));
+        $offset = ($page - 1) * $perPage;
+
+        // Filter mapping
+        $filterMap = [
+            'visit_type' => 'opd_registers.type',
+            'department' => 'opd_registers.department_id',
+            'doctor'     => 'opd_registers.doctor_id',
+            'referral'   => 'opd_registers.referred_by',
+            'market_by'  => 'opd_registers.market_by',
+            'provider'   => 'opd_registers.provider'
+        ];
+
+
+        // Build base query
+        $baseQuery = DB::table('opd_registers')
+            ->select(
+                'opd_registers.id',
+				'b.id as bill_id',
+                'opd_registers.patient_id',
+                'opd_registers.type',
+                'opd_registers.appointment_date',
+                'p.name as patient_name',
+                'p.phone',
+                'p.gender',
+                'p.dob_year',
+                'p.dob_month',
+                'p.dob_day',
+                'u.name as doctor_name',
+                'd.department_name'
+            )
+            ->join('users as u', 'u.id', '=', 'opd_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'opd_registers.department_id')
+            ->join('patients as p', 'p.id', '=', 'opd_registers.patient_id')
+            ->where('opd_registers.is_active', 1)
+			->join('billings as b', function ($join) {
+                    $join->on('b.section_id', '=', 'opd_registers.id')
+                         ->where('b.section', '=', 'OPD');
+                })
+            ->where('opd_registers.is_delete', 0);
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('p.name', 'like', "%{$search}%")
+                ->orWhere('p.phone', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%")
+                ->orWhere('p.gender', 'like', "%{$search}%")
+                ->orWhere('d.department_name', 'like', "%{$search}%")
+                ->orWhere('opd_registers.appointment_date', 'like', "%{$search}%")
+                ->orWhere('opd_registers.type', 'like', "%{$search}%");
+        });
+
+        // Apply filters
+        foreach ($filterMap as $input => $column) {
+            if ($request->filled($input)) {
+                $value = $request->input($input);
+                is_array($value)
+                    ? $baseQuery->whereIn($column, $value)
+                    : $baseQuery->where($column, $value);
+            }
+        }
+        if ($request->filled('from_date')) {
+            $baseQuery->whereDate('opd_registers.appointment_date', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $baseQuery->whereDate('opd_registers.appointment_date', '<=', $request->to_date);
+        }
+
+        // Get total count for pagination
+        $total = (clone $baseQuery)->count();
+
+        // Fetch paginated data
+        $data = $baseQuery
+            ->orderByDesc('opd_registers.id')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
+
+        // Format data (add cre_date)
+        $formattedData = $data->map(function ($row) {
+            $row = (array)$row;
+            $row['cre_date'] = $row['appointment_date'] ? date('d-m-Y', strtotime($row['appointment_date'])) : null;
+            return $row;
+        });
+
+        // Summary query (only summary columns, no extra joins)
+        $summaryQuery = DB::table('opd_registers')
+            ->join('departments as d', 'd.id', '=', 'opd_registers.department_id')
+            ->where('opd_registers.is_active', 1)
+            ->where('opd_registers.is_delete', 0);
+
+        foreach ($filterMap as $input => $column) {
+            if ($request->filled($input)) {
+                $value = $request->input($input);
+                is_array($value)
+                    ? $summaryQuery->whereIn($column, $value)
+                    : $summaryQuery->where($column, $value);
+            }
+        }
+        if ($request->filled('from_date')) {
+            $summaryQuery->whereDate('opd_registers.appointment_date', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $summaryQuery->whereDate('opd_registers.appointment_date', '<=', $request->to_date);
+        }
+
+        $totalsByDept = $summaryQuery
+            ->select(
+                'd.department_name',
+                DB::raw("SUM(CASE WHEN opd_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                DB::raw("SUM(CASE WHEN opd_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+            )
+            ->groupBy('d.department_name')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'data' => $formattedData,
+                'graph_data' => $totalsByDept
+            ],
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => (int)ceil($total / $perPage),
+            ],
+        ], 200);
+    }
+
+    public function emg_reports_api(Request $request)
+    {
+        $filters = [
+            'visit_type' => 'type',
+            'department' => 'department_id',
+            'doctor' => 'doctor_id',
+            'referral' => 'referred_by',
+            'market_by' => 'market_by',
+            'provider' => 'provider'
+        ];
+
+        $baseQuery = EmgRegister::query()
+            ->select(
+                'emg_registers.id',
+				'bi.id as bill_id',
+                'emg_registers.patient_id',
+                'emg_registers.type',
+                'emg_registers.appointment_date',
+                'p.name as patient_name',
+                'p.phone',
+                'p.gender',
+                'p.dob_year',
+                'p.dob_month',
+                'p.dob_day',
+                'u.name as doctor_name',
+                'd.department_name'
+            )
+            ->join('users as u', 'u.id', '=', 'emg_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'emg_registers.department_id')
+            ->join('patients as p', 'p.id', '=', 'emg_registers.patient_id')
+			->join('billings as bi', function ($join) {
+                $join->on('bi.section_id', '=', 'emg_registers.id')
+                    ->where('bi.section', '=', 'EMG');
+            })
+            ->where([
+                ['emg_registers.is_active', '1'],
+                ['emg_registers.is_delete', '0']
+            ]);
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('p.name', 'like', "%{$search}%")
+                ->orWhere('p.phone', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%")
+                ->orWhere('p.gender', 'like', "%{$search}%")
+                ->orWhere('d.department_name', 'like', "%{$search}%")
+                ->orWhere('emg_registers.appointment_date', 'like', "%{$search}%")
+                ->orWhere('emg_registers.type', 'like', "%{$search}%");
+        });
+
+        foreach ($filters as $input => $column) {
+            if ($val = $request->input($input)) {
+                $baseQuery->where("emg_registers.$column", $val);
+            }
+        }
+        if ($from = $request->input('from_date')) {
+            $baseQuery->whereDate('emg_registers.appointment_date', '>=', date('Y-m-d', strtotime($from)));
+        }
+        if ($to = $request->input('to_date')) {
+            $baseQuery->whereDate('emg_registers.appointment_date', '<=', date('Y-m-d', strtotime($to)));
+        }
+
+        // Clone for totals
+        $cloned = clone $baseQuery;
+
+        // Totals grouped by department
+        $totalsByDept = (clone $cloned)
+            ->select(
+                'd.department_name',
+                DB::raw("SUM(CASE WHEN emg_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                DB::raw("SUM(CASE WHEN emg_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+            )
+            ->groupBy('d.department_name')
+            ->get();
+
+        // Gender/type totals
+        $genderTypeTotals = (clone $cloned)
+            ->select(
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' AND emg_registers.type = 'new' THEN 1 ELSE 0 END) as male_new"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' AND emg_registers.type = 'old' THEN 1 ELSE 0 END) as male_old"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' AND emg_registers.type = 'new' THEN 1 ELSE 0 END) as female_new"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' AND emg_registers.type = 'old' THEN 1 ELSE 0 END) as female_old")
+            )
+            ->first();
+
+        // Pagination (default 100 per page)
+        $perPage = (int) $request->input('per_page', 100);
+        $page = (int) $request->input('page', 1);
+
+        $data = $baseQuery
+            ->orderByDesc('emg_registers.id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Format appointment_date in PHP (could be done in SQL for more speed)
+        $data->getCollection()->transform(function ($row) {
+            $row->cre_date = date('d-m-Y', strtotime($row->appointment_date));
+            return $row;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'data' => $data->items(),
+                'graph_data' => $totalsByDept,
+                'male_female_graph' => [
+                    'male_new' => $genderTypeTotals->male_new ?? 0,
+                    'male_old' => $genderTypeTotals->male_old ?? 0,
+                    'female_new' => $genderTypeTotals->female_new ?? 0,
+                    'female_old' => $genderTypeTotals->female_old ?? 0,
+                ]
+            ],
+            'pagination' => [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+            ]
+        ]);
+    }
+
+
+    public function filteration_for_ipd_report()
+    {
+        $department = Department::where('status', '0')->get();
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $referral = Referral::where('type', 'referral')->where('is_active', 1)->where('is_delete', 0)->get();
+        $provider = Referral::where('type', 'provider')->where('is_active', 1)->where('is_delete', 0)->get();
+        $market_by = Referral::where('type', 'market_by')->where('is_active', 1)->where('is_delete', 0)->get();
+        $tpa = TpaManagement::where('status', '0')->get();
+        $wards = Ward::where('status', '0')->get();
+        $charges = Charge::select('id', 'charge_name')->where('is_active', 1)->where('is_delete', 0)->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => compact('department', 'doctor', 'referral', 'provider', 'market_by', 'tpa', 'wards', 'charges')
+        ], 200);
+    }
+
+    public function ipd_reports_api(Request $request)
+    {
+        // Build base query
+        $baseQuery = IpdRegister::select(
+            'ipd_registers.id',
+			'bi.id as bill_id',
+            'ipd_registers.type',
+            'ipd_registers.admission_date',
+            'ipd_registers.admission_type',
+            'p.name as patient_name',
+            'p.phone',
+            'p.gender',
+            'p.dob_year',
+            'p.dob_month',
+            'p.dob_day',
+            'p.guardian_name',
+            'u.name as doctor_name',
+            'd.department_name',
+            'ipd_registers.discharge_at',
+            'w.ward_name',
+            'b.bed_name',
+            'tpa.tpa_name'
+        )
+            ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+            ->join('patients as p', 'p.id', '=', 'ipd_registers.patient_id')
+            ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+            ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+            ->join('tpa_managements as tpa', 'tpa.id', '=', 'ipd_registers.insurance_id')
+            ->where('ipd_registers.is_active', '1')
+			->where('ipd_registers.discharge_status', '0')
+			->leftJoin('billings as bi', function ($join) {
+                    $join->on('bi.section_id', '=', 'ipd_registers.id')
+                        ->whereIn('bi.section', ['IPD', 'DAYCARE']);
+                })
+            ->where('ipd_registers.is_delete', '0');
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('p.name', 'like', "%{$search}%")
+                ->orWhere('p.phone', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%")
+                ->orWhere('p.gender', 'like', "%{$search}%")
+                ->orWhere('w.ward_name', 'like', "%{$search}%")
+                ->orWhere('b.bed_name', 'like', "%{$search}%")
+                ->orWhere('tpa.tpa_name', 'like', "%{$search}%")
+                ->orWhere('p.guardian_name', 'like', "%{$search}%")
+                ->orWhere('d.department_name', 'like', "%{$search}%")
+                ->orWhere('ipd_registers.admission_date', 'like', "%{$search}%")
+                ->orWhere('ipd_registers.admission_date', 'like', "%{$search}%")
+                ->orWhere('ipd_registers.type', 'like', "%{$search}%");
+        });
+
+        // Apply filters
+        $filters = [
+            'visit_type' => 'type',
+            'admission' => 'discharge_status',
+            'admission_type' => 'admission_type',
+            'patient_type' => 'insurance_id',
+            'ward' => 'ward_id',
+            'department' => 'department_id',
+            'doctor' => 'doctor_id',
+            'referral' => 'referred_by',
+            'market_by' => 'market_by',
+            'provider' => 'provider'
+        ];
+        foreach ($filters as $input => $column) {
+            if ($val = $request->input($input)) {
+                $baseQuery->where("ipd_registers.$column", $val);
+            }
+        }
+        if ($request->filled('charge') && is_array($request->charge) && count($request->charge) > 0) {
+            $baseQuery->join('billings as bill', function ($join) {
+                $join->on('bill.section_id', '=', 'ipd_registers.id')
+                    ->where('bill.section', '=', 'IPD');
+            })
+                ->join('billing_details as bd', 'bd.billing_id', '=', 'bill.id')
+                ->whereIn('bd.charge_id', $request->charge);
+        }
+        if ($from = $request->input('from_date')) {
+            $baseQuery->whereDate('ipd_registers.admission_date', '>=', date('Y-m-d', strtotime($from)));
+        }
+        if ($to = $request->input('to_date')) {
+            $baseQuery->whereDate('ipd_registers.admission_date', '<=', date('Y-m-d', strtotime($to)));
+        }
+
+        // Clone for totals
+        $cloned = clone $baseQuery;
+
+        // Totals grouped by department
+        $totalsByDept = (clone $cloned)
+            ->select(
+                'd.department_name',
+                DB::raw("SUM(CASE WHEN ipd_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                DB::raw("SUM(CASE WHEN ipd_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+            )
+            ->groupBy('d.department_name')
+            ->get();
+
+        // Totals grouped by TPA
+        $totalsByTpa = (clone $cloned)
+            ->select(
+                'tpa.tpa_name',
+                DB::raw("COUNT(ipd_registers.id) as total_count")
+            )
+            ->groupBy('tpa.tpa_name')
+            ->get();
+
+        // Gender/type/admission_type totals
+        $genderTypeTotals = (clone $cloned)
+            ->select(
+                DB::raw("SUM(CASE WHEN ipd_registers.admission_type = 'IPD' THEN 1 ELSE 0 END) as ipd"),
+                DB::raw("SUM(CASE WHEN ipd_registers.admission_type = 'DAYCARE' THEN 1 ELSE 0 END) as daycare"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' AND ipd_registers.type = 'new' THEN 1 ELSE 0 END) as male_new"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' AND ipd_registers.type = 'old' THEN 1 ELSE 0 END) as male_old"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' AND ipd_registers.type = 'new' THEN 1 ELSE 0 END) as female_new"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' AND ipd_registers.type = 'old' THEN 1 ELSE 0 END) as female_old")
+            )
+            ->first();
+
+        // Pagination
+        $perPage = (int) $request->input('per_page', 100);
+        $page = (int) $request->input('page', 1);
+
+        $data = $baseQuery
+            ->orderByDesc('ipd_registers.discharge_at')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Format dates
+        $data->getCollection()->transform(function ($row) {
+            $row->cre_date = $row->admission_date ? date('d-m-Y', strtotime($row->admission_date)) : null;
+            $row->dis_date = $row->discharge_at ? date('d-m-Y', strtotime($row->discharge_at)) : null;
+            return $row;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'records' => $data->items(),
+                'totals' => [
+                    'admission_type' => [(int)($genderTypeTotals->ipd ?? 0), (int)($genderTypeTotals->daycare ?? 0)],
+                    'male_new' => $genderTypeTotals->male_new ?? 0,
+                    'male_old' => $genderTypeTotals->male_old ?? 0,
+                    'female_new' => $genderTypeTotals->female_new ?? 0,
+                    'female_old' => $genderTypeTotals->female_old ?? 0,
+                ],
+                'totalsByDept' => $totalsByDept,
+                'totalsByTpa' => $totalsByTpa,
+            ],
+            'pagination' => [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+            ]
+        ]);
+    }
+
+    public function dialysis_reports_api(Request $request)
+    {
+        // Build base query
+        $baseQuery = DialysisRegister::select(
+            'dialysis_registers.id',
+			'bi.id as bill_id',
+            'dialysis_registers.type',
+            'dialysis_registers.admission_date',
+            'dialysis_registers.dialysis_type',
+            'p.name as patient_name',
+            'p.phone',
+            'p.gender',
+            'p.dob_year',
+            'p.dob_month',
+            'p.dob_day',
+            'p.guardian_name',
+            'u.name as doctor_name',
+            'd.department_name',
+            'w.ward_name',
+            'b.bed_name',
+            'tpa.tpa_name'
+        )
+            ->join('users as u', 'u.id', '=', 'dialysis_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'dialysis_registers.department_id')
+            ->join('patients as p', 'p.id', '=', 'dialysis_registers.patient_id')
+            ->join('wards as w', 'w.id', '=', 'dialysis_registers.ward_id')
+            ->join('beds as b', 'b.id', '=', 'dialysis_registers.bed_id')
+            ->join('tpa_managements as tpa', 'tpa.id', '=', 'dialysis_registers.insurance_id')
+            ->where('dialysis_registers.is_active', '1')
+			->leftJoin('billings as bi', function ($join) {
+                    $join->on('bi.section_id', '=', 'dialysis_registers.id')
+                        ->where('bi.section', '=', 'DIALYSIS');
+                })
+            ->where('dialysis_registers.is_delete', '0');
+
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('p.name', 'like', "%{$search}%")
+                ->orWhere('p.phone', 'like', "%{$search}%")
+                ->orWhere('p.gender', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%")
+                ->orWhere('p.guardian_name', 'like', "%{$search}%")
+                ->orWhere('dialysis_registers.dialysis_type', 'like', "%{$search}%")
+                ->orWhere('dialysis_registers.admission_date', 'like', "%{$search}%")
+                ->orWhere('dialysis_registers.type', 'like', "%{$search}%");
+        });
+
+        // Apply filters
+        $filters = [
+            'visit_type'   => 'type',
+            'dialysis_type' => 'dialysis_type',
+            'patient_type' => 'insurance_id',
+            'ward'         => 'ward_id',
+            'department'   => 'department_id',
+            'doctor'       => 'doctor_id',
+            'referral'     => 'referred_by',
+            'market_by'    => 'market_by',
+            'provider'     => 'provider'
+        ];
+        foreach ($filters as $input => $column) {
+            if ($val = $request->input($input)) {
+                $baseQuery->where("dialysis_registers.$column", $val);
+            }
+        }
+        if ($from = $request->input('from_date')) {
+            $baseQuery->whereDate('dialysis_registers.admission_date', '>=', date('Y-m-d', strtotime($from)));
+        }
+        if ($to = $request->input('to_date')) {
+            $baseQuery->whereDate('dialysis_registers.admission_date', '<=', date('Y-m-d', strtotime($to)));
+        }
+
+        // Clone for summary queries
+        $cloned = clone $baseQuery;
+
+        // Totals grouped by department
+        $totalsByDept = (clone $cloned)
+            ->select(
+                'd.department_name',
+                DB::raw("SUM(CASE WHEN dialysis_registers.type = 'new' THEN 1 ELSE 0 END) as new_count"),
+                DB::raw("SUM(CASE WHEN dialysis_registers.type = 'old' THEN 1 ELSE 0 END) as old_count")
+            )
+            ->groupBy('d.department_name')
+            ->get();
+
+        // Gender/type/dialysis_type totals
+        $genderTypeTotals = (clone $cloned)
+            ->select(
+                DB::raw("SUM(CASE WHEN dialysis_registers.dialysis_type = 'DIRECT' THEN 1 ELSE 0 END) as direct"),
+                DB::raw("SUM(CASE WHEN dialysis_registers.dialysis_type = 'IPD' THEN 1 ELSE 0 END) as ipd"),
+                DB::raw("SUM(CASE WHEN dialysis_registers.dialysis_type = 'EMG' THEN 1 ELSE 0 END) as emg"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' AND dialysis_registers.type = 'new' THEN 1 ELSE 0 END) as male_new"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' AND dialysis_registers.type = 'old' THEN 1 ELSE 0 END) as male_old"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' AND dialysis_registers.type = 'new' THEN 1 ELSE 0 END) as female_new"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' AND dialysis_registers.type = 'old' THEN 1 ELSE 0 END) as female_old")
+            )
+            ->first();
+
+        // Pagination
+        $perPage = (int) $request->input('per_page', 100);
+        $page = (int) $request->input('page', 1);
+
+        $data = $baseQuery
+            ->orderByDesc('dialysis_registers.id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Format admission_date
+        $data->getCollection()->transform(function ($row) {
+            $row->cre_date = $row->admission_date ? date('d-m-Y', strtotime($row->admission_date)) : null;
+            return $row;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'records' => $data->items(),
+                'totals' => [
+                    'dialysis_type' => [
+                        (int)($genderTypeTotals->direct ?? 0),
+                        (int)($genderTypeTotals->ipd ?? 0),
+                        (int)($genderTypeTotals->emg ?? 0)
+                    ],
+                    'male_new'    => $genderTypeTotals->male_new ?? 0,
+                    'male_old'    => $genderTypeTotals->male_old ?? 0,
+                    'female_new'  => $genderTypeTotals->female_new ?? 0,
+                    'female_old'  => $genderTypeTotals->female_old ?? 0,
+                ],
+                'totalsByDept' => $totalsByDept
+            ],
+            'pagination' => [
+                'total'        => $data->total(),
+                'per_page'     => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'last_page'    => $data->lastPage(),
+            ]
+        ]);
+    }
+
+    public function birth_report_api(Request $request)
+    {
+        $baseQuery = Childcare::select(
+            'childcares.id',
+            'childcares.name',
+            'childcares.gender',
+            'childcares.address',
+            'childcares.district',
+            'childcares.state',
+            'childcares.pin_code',
+            'childcares.guardian_name',
+            'u.name as doctor_name',
+            'childcares.date_of_birth',
+            'childcares.weight',
+            'childcares.diagnosis',
+            'childcares.operation',
+            'childcares.delivery_mode'
+        )
+            ->leftJoin('users as u', 'u.id', '=', 'childcares.doctor_id')
+            ->where('childcares.is_active', '1')
+            ->where('childcares.is_delete', '0');
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('childcares.name', 'like', "%{$search}%")
+                ->orWhere('childcares.gender', 'like', "%{$search}%")
+                ->orWhere('childcares.address', 'like', "%{$search}%")
+                ->orWhere('childcares.district', 'like', "%{$search}%")
+                ->orWhere('childcares.state', 'like', "%{$search}%")
+                ->orWhere('childcares.pin_code', 'like', "%{$search}%")
+                ->orWhere('childcares.weight', 'like', "%{$search}%")
+                ->orWhere('childcares.date_of_birth', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%")
+                ->orWhere('childcares.guardian_name', 'like', "%{$search}%");
+        });
+
+        // Apply filters
+        if ($gender = $request->input('gender')) {
+            $baseQuery->where('childcares.gender', $gender);
+        }
+        if ($delivery_mode = $request->input('delivery_mode')) {
+            $baseQuery->where('childcares.delivery_mode', $delivery_mode);
+        }
+        if ($from = $request->input('from_date')) {
+            $baseQuery->whereDate('childcares.date_of_birth', '>=', date('Y-m-d', strtotime($from)));
+        }
+        if ($to = $request->input('to_date')) {
+            $baseQuery->whereDate('childcares.date_of_birth', '<=', date('Y-m-d', strtotime($to)));
+        }
+
+        // Clone for summary queries
+        $cloned = clone $baseQuery;
+
+        // Totals grouped by delivery mode
+        $totalsByMode = (clone $cloned)
+            ->select(
+                'childcares.delivery_mode',
+                DB::raw("COUNT(childcares.id) as total_count")
+            )
+            ->groupBy('childcares.delivery_mode')
+            ->get();
+
+        // Gender totals
+        $genderTypeTotals = (clone $cloned)
+            ->select(
+                DB::raw("SUM(CASE WHEN childcares.gender = 'Male' THEN 1 ELSE 0 END) as male"),
+                DB::raw("SUM(CASE WHEN childcares.gender = 'Female' THEN 1 ELSE 0 END) as female")
+            )
+            ->first();
+
+        // Pagination
+        $perPage = (int) $request->input('per_page', 100);
+        $page = (int) $request->input('page', 1);
+
+        $data = $baseQuery
+            ->orderByDesc('childcares.id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Format date_of_birth
+        $data->getCollection()->transform(function ($row) {
+            $row->cre_date = $row->date_of_birth ? date('d-m-Y', strtotime($row->date_of_birth)) : null;
+            return $row;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'records' => $data->items(),
+                'totals' => [
+                    'gender' => [
+                        (int)($genderTypeTotals->male ?? 0),
+                        (int)($genderTypeTotals->female ?? 0)
+                    ],
+                ],
+                'totalsByMode' => $totalsByMode
+            ],
+            'pagination' => [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+            ]
+        ]);
+    }
+
+    public function death_report_api(Request $request)
+    {
+        $baseQuery = DischargeReport::select(
+            'discharge_reports.discharge_date',
+            'discharge_reports.discharge_type',
+            'p.name as patient_name',
+            'p.gender',
+            'ir.admission_date',
+            'u.name as doctor_name',
+            'ir.patient_id'
+        )
+            ->join('ipd_registers as ir', 'ir.id', '=', 'discharge_reports.section_id')
+            ->join('patients as p', 'p.id', '=', 'ir.patient_id')
+            ->join('users as u', 'u.id', '=', 'ir.doctor_id')
+            ->where('discharge_reports.save_type', '2')
+            ->where('discharge_reports.discharge_type', 'Death')
+            ->where('ir.is_active', '1')
+            ->where('ir.is_delete', '0');
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('p.name', 'like', "%{$search}%")
+                ->orWhere('p.gender', 'like', "%{$search}%")
+                ->orWhere('ir.admission_date', 'like', "%{$search}%")
+                ->orWhere('u.name', 'like', "%{$search}%");
+        });
+
+        // Filter by date
+        if ($request->filled('from_date')) {
+            $baseQuery->whereDate('discharge_reports.discharge_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+        }
+        if ($request->filled('to_date')) {
+            $baseQuery->whereDate('discharge_reports.discharge_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+        }
+
+        // Clone for summary queries
+        $cloned = clone $baseQuery;
+
+        // Totals grouped by doctor
+        $totalsByDoctor = (clone $cloned)
+            ->select(
+                'u.name as doctor_name',
+                DB::raw("COUNT(discharge_reports.id) as total_count")
+            )
+            ->groupBy('u.name')
+            ->get();
+
+        // Gender totals
+        $genderTypeTotals = (clone $cloned)
+            ->select(
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' THEN 1 ELSE 0 END) as male"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' THEN 1 ELSE 0 END) as female")
+            )
+            ->first();
+
+        // Pagination
+        $perPage = (int) $request->input('per_page', 100);
+        $page = (int) $request->input('page', 1);
+
+        $data = $baseQuery
+            ->orderByDesc('discharge_reports.id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Format dates
+        $data->getCollection()->transform(function ($row) {
+            $row->adm_date = $row->admission_date ? date('d-m-Y', strtotime($row->admission_date)) : null;
+            $row->dis_date = $row->discharge_date ? date('d-m-Y', strtotime($row->discharge_date)) : null;
+            return $row;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'records' => $data->items(),
+                'totals' => [
+                    'gender' => [
+                        (int)($genderTypeTotals->male ?? 0),
+                        (int)($genderTypeTotals->female ?? 0)
+                    ],
+                ],
+                'totalsByDoctor' => $totalsByDoctor
+            ],
+            'pagination' => [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+            ]
+        ]);
+    }
+
+
+    public function discharge_report_api(Request $request)
+    {
+        $baseQuery = DischargeReport::select(
+            'discharge_reports.section_id',
+            'ir.admission_date',
+            'discharge_reports.discharge_date',
+            'discharge_reports.discharge_type',
+            'p.name as patient_name',
+            'p.gender',
+            'ir.patient_id',
+            'bill.uid',
+            'bill.id as bill_id'
+        )
+            ->join('ipd_registers as ir', 'ir.id', '=', 'discharge_reports.section_id')
+            ->join('billings as bill', 'bill.section_id', '=', 'discharge_reports.section_id')
+            ->join('patients as p', 'p.id', '=', 'ir.patient_id')
+            ->where('discharge_reports.save_type', '2')
+            ->where('bill.section', 'IPD')
+            ->where('ir.is_active', '1')
+            ->where('ir.is_delete', '0');
+
+        $baseQuery->where(function ($query) use ($request) {
+            $search = $request->input('search_data');
+            $query->where('p.name', 'like', "%{$search}%")
+                ->orWhere('p.gender', 'like', "%{$search}%")
+                ->orWhere('ir.admission_date', 'like', "%{$search}%")
+                ->orWhere('discharge_reports.discharge_date', 'like', "%{$search}%")
+                ->orWhere('discharge_reports.discharge_type', 'like', "%{$search}%")
+                ->orWhere('bill.uid', 'like', "%{$search}%")
+                ->orWhere('bill.id', 'like', "%{$search}%");
+        });
+
+        // Apply filters
+        if ($request->filled('discharge_status')) {
+            $baseQuery->where('discharge_reports.discharge_type', $request->discharge_status);
+        }
+        if ($request->filled('from_date')) {
+            $baseQuery->whereDate('discharge_reports.discharge_date', '>=', date('Y-m-d', strtotime($request->from_date)));
+        }
+        if ($request->filled('to_date')) {
+            $baseQuery->whereDate('discharge_reports.discharge_date', '<=', date('Y-m-d', strtotime($request->to_date)));
+        }
+
+        // Clone for summary queries
+        $cloned = clone $baseQuery;
+
+        // Totals grouped by discharge type
+        $totalsByType = (clone $cloned)
+            ->select(
+                'discharge_reports.discharge_type',
+                DB::raw("COUNT(discharge_reports.id) as total_count")
+            )
+            ->groupBy('discharge_reports.discharge_type')
+            ->get();
+
+        // Gender totals
+        $genderTypeTotals = (clone $cloned)
+            ->select(
+                DB::raw("SUM(CASE WHEN p.gender = 'Male' THEN 1 ELSE 0 END) as male"),
+                DB::raw("SUM(CASE WHEN p.gender = 'Female' THEN 1 ELSE 0 END) as female")
+            )
+            ->first();
+
+        // Pagination
+        $perPage = (int) $request->input('per_page', 100);
+        $page = (int) $request->input('page', 1);
+
+        $data = $baseQuery
+            ->orderByDesc('discharge_reports.id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Format dates and bill link
+        $data->getCollection()->transform(function ($row) {
+            $row->adm_date = $row->admission_date ? date('d-m-Y', strtotime($row->admission_date)) : null;
+            $row->dis_date = $row->discharge_date ? date('d-m-Y', strtotime($row->discharge_date)) : null;
+            $row->bill_link = route('bill.billing-details', ['ipd', ed($row->bill_id, true)]);
+            return $row;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'records' => $data->items(),
+                'totals' => [
+                    'gender' => [
+                        (int)($genderTypeTotals->male ?? 0),
+                        (int)($genderTypeTotals->female ?? 0)
+                    ],
+                ],
+                'totalsByType' => $totalsByType
+            ],
+            'pagination' => [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+            ]
+        ]);
+    }
+}

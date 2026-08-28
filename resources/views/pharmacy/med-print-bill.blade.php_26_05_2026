@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Medicine Bill</title>
+    <link href="{{ asset('public/assets/plugins/datatable/css/buttons.bootstrap4.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/plugins/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/css/icons.css') }}" rel="stylesheet" />
+</head>
+
+<body>
+    <script>
+        window.print();
+    </script>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0;
+            / change the margins as you want them to be. /
+        }
+
+        @media print {
+
+            html,
+            body {
+                width: 25cm;
+                height: 33cm;
+                ;
+                margin: 0 !important;
+                padding: 5px !important;
+                overflow: hidden;
+            }
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #ffffff;
+            margin: 0 auto;
+            height: 33cm;
+            ;
+            width: 100%;
+        }
+
+        table,
+        th,
+        td {
+
+            border-collapse: collapse;
+        }
+
+        tr {
+            width: 100%;
+            height: auto;
+        }
+
+        @media print {
+            #printButton {
+                display: none;
+            }
+        }
+    </style>
+    <div style="padding: 0px 7px 0px 7px;">
+        @if ($bill->bill_status == '1')
+            <style>
+                body::before {
+                    content: "";
+                    background-image: url("{{ asset('public/assets/images/draft.png') }}");
+                    background-size: 30%;
+                    background-repeat: no-repeat;
+                    background-position: center center;
+                    opacity: 0.2;
+                    position: absolute;
+                    top: -25%;
+                    left: -3%;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 9999;
+                }
+            </style>
+        @elseif ($bill->bill_status == '2')
+            <style>
+                body::before {
+                    /* content: "";
+                    background-image: url("{{ asset('public/assets/images/approved.png') }}");
+                    background-size: 20%;
+                    background-repeat: no-repeat;
+                    background-position: center center;
+                    opacity: 0.3;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 9999; */
+                    content: "";
+                    background-image: url(http://localhost/rainbow_new/public/assets/images/approved.png);
+                    background-size: 30%;
+                    background-repeat: no-repeat;
+                    background-position: center center;
+                    opacity: 0.2;
+                    position: absolute;
+                    top: -25%;
+                    left: -3%;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 9999;
+                }
+            </style>
+        @elseif ($bill->bill_status == '3')
+            <style>
+                body::before {
+                    content: "";
+                    background-image: url("{{ asset('public/assets/images/canceled.png') }}");
+                    background-size: 30%;
+                    background-repeat: no-repeat;
+                    background-position: center center;
+                    opacity: 0.2;
+                    position: absolute;
+                    top: -25%;
+                    left: -3%;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 9999;
+                }
+            </style>
+        @endif
+
+        <div style="margin: 10px 0px 0px 503px" id="printButton">
+            <button class="btn btn-primary btn-sm" onclick="printpage()"><i class="fa fa-print"></i> Print</button>
+            <button class="btn btn-danger btn-sm" onclick="window.close()">
+                <i class="fa fa-times"></i> Close
+            </button>
+        </div>
+
+        <!-- =============================logo section================= -->
+        <table style="margin:0px 0px 0px 0px; width:100%;">
+            <tr>
+                <td style="">
+                    <img src="{{ asset('public/assets/images/header') }}/{{ $header_image->logo }}" alt="logo"
+                        style="width: 850px;">
+                </td>
+            </tr>
+        </table>
+
+
+        <!-- =============================first header================= -->
+        <table cellspacing="0" border="1" width="97%"
+            style="text-align:center;margin: 0 11px;margin-top: 30px;margin-right: 17px;">
+            <tr style="font-size: 13px;font-weight:800;line-height:normal;color: black;">
+                <th
+                    style="padding:0px 0px 0px 5px;text-align:left;font-size: 15px;font-weight: 800;width: 10%;border-left: 1px solid #000;border-right: none;border-bottom: none;">
+                    BILL/RECEIPT: <br>
+
+                </th>
+                <td
+                    style="padding:0px 0px 0px 0px;font-size: 15px;font-weight: 800;width: 20%;border-left: none;border-bottom: none;">
+                    {{ @$bill->internal_patient_id != null ? 'IN-PATIENT' : 'OUT-PATIENT' }}<br>
+
+                </td>
+                <th style="padding:0px 0px 0px 5px;text-align:left;font-size: 13px;font-weight: 800;width: 10%;border-left: 1px solid #000;border-right: none;border-bottom: none;width: 200px;"
+                    colspan="2">
+                    Bill NO : {{ @$bill->id }} <br>
+
+                </th>
+
+                <td
+                    style="border-left: 1px solid #000; border-right: 1px solid #000;padding: 7px;width: 120px;height: 50px;">
+
+                    @php
+                        $generatorPNG = new Picqer\Barcode\BarcodeGeneratorPNG();
+                    @endphp
+                    <img src="data:image/png;base64,{{ base64_encode($generatorPNG->getBarcode('$bill->id', $generatorPNG::TYPE_CODE_128)) }}"
+                        style="width: 110px;height: 40px;">
+                </td>
+                <th
+                    style="padding:0px 0px 0px 5px;text-align:left;font-size: 13px;font-weight:800;width: %;border-right: none;">
+                    Date:<br>
+
+                </th>
+                <td
+                    style="padding:0px 0px 0px 0px;font-size: 13px;text-align:left;font-weight: 800;width:17%;border-left: none;">
+                    {{ dateFor($bill->bill_date, true) }}
+                    <br>
+
+                </td>
+            </tr>
+        </table>
+
+        <!-- =======================second header============== -->
+        <table style="width: 97%; border-collapse: collapse;margin: 10px 0px 0px 11px;">
+            <td style="border:2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                <span style="padding:20px 0px 0px 5px; margin-bottom: 10px;">UHID NO : <b
+                        style="font-weight:800;">{{ @$patient_details->id }}</b></span><br>
+                <span style="padding:20px 0px 0px 5px;">PATIENT NAME : <b style="font-weight:800;">
+                        {{ @$patient_details->name }} </b></span><br>
+                <span style="padding:20px 10px 10px 5px;line-height: 20px;">GENDER : <b
+                        style="font-weight:800;">{{ @$patient_details->gender }}</b> || AGE : <b
+                        style="font-weight:800;">
+                        {{ @$patient_details->dob_year == null ? '' : @$patient_details->dob_year . 'Y' }}
+                        {{ @$patient_details->dob_month == null ? '' : @$patient_details->dob_month . 'M' }}
+                        {{ @$patient_details->dob_day == null ? '' : @$patient_details->dob_day . 'D' }}</b></span><br>
+                <span style="padding:20px 0px 0px 5px;">MOB NO : <b style="font-weight:800;">
+                        {{ @$patient_details->phone }}</b></span><br>
+                <span style="padding:20px 10px 10px 5px;line-height: 20px;">Address :
+                    {{ @$patient_details->address }},{{ @$patient_details->district_name }},{{ @$patient_details->state_name }}{{ @$patient_details->pin_code }}</span><br>
+            </td>
+            @if ($bill->doctor_id)
+                <td style="border: 2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                    <span style="padding:0px 10px 10px 15px;font-weight:800; "><b style="font-weight:800;">CONSULTANT
+                            DOCTOR : </b></span><br>
+                    <span style="padding:0px 10px 10px 15px;font-weight:800;"><b style="font-weight:800;">
+                            {{ @$doctor_info->salutation }} {{ @$doctor_info->name }}</b></span><br>
+                    <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                            style="font-weight:800;">{{ @$doctor_info->specialization }}</b></span><br>
+                    <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                            style="font-weight:800;">{{ @$doctor_info->qualification }}</b></span><br>
+                    <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                            style="font-weight:800;">Department -
+                            {{ @$doctor_info->department_name }}</b></span><br>
+                    <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                            style="font-weight:800;">REG NO - {{ @$doctor_info->empId }}</b></span><br>
+                </td>
+            @endif
+
+        </table>
+
+
+
+        <!-- =======================third header section=============== -->
+
+        <table style="width: 97%; border-collapse: collapse;margin-top: 1%;margin: 10px 0px 0px 13px; ">
+
+            <tr style="background-color: rgb(228 228 228);">
+                <td
+                    style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600;  line-height:0.1">
+                    SL.NO</td>
+                <td
+                    style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600; line-height:0.1">
+                    PARTICULARS</td>
+                <td
+                    style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600; line-height:0.1">
+                    RATE</td>
+                <td
+                    style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600; line-height:0.1">
+                    QTY</td>
+                <td
+                    style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600; line-height:0.1">
+                    DISCOUNT</td>
+                <td
+                    style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600; line-height:0.1">
+                    AMOUNT</td>
+
+            </tr>
+
+            @foreach ($bill_info as $chargesDetails)
+                <tr @if ($bill->bill_status == '3') style="background-color:#ffdbdb" @endif>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000;font-weight:600; line-height:0.1">
+                        {{ $loop->iteration }}</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000; line-height:0.1">
+                        {{ $chargesDetails->medicine_name }} ({{ $chargesDetails->med_category_name }})</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000; line-height:0.1">
+                        {{ $chargesDetails->mrp }}</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000; line-height:0.1">
+                        {{ $chargesDetails->unit_qty }}{{ $chargesDetails->unit }}
+                        {{ $chargesDetails->sub_unit_qty }}{{ $chargesDetails->sub_unit }}</td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000; line-height:0.1">
+                        {{ @$chargesDetails->discount_percentage > 0 ? $chargesDetails->discount_percentage . '%' : '0' }}
+                    </td>
+                    <td
+                        style="text-align: left;font-size: 11px; padding: 10px 10px 10px 10px;border: 1px solid #000; line-height:0.1">
+                        {{ $chargesDetails->amount }}</td>
+                </tr>
+            @endforeach
+        </table>
+        <table style="border-collapse: collapse; width: 97%; margin: 10px 0px 0px 13px; ">
+            <tr>
+                <td
+                    style="border:1px solid #000; border-right: none; font-size: 13px;padding: 5px 5px 5px 5px;font-weight: 800; ">
+                    <u>Payment Details</u></b>
+                    <table>
+
+                        @foreach ($payment_details as $details)
+                            <tr>
+                                <td><span style="display: inline-block;"> {{ $details->payment_mode }} :
+                                        ₹{{ $details->payment_amount }}</span></td>
+                            </tr>
+                        @endforeach
+
+                        {{-- <tr>
+                                <td>
+                                    {{ @$bill->cradit_amount > 0 ? 'From Advance/credit Amount : ' . '₹' . $bill->cradit_amount : '' }}
+                                    {{ @$bill->refund_amount > 0 ? 'From Refund Amount : ' . '₹' . $bill->refund_amount : '' }}
+                                </td>
+                            </tr> --}}
+                    </table>
+                    <span style="padding:20px 10px 10px 0px;line-height: 20px;">
+                        <u>BILL BY</u> :
+                        <b>{{ @$bill->created_name }}</b>
+                    </span><br>
+
+                </td>
+
+                <td
+                    style="border:1px solid #000; border-right: none; border-left:none;font-size: 13px;padding: 5px 5px 5px 5px; border-radius: 10%;">
+                    @if ($bill->due_amount == 0 && $bill->bill_status == '2')
+                        <img src="{{ asset('public/assets/images/paid.png') }}" style="height:80px;width:80px" />
+                    @endif
+                </td>
+
+                <td
+                    style="border:1px solid #000;border-left:none; font-size: 13px;padding: 5px 5px 5px 5px; font-weight:800;">
+                    {{-- @if (@$bill->section == 'IPD' || @$bill->section == 'DAYCARE')
+                            <span style="padding:20px 0px 0px 5px;">SUB TOTAL :
+                                <b>{{ @$bill->sub_total }}</b></span><br>
+                            @if ($bill->miscellaneous_charge > 0)
+                                <span style="padding:20px 0px 0px 5px;">MISCELLANEOUS :
+                                    <b>{{ @$bill->miscellaneous_charge }}
+                                        {{ @$bill->miscellaneous_charge == 'flat' ? '' : '%' }}</b></span><br>
+                            @endif
+                        @endif --}}
+                    @if (@$bill->discount_amount > 0)
+                        <span style="padding:20px 0px 0px 5px;">NET AMOUNT :
+                            <b>{{ @$bill->total }}</b></span><br>
+                        <span style="padding:20px 0px 0px 5px;">DISCOUNT :
+                            <b>{{ @$bill->discount_amount }}</b></span><br>
+                    @endif
+
+                    <span style="padding:20px 0px 0px 5px;">TOTAL AMOUNT:
+                        <b>{{ @$bill->grand_total }}</b></span><br>
+
+                    @if (@$bill->total_payment > 0)
+                        <span style="padding:20px 10px 10px 5px;line-height: 20px;">PAID AMOUNT:
+                            <b>{{ @$bill->total_payment }}</b></span><br>
+                    @endif
+                    @if (@$bill->due_amount > 0)
+                        <span style="padding:20px 0px 0px 5px;">DUE AMOUNT :
+                            <b>{{ @$bill->due_amount }}</b></span><br>
+                    @endif
+
+                    @if (@$bill->cradit_amount > 0)
+                        <span style="padding:20px 10px 10px 5px;line-height: 20px;">CREDIT AMOUNT:
+                            <b>{{ @$bill->cradit_amount }}</b></span><br>
+                    @endif
+
+                    @if (@$bill->refund_amount > 0)
+                        <span style="padding:20px 10px 10px 5px;line-height: 20px;">REFUND AMOUNT:
+                            <b>{{ @$bill->refund_amount }}</b></span><br>
+                    @endif
+                </td>
+            </tr>
+        </table>
+
+
+
+        <span style="padding:20px 5px 10px 5px;line-height: 20px;font-weight:500;font-size:11px;float: left;">PREPARED
+            BY: {{ strtoupper($bill->created_name) }}</span>
+        <!-- =================================================================================================== -->
+    </div>
+</body>
+<script>
+    // Disable the browser's back button
+    history.pushState(null, null, location.href);
+    window.addEventListener('popstate', function(event) {
+        history.pushState(null, null, location.href);
+    });
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 116 || (event.ctrlKey && event.keyCode === 82)) {
+            event.preventDefault();
+        }
+    });
+
+    function printpage() {
+        window.print();
+    }
+</script>
+
+</html>

@@ -1,0 +1,506 @@
+<div class="col-md-12">
+    @if (@$ipdinfo->discharge_status == 1 && $section == 'ipd')
+        <img class="discharge" src="{{ url('public/assets/images/discharge.png') }}" alt="discharge">
+    @endif
+    <div class="fixed-patient-info">
+        @if ($section == 'ot')
+            @if (@$ot_info->status == 'Inprogress')
+                <div style="position: absolute; top: -15px; right: 10px; font-size: 43px; color: red;">
+                    {{-- <i class="fas fa-lightbulb blink" title="In Progress"></i> --}}
+                    <span style="font-size: 45px;" class="blink" title="In Progress 🚨">🚨</span>
+                </div>
+            @endif
+        @endif
+
+        <div style="border:2px solid black;">
+            <p class="bill_details_patient_details">Patient Name : {{ @$patient->name }} - {{ @$bill->id }}</p>
+            <p class="bill_details_patient_details">UHID : <span id="patient_uhid">{{ @$patient->id }}</span></p>
+            <p class="bill_details_patient_details">Sex : {{ @$patient->gender }} || Age : {{ @$patient->dob_year }}Y
+                {{ @$patient->dob_month }}M {{ @$patient->dob_day }}D</p>
+            <p class="bill_details_patient_details">Mobile : {{ @$patient->phone }}</p>
+            <p class="bill_details_patient_details">Address : {{ @$patient->address }}</p>
+            <p class="bill_details_patient_details">Consultant Doctor : {{ @$doctor }}</p>
+            @if ($section == 'ipd' || $section == 'dialysis')
+                <p class="bill_details_patient_details">Bed : {{ @$ipdinfo->bed_name }}
+                    {{ @$ipdinfo->admission_type ? '|| Admission Type : ' . $ipdinfo->admission_type : '' }}</p>
+                {!! @$ipdinfo->package_name
+                    ? '<p class="bill_details_patient_details">Package Type : ' . $ipdinfo->package_name . '</p>'
+                    : '' !!}
+                <p class="bill_details_patient_details">Admission Dt :
+                    {{ @$ipdinfo->admission_date ? dateFor($ipdinfo->admission_date, true) : '' }}</p>
+                @if (@$ipdinfo->discharge_date)
+                    <p class="bill_details_patient_details">Discharge Dt :
+                        {{ dateFor($ipdinfo->discharge_date, true) }}
+                    </p>
+                    <p class="bill_details_patient_details">Discharge Status : {{ @$ipdinfo->discharge_type }}</p>
+                @endif
+                <p class="bill_details_patient_details">Last Bill No : {{ @$ipdinfo->uid }}</p>
+            @endif
+        </div>
+    </div>
+    <div class="billimagearea">
+        <div class="row mt-6">
+            @if ($section == 'ipd')
+                @if (!empty($overall_advance_amount) && $overall_advance_amount > 0)
+                    <div class="col-lg-12 my-2" style="font-size: 18px; text-align: center;">
+                        <span style="color:blue;"> Advance Amount :
+                            ₹{{ number_format($overall_advance_amount, 2) }}</span>
+                    </div>
+                @endif
+            @endif
+            @if ($credit > 0)
+                <div class="col-lg-12 my-2" style="font-size: 18px;text-align: center;">
+                    <span style="color:blue;"> Overall Credit : ₹{{ $credit }}</span>
+                </div>
+            @endif
+            @if ($due > 0)
+                <div class="col-lg-12 my-2" style="font-size: 18px;text-align: center;">
+                    <span style="color:red;"> Overall Due : ₹{{ $due }}</span>
+                </div>
+            @endif
+            <div class="col-lg-3 p-2">
+                <a target="_blank" href="{{ route('hr.patient-profile-details', ed(@$patient->id, true)) }}">
+                    <img src="{{ url('public/icons') }}/hospitalisation.png" class="billimageedit">
+                    <div class="billdetailstext">
+                        <h3>Patient Profile</h3>
+                    </div>
+                </a>
+            </div>
+            @if ($section == 'ipd' || $section == 'daycare' || $section == 'dialysis')
+                @if ($section == 'ipd')
+                    @php
+                        $info_url = route('ipd.ipd-info', ed(@$secid, true));
+                        $edit_url = route('ipd.edit-admission', ed(@$secid, true));
+                        $bed_url = route('ipd.bed-history', ed(@$secid, true));
+                    @endphp
+                @else
+                    @php
+                        $info_url = route('ipd.dialysis-info', ed(@$secid, true));
+                        $edit_url = route('ipd.edit-dialysis', ed(@$secid, true));
+                        $bed_url = route('ipd.dialysis-bed-history', ed(@$secid, true));
+                    @endphp
+                @endif
+                <div class="col-lg-3 p-2">
+                    <a href="{{ $info_url }}">
+                        <img src="{{ url('public/icons') }}/admission_details.png" class="billimageedit">
+                        <div class="billdetailstext">
+                            <h3>Admission Details</h3>
+                        </div>
+                    </a>
+                </div>
+                @isok('EDIT ADMISSION')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ $edit_url }}">
+                            <img src="{{ url('public/icons') }}/admission_details_edit.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Edit Admission</h3>
+                            </div>
+                        </a>
+                    </div>
+                @endisok
+                @isok('ADM FORM')
+                    <div class="col-lg-3 p-2">
+                        <div class="dropdown">
+                            <a class="btn1 btn-link p-1" type="button" id="admissionDropdown" data-toggle="dropdown"
+                                aria-haspopup="true" aria-expanded="false">
+                                <img src="{{ url('public/icons') }}/registration.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>Adm Form</h3>
+                                </div>
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="admissionDropdown">
+                                <a class="dropdown-item" target="_blank"
+                                    href="{{ route('bill.print-addmission-form', [$section, ed(@$secid, true), 'withoutheader']) }}">
+                                    <i class="fa fa-print"></i> Form without Header
+                                </a>
+                                <a class="dropdown-item" target="_blank"
+                                    href="{{ route('bill.print-addmission-form', [$section, ed(@$secid, true), 'withheader']) }}">
+                                    <i class="fa fa-print"></i> Form with Header
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                @endisok
+                @isok('BED DETAILS')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ $bed_url }}">
+                            <img src="{{ url('public/icons') }}/hospital-bed-1.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Bed Details</h3>
+                            </div>
+                        </a>
+                    </div>
+                @endisok
+                @isok('CREATE NEW BILL')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ route('bill.create-bill', [$section, ed(@$secid, true)]) }}">
+                            <img src="{{ url('public/icons') }}/new_bill.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Create New Bill</h3>
+                            </div>
+                        </a>
+                    </div>
+                @endisok
+                @if ($section == 'ipd' || $section == 'daycare')
+                    {{-- <div class="col-lg-3 p-2">
+                        <a href="{{ route('ipd.get-advance-amount', ed(@$secid, true)) }}">
+                            <img src="{{ url('public/icons') }}/advance-rupee.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Advance
+                                </h3>
+                            </div>
+                        </a>
+                    </div> --}}
+                    @isok('E-PRESCRIPTION')
+                    <div class="col-lg-3 p-2">
+                        <a
+                            href="{{ route('bill.create-ipd-prescription', [$section, ed(@$secid, true), optional($ipd_emr_info)->id ? ed($ipd_emr_info->id, true) : null]) }}">
+                            <img src="{{ url('public/icons') }}/health-report.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>{{ optional($ipd_emr_info)->id ? 'Edit IPD Prescription' : 'Create IPD Prescription' }}
+                                </h3>
+                            </div>
+                        </a>
+                    </div>
+                    @endisok
+                @endif
+                @if ($section == 'ipd' || $section == 'daycare' || $section == 'dialysis')
+                    @isok('CREATE DISCHARGE')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ route('ipd.discharge-patient', [$section, ed(@$secid, true)]) }}">
+                                <img src="{{ url('public/icons') }}/discharge.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>Create Discharge</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok
+                    @isok('PRINT DISCHARGE')
+                        <div class="col-lg-3 p-2">
+                            <div class="dropdown1" style="margin-left: -10px;">
+                                <a class="btn1 btn-link p-1" type="button" id="dischargeDropdown" data-toggle="dropdown"
+                                    aria-haspopup="true" aria-expanded="false">
+                                    <img src="{{ url('public/icons') }}/printer-machine.png" class="billimageedit">
+                                    <div class="billdetailstext">
+                                        <h3>Print Discharge </h3>
+                                    </div>
+                                </a>
+                                <div class="dropdown-menu" aria-labelledby="dischargeDropdown">
+                                    <a class="dropdown-item" target="_blank"
+                                        href="{{ route('bill.print-discharge-summary', [$section, ed(@$secid, true), 'withoutheader']) }}">
+                                        <i class="fa fa-print"></i> Discharge Summery without Header
+                                    </a>
+                                    <a class="dropdown-item" target="_blank"
+                                        href="{{ route('bill.print-discharge-summary', [$section, ed(@$secid, true), 'withheader']) }}">
+                                        <i class="fa fa-print"></i> Discharge Summery with Header
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    @endisok
+                    {{-- @isok('RELISH PATIENT')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ route('ipd.relish-patient', ed(@$secid, true)) }}">
+                                <img src="{{ url('public/icons') }}/discharge.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>Release Patient</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok --}}
+                @endif
+            @elseif($section == 'opd' || $section == 'emg')
+                {{-- @isok('CREATE PRESCRIPTION') --}}
+                <div class="col-lg-3 p-2">
+                    <a
+                        href="{{ route('bill.create-prescription', [$section, ed(@$secid, true), optional($emr_info)->id ? ed($emr_info->id, true) : null]) }}">
+                        <img src="{{ url('public/icons') }}/health-report.png" class="billimageedit">
+                        <div class="billdetailstext">
+                            <h3>{{ optional($emr_info)->id ? 'Edit Prescription' : 'Create Prescription' }}</h3>
+                        </div>
+                    </a>
+                </div>
+                {{-- @endisok --}}
+                <div class="col-lg-3 p-2">
+                    @isok('PRESCRIPTION')
+                        <div class="dropdown" style="margin-left: -5px;">
+                            <a class="btn1 btn-link p-1" type="button" id="prescriptionDropdown" data-toggle="dropdown"
+                                aria-haspopup="true" aria-expanded="false">
+                                <img src="{{ url('public/icons') }}/prescription.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>Prescription </h3>
+                                </div>
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="prescriptionDropdown">
+                                <a class="dropdown-item" target="_blank"
+                                    href="{{ route('bill.print-prescription', [$section, ed(@$billid, true), 'withoutheader']) }}">
+                                    <i class="fa fa-print"></i> Prescription without letterhead
+                                </a>
+                                <a class="dropdown-item" target="_blank"
+                                    href="{{ route('bill.print-prescription', [$section, ed(@$billid, true), 'withheader']) }}">
+                                    <i class="fa fa-print"></i> Prescription with letterhead
+                                </a>
+                            </div>
+                        </div>
+                    @endisok
+                </div>
+                @if (@$emr_info)
+                    <div class="col-lg-3 p-2">
+                        {{-- @isok('E-PRESCRIPTION') --}}
+                        <div class="dropdown" style="margin-left: -5px;">
+                            <a class="btn1 btn-link p-1" type="button" id="prescriptionDropdown"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <img src="{{ url('public/icons') }}/medical-prescription.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>EPrescription </h3>
+                                </div>
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="prescriptionDropdown">
+                                <a class="dropdown-item" target="_blank"
+                                    href="{{ route('bill.print-e-prescription', [$section, ed(@$billid, true), 'withoutheader']) }}">
+                                    <i class="fa fa-print"></i> E-Prescription without letterhead
+                                </a>
+                                <a class="dropdown-item" target="_blank"
+                                    href="{{ route('bill.print-e-prescription', [$section, ed(@$billid, true), 'withheader']) }}">
+                                    <i class="fa fa-print"></i> E-Prescription with letterhead
+                                </a>
+                            </div>
+                        </div>
+                        {{-- @endisok --}}
+                    </div>
+                @endif
+            @elseif($section == 'ot')
+                <div class="col-lg-3 p-2">
+                    <a href="{{ route('ot.ot-info', ed(@$secid, true)) }}">
+                        <img src="{{ url('public/icons') }}/ot-info.png" class="billimageedit">
+                        <div class="billdetailstext">
+                            <h3>OT Info</h3>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-lg-3 p-2">
+                    <a href="{{ route('ot.add-operation-details', [$section, ed(@$secid, true)]) }}">
+                        <img src="{{ url('public/icons') }}/clipboard.png" class="billimageedit">
+                        <div class="billdetailstext">
+                            <h3>{{ optional($ot_request)->id ? 'Edit OT Request' : 'OT Request' }}</h3>
+                        </div>
+                    </a>
+                </div>
+                @if (@$ot_info->status != 'Planned')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ route('ot.ot-preparation', [$section, ed(@$secid, true)]) }}">
+                            <img src="{{ url('public/icons') }}/ot-plan.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>{{ optional($ot_preparation)->id ? 'Edit Preparation' : 'Preparation' }}</h3>
+                            </div>
+                        </a>
+                    </div>
+                @endif
+                @if (@$ot_preparation->reschedule_check != 'yes' && @$ot_preparation->status == 'Confirmed')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ route('ot.ot-schedule-confirmation', [$section, ed(@$secid, true)]) }}">
+                            <img src="{{ url('public/icons') }}/ot-schedule.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>{{ optional($ot_schedule_confirmation)->id ? 'Edit Schedule' : 'Schedule' }}
+                                </h3>
+                            </div>
+                        </a>
+                    </div>
+                @endif
+                @if (@$ot_info->status == 'Inprogress')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ route('ot.ot-progress', [$section, ed(@$secid, true)]) }}">
+                            <img src="{{ url('public/icons') }}/ot-process.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>{{ @$ot_progress ? 'Monitoring' : 'Start Process' }}</h3>
+                            </div>
+                        </a>
+                    </div>
+                @endif
+                @if (@$ot_info->status == 'Completed')
+                    {{-- <div class="col-lg-3 p-2">
+                        <a href="">
+                            <img src="{{ url('public/icons') }}/research.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Observation</h3>
+                            </div>
+                        </a>
+                    </div> --}}
+                @endif
+            @endif
+            @if ($billid > 0)
+                @if ($section != 'ot')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ route('bill.billing-details', [$section, ed(@$billid, true)]) }}">
+                            <img src="{{ url('public/icons') }}/bill_details.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Bill Details</h3>
+                            </div>
+                        </a>
+                    </div>
+                    @isok('EDIT BILL')
+                        @if(!$edit_status || (Auth::user()->role_id == 1 || Auth::user()->role_id == 2))
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ route('bill.edit-bill', [$section, ed(@$billid, true)]) }}">
+                                <img src="{{ url('public/icons') }}/edit.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>Edit Bill</h3>
+                                </div>
+                            </a>
+                        </div>
+                        @endif
+                    @endisok
+                    @isok('PRINT BILL')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{route('bill.print-bill', [$section, ed(@$billid, true)])}}" target="_blank">
+                                <img src="{{url('public/icons')}}/slip.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>Print Bill</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok
+                @endif
+                @if ($section != 'ot' && $section != 'op')
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ route('bill.requisition', [$section, ed(@$billid, true)]) }}">
+                            <img src="{{ url('public/icons') }}/requisition.png" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Requisition</h3>
+                            </div>
+                        </a>
+                    </div>
+                    {{-- @if ($due > 0)
+                    @isok('NEW RECEIPT')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ route('bill.create-receipt', [$section, ed(@$billid, true)]) }}">
+                                <img src="{{ url('public/icons') }}/new_receipt.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>New Receipt</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok
+                    @endif --}}
+                @endif
+                @if ($credit > 0)
+                    @isok('REFUND')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ Route('bill.refund', [$section, ed(@$billid, true)]) }}">
+                                <img src="{{ url('public/icons') }}/cashback.png" class="billimageedit"
+                                    style="cursor: default;">
+                                <div class="billdetailstext">
+                                    <h3>Refund</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok
+                @endif
+                @if ($due > 0)
+                    @isok('NEW RECEIPT')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ route('bill.create-receipt', [$section, ed(@$billid, true)]) }}">
+                                <img src="{{ url('public/icons') }}/new_receipt.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>New Receipt</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok
+                @endif
+
+                @if ($section == 'op' && $is_enquiry)
+                    <div class="col-lg-3 p-2">
+                        <a href="{{ route('optical.update-eye-lens', ed(@$secid, true)) }}">
+                            <img src="{{ url('public/icons') }}/eye-power.jpg" class="billimageedit">
+                            <div class="billdetailstext">
+                                <h3>Eye Power</h3>
+                            </div>
+                        </a>
+                    </div>
+                    @if ($is_eye_power)
+                        <div class="col-lg-3 p-2">
+                            <div class="dropdown">
+                                <a class="btn1 btn-link p-1" type="button" id="admissionDropdown"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <img src="{{ url('public/icons') }}/printer-machine.png" class="billimageedit">
+                                    <div class="billdetailstext">
+                                        <h3>Prescription</h3>
+                                    </div>
+                                </a>
+                                <div class="dropdown-menu" aria-labelledby="admissionDropdown">
+                                    <a class="dropdown-item" target="_blank"
+                                        href="{{ route('optical.print-eye-power', [ed(@$secid, true), 'withoutheader']) }}">
+                                        <i class="fa fa-print"></i> Form without Header
+                                    </a>
+                                    <a class="dropdown-item" target="_blank"
+                                        href="{{ route('optical.print-eye-power', [ed(@$secid, true), 'withheader']) }}">
+                                        <i class="fa fa-print"></i> Form with Header
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                @endif
+
+                @if ($section == 'ipd' || $section == 'emg')
+                    @isok('MOVE TO')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ route('ipd.dialysis-register', [$section, ed(@$secid, true)]) }}">
+                                <img src="{{ url('public/icons') }}/new_receipt.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>Move To Dialysis</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok
+                @endif
+
+                @if ($section == 'ipd')
+                    @isok('MOVE TO')
+                        <div class="col-lg-3 p-2">
+                            <a href="{{ route('ot.add-operation', [$section, ed(@$secid, true)]) }}">
+                                <img src="{{ url('public/icons') }}/operation.png" class="billimageedit">
+                                <div class="billdetailstext">
+                                    <h3>OT Registration</h3>
+                                </div>
+                            </a>
+                        </div>
+                    @endisok
+                @endif
+            @endif
+			@if ($section != 'ot')
+				@isok('ALL BILL')
+				<div class="col-lg-3 p-2">
+					<a href="{{ route('bill.get-billing', [$section, ed(@$secid, true)]) }}">
+						<img src="{{ url('public/icons') }}/all_bill.png" class="billimageedit">
+						<div class="billdetailstext">
+							<h3>All Bill</h3>
+						</div>
+					</a>
+				</div>
+				@endisok
+				@isok('ALL RECEIPT')
+				<div class="col-lg-3 p-2">
+					<a href="{{ route('bill.get-receipt', [$section, ed(@$secid, true)]) }}">
+						<img src="{{ url('public/icons') }}/receipt.png" class="billimageedit">
+						<div class="billdetailstext">
+							<h3>All Receipt</h3>
+						</div>
+					</a>
+				</div>
+				@endisok
+				@isok('ALL REFUND')
+				<div class="col-lg-3 p-2">
+					<a href="{{ route('bill.get-refund', [$section, ed(@$secid, true)]) }}">
+						<img src="{{ url('public/icons') }}/transaction.png" class="billimageedit">
+						<div class="billdetailstext">
+							<h3>All Refund</h3>
+						</div>
+					</a>
+				</div>
+				@endisok
+			@endif
+        </div>
+    </div>
+</div>

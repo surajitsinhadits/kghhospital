@@ -1,0 +1,288 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Requisition</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="card">
+        <div class="card-header d-block card_hearder_mimi">
+            <div class="row">
+                <div class="col-md-6 card-title card_hearder_mimi_text">
+                    {{$title}} Requisition
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{route('optical.update-requisition', @$response->id ?? 0)}}" id="yourFormId">
+                @csrf
+                <div class="card-body" style="margin:-6px;">
+                    <div class="col-md-12">
+                        <div class="row">
+                            <div class="col-md-2 mt-3">
+                                <label class="date-format">Date <span
+                                        class="text-danger">*</span></label>
+                                <input type="text" class="dateTimePickr"
+                                    name="requisition_date" id="requisition_date"
+                                    value="{{ old('po_date', @($response->requisition_date) ? \Carbon\Carbon::parse($response->requisition_date)->format('d-m-Y h:i A') : date('d-m-Y h:i A')) }}" required />
+                                @error('requisition_date')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                            <div class="col-md-5 mt-3">
+                                <label class="form-label ">Department <span class="text-danger">*</span></label>
+                                <select name="department_id"  class="form-control select2-show-search" required>
+                                        <option value="select">Select One.....</option>
+                                        @foreach ($department as $value)
+                                            <option value="{{ @$value->id }}" {{ @$response->department_id == $value->id ? 'selected' : '' }}>{{ @$value->department_name }}</option>
+                                        @endforeach
+                                </select>
+                                @error('department_id')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="table-responsive">
+                            <table class="table card-table table-vcenter text-nowrap border" id="data-table">
+                                <thead class="bg-primary text-white">
+                                    <tr>
+                                        <th class="text-white" style="width: 30%">Item Name <span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Unit Qty<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Unit<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Sub Unit Qty</th>
+                                        <th class="text-white" style="width: 10%">Sub Unit<span class="text-danger">*</span></th>
+                                        <th  class="text-white" style="width: 2%"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="chargeTable">
+                                    <tr>
+                                        <td>
+                                            <select class="form-control select2-show-search item_id" name="item_id" onchange="getItemDetails(this.value, this)">
+                                                <option value="">Select One.....</option>
+                                                @foreach ($item_list as $value)
+                                                    <option value="{{ $value->id }}">{{ $value->item_name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input class="form-control unit_qty" type="number" min="0" name="unit_qty" value="0" step="0.1" />
+                                        </td>
+                                        <td>
+                                            <input class="form-control unit" readonly type="text" name="unit_name" value="0" />
+                                        </td>
+                                        <td>
+                                            <input class="form-control sub_unit_qty" type="number" min="0" name="sub_unit_qty" value="0" step="0.1" />
+                                        </td>
+                                        <td>
+                                            <input class="form-control sub_unit" readonly type="text" name="sub_unit_name" value="0" />
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-success btn-sm" type="button" onclick="validation()">+</button>
+                                        </td>
+                                        <input type="hidden" class="unit_id" name="unit_id" />
+                                        <input type="hidden" class="sub_unit_id" name="sub_unit_id" />
+                                    </tr>
+                                    @foreach(@$item_details ?? [] as $key => $item)
+                                        <tr>
+                                            <td>
+                                                <select class="form-control" name="item_id[]">
+                                                    <option value="">Select One.....</option>
+                                                    @foreach ($item_list as $value)
+                                                        <option value="{{ $value->id }}" {{ @$item->item_id == $value->id ? 'selected' : 'disabled' }}>
+                                                            {{ @$value->item_name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td><input class="form-control" name="unit_qty[]" type="number" min="0" value="{{ @$item->unit_qty }}" step="0.1" /></td>
+                                            <td><input class="form-control" name="unit_name[]" type="text" readonly value="{{ @$item->unit_name }}" /></td>
+                                            <td><input class="form-control" name="sub_unit_qty[]" type="number" min="0" max="{{ @$item->sub_unit_no - 1 }}" value="{{ @$item->sub_unit_qty }}" step="0.1" /></td>
+                                            <td><input class="form-control" name="sub_unit_name[]" type="text" readonly value="{{ @$item->sub_unit_name }}" /></td>
+                                            <td>
+                                                <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+                                            </td>
+                                            <input type="hidden" name="unit_id[]" value="{{ @$item->unit_id }}">
+                                            <input type="hidden" name="sub_unit_id[]" value="{{ @$item->sub_unit_id }}">
+
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-5">
+                        <div class="col-md-6 mt-3">
+                            <label class="form-label" style="margin: 3px 0px 0px 0px">Note</label>
+                            <textarea class="form-control" name="note">{{ @$response->note }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mb-4">
+                    <button type="submit" class="btn btn-primary px-5"> Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+@push('js')
+<script type="text/javascript">
+    function getItemDetails(item_id, element) {
+        if (item_id !== '') {
+            $.ajax({
+                url: "{{ route('optical.get-item-unit-and-sub-unit') }}",
+                type: "POST",
+                data: {
+                    itemId: item_id,
+                    _token: '{{ csrf_token() }}'
+                },
+                dataType: 'json',
+                success: function(res) {
+                    let row = $(element).closest('tr');
+                    row.find('.unit').val(res.unit || '');
+                    row.find('.sub_unit').val(res.sub_unit || '');
+                    row.find('.unit_id').val(res.unit_id || '');
+                    row.find('.sub_unit_id').val(res.sub_unit_id || '');
+                    row.find('.sub_unit_qty').attr('max', res.sub_unit_no - 1);
+                },
+                error: function() {
+                    let row = $(element).closest('tr');
+                    row.find('.unit').val('');
+                    row.find('.sub_unit').val('');
+                }
+            });
+        }
+    }
+
+    function validation() {
+        var row = $('#chargeTable').find('tr:first');
+        var itemSelect = row.find('.item_id').val();
+        var unitQtyInput = row.find('.unit_qty');
+        var subUnitQtyInput = row.find('.sub_unit_qty');
+        var unitQty = parseFloat(unitQtyInput.val());
+        var subUnitQty = parseFloat(subUnitQtyInput.val());
+        var maxSubUnitQty = parseFloat(subUnitQtyInput.attr('max'));
+
+        if (itemSelect === '') {
+            alert('Please Select an Item & Unit!');
+        } else if (unitQty <= 0 && subUnitQty <= 0) {
+            alert('Please Select Unit or Subunit!');
+        } else if (!isNaN(maxSubUnitQty) && subUnitQty > maxSubUnitQty) {
+            alert('Sub Unit Qty cannot exceed the maximum allowed value (' + maxSubUnitQty + ')!');
+        } else {
+            addNewrow();
+        }
+    }
+
+    function addNewrow() {
+        let firstRow = $('#chargeTable').find('tr:first');
+        let item_id = firstRow.find('.item_id').val();
+        let item_text = firstRow.find('.item_id option:selected').text();
+        let unit_qty = firstRow.find('.unit_qty').val();
+        let unit = firstRow.find('.unit').val();
+        let sub_unit_qty = firstRow.find('.sub_unit_qty').val();
+        let sub_unit = firstRow.find('.sub_unit').val();
+        let unit_id = firstRow.find('.unit_id').val();
+        let sub_unit_id = firstRow.find('.sub_unit_id').val();
+
+        let newRow = `
+            <tr>
+                <td>
+                    <select class="form-control" name="item_id[]">
+                        <option value="${item_id}" selected>${item_text}</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" name="unit_qty[]" class="form-control" readonly value="${unit_qty}">
+                </td>
+                <td>
+                    <input type="text" name="unit_name[]" class="form-control" readonly value="${unit}">
+                </td>
+                <td>
+                    <input type="text" name="sub_unit_qty[]" class="form-control" readonly value="${sub_unit_qty}">
+                </td>
+                <td>
+                    <input type="text" name="sub_unit_name[]" class="form-control" readonly value="${sub_unit}">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+                </td>
+                    <input type="hidden" name="unit_id[]" value="${unit_id}">
+                    <input type="hidden" name="sub_unit_id[]" value="${sub_unit_id}">
+            </tr>
+        `;
+        $('#chargeTable').append(newRow);
+
+        // Reset first row
+        firstRow.find('.item_id').val('').trigger('change');
+        firstRow.find('.unit_qty').val('0');
+        firstRow.find('.unit').val('');
+        firstRow.find('.sub_unit_qty').val('0');
+        firstRow.find('.sub_unit').val('');
+        firstRow.find('.unit_id').val('');
+        firstRow.find('.sub_unit_id').val('');
+    }
+
+    function removeRow(button) {
+        let row = button.closest('tr');
+        row.remove();
+    }
+
+    $(document).ready(function () {
+        $('#yourFormId').submit(function (e) {
+            e.preventDefault();
+            if ($('#chargeTable').find('tr').length <= 1) {
+                alert('Please add at least one item.');
+                return false;
+            }
+            this.submit();
+        });
+    });
+
+    $('input[name="sub_unit_qty"]').on('input', function () {
+        if ($(this).val() < 0) {
+            $(this).val(0);
+        }
+    });
+
+</script>
+
+<script>
+    function addBlankRow() {
+        const table = document.getElementById('itemTable');
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>
+                <select class="form-control" name="item_id[]">
+                    <option value="">Select One.....</option>
+                    @foreach ($item_list as $value)
+                        <option value="{{ $value->id }}">{{ $value->item_name }}</option>
+                    @endforeach
+                </select>
+            </td>
+            <td><input class="form-control" name="unit_qty[]" type="text" value="0" /></td>
+            <td><input class="form-control" name="unit_name[]" type="text" readonly value="0" /></td>
+            <td><input class="form-control" name="sub_unit_qty[]" type="text" value="0" /></td>
+            <td><input class="form-control" name="sub_unit_name[]" type="text" readonly value="0" /></td>
+            <td>
+                <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+            </td>
+            <input type="hidden" name="unit_id[]" value="" />
+            <input type="hidden" name="sub_unit_id[]" value="" />
+            <input type="hidden" name="item_detail_id[]" value="" />
+        `;
+        table.appendChild(newRow);
+    }
+
+    function removeRow(button) {
+        const row = button.closest('tr');
+        row.remove();
+    }
+</script>
+
+
+@endpush
+

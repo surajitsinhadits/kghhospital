@@ -1,0 +1,117 @@
+@extends('layouts.structure')
+
+@push('title')
+    <title>Admission Report</title>
+@endpush
+
+@section('main-content')
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi justify-content-between">
+                    <h4 class="card-title card_hearder_mimi_text">ADMISSION REPORT</h4>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="mb-4">
+                        <div class="form-row align-items-end">
+                            <div class="col-md-3">
+                                <label for="fromDate" class="form-label small text-muted">From Date</label>
+                                <input type="text" name="from_date" id="fromDate"
+                                    class="form-control datePickr" value="{{ request('from_date') }}" placeholder="Choose From Date">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="toDate" class="form-label small text-muted">To Date</label>
+                                <input type="text" name="to_date" id="toDate"
+                                    class="form-control datePickr" value="{{ request('to_date') }}" placeholder="Choose To Date">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i class="fas fa-filter"></i> Filter
+                                </button>
+                                <a href="{{ route('reports.hospital.stay') }}" class="btn btn-outline-secondary ml-2 px-4">
+                                    <i class="fas fa-undo"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+
+                    @php
+                        $sectionCards = [
+                            'opd' => ['label' => 'OPD', 'color' => 'info'],
+                            'emg' => ['label' => 'EMG', 'color' => 'primary'],
+                            'ipd' => ['label' => 'IPD', 'color' => 'success'],
+                            'daycare' => ['label' => 'Daycare', 'color' => 'warning'],
+                            'dialysis' => ['label' => 'Dialysis', 'color' => 'danger'],
+                            'investigation' => ['label' => 'Investigation', 'color' => 'secondary'],
+                        ];
+                    @endphp
+
+                    @if(count($sectionCounts))
+                        <div class="row mb-4">
+                            @foreach($sectionCards as $key => $info)
+                            @php
+                                $class = '';
+                                if( !empty(request('section')) && request('section') == $key ){
+                                    $class = "border border-".$info['color'];
+                                }
+                            @endphp
+                                <div class="col-sm-4 col-md-2 mb-3">
+                                    <div class="card h-100 text-center {{ $class }}">
+                                        <div class="card-body px-3 py-4">
+                                            <small class="text-muted d-block mb-2">{{ $info['label'] }}</small>
+                                            <a href="{{ route('reports.hospital.stay', array_filter(['from_date' => request('from_date'), 'to_date' => request('to_date'), 'section' => $key])) }}"
+                                                class="h3 mb-0 text-dark d-block text-decoration-none">
+                                                {{ $sectionCounts[$key] ?? 0 }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @elseif(request()->filled('from_date') || request()->filled('to_date'))
+                        <p class="text-muted">No data found for the selected date range.</p>
+                    @endif
+
+                    @if(!empty($activeSection))
+                        <div class="card">
+                            <div class="card-body p-0">
+                                @if($patientList->isEmpty())
+                                    <div class="p-3 text-muted">No patients found for this section.</div>
+                                @else
+                                    <div class="table-responsive">
+                                        <table class="table table-striped mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>UHID</th>
+                                                    <th>Patient</th>
+                                                    <th>Doctor</th>
+                                                    <th>Department</th>
+                                                    <th>Admission Date</th>
+                                                    <th>Discharge</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($patientList as $index => $patient)
+                                                    <tr>
+                                                        <td>{{ $index + 1 }}</td>
+                                                        <td><a href="{{ route('hr.patient-profile-details',ed($patient->patient_id, true)) }}" style="cursor: pointer !important">{{ $patient->patient_id }}</td>
+                                                        <td>{{ $patient->patient_name }}</td>
+                                                        <td>{{ $patient->doctor_name }}</td>
+                                                        <td>{{ $patient->department_name }}</td>
+                                                        <td>{{ dateFor($patient->record_date, true) }}</td>
+                                                        <td>{{ $patient->discharge_at ? dateFor($patient->discharge_at, true) : '-' }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection

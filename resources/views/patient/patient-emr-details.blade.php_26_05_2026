@@ -1,0 +1,1563 @@
+@extends('layouts.structure')
+@push('title')
+    <title>
+        Patient Details</title>
+@endpush
+@push('css')
+    <style>
+        .top-tabs {
+            display: flex;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .top-tab {
+            padding: 16px 30px;
+            flex: 1;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            background: #f5f5f5;
+            color: #444;
+            transition: 0.3s;
+            border-bottom: 4px solid transparent;
+            border: 2px solid #1565c0;
+        }
+
+        .top-tab:hover {
+            background: #e1f0ff;
+        }
+
+        .top-tab.active {
+            background: #2c3e50;
+            /* fallback for old browsers */
+            background: -webkit-linear-gradient(to right, #3498db, #2c3e50);
+            /* Chrome 10-25, Safari 5.1-6 */
+            background: linear-gradient(to right, #3498db, #2c3e50);
+            /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+
+            color: #fff;
+            border-bottom: 4px solid #1565c0;
+        }
+
+        .container1 {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .main {
+            display: flex;
+        }
+
+        /* Left Tabs */
+        .left-tabs {
+            width: 180px;
+            background: #ffffff;
+            box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            {{--  padding-top: 10px;  --}}
+        }
+
+        .left-tab {
+            padding: 16px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #444;
+            transition: 0.3s;
+            border-left: 4px solid transparent;
+            border: 2px solid #2e7d32;
+        }
+
+        .left-tab:hover {
+            background: #f0f0f0;
+        }
+
+        .left-tab.active {
+            background: #52c234;
+            /* fallback for old browsers */
+            background: -webkit-linear-gradient(to right, #2a7b0d, #52c234);
+            /* Chrome 10-25, Safari 5.1-6 */
+            background: linear-gradient(to right, #2a7b0d, #52c234);
+            /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+
+            color: #fff;
+            border-left: 4px solid #2e7d32;
+        }
+
+        /* Main Content */
+        .content-wrapper {
+            flex: 1;
+            padding: 10px;
+
+        }
+
+        .content-area {
+            display: none;
+            padding: 25px;
+            background: #f5faff;
+            border-left: 6px solid #3498db;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            animation: fadeIn 0.4s ease;
+            overflow-y: scroll;
+            height: 520px;
+        }
+
+        .content-area.active {
+            display: block;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #222;
+        }
+
+        {{--  .cardn {
+            background: #f5faff;
+            border-left: 6px solid #3498db;
+            padding: 20px 25px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease;
+        }  --}} ul {
+            padding-left: 20px;
+            line-height: 1.8;
+        }
+
+        .label {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Extra: Risk Bar Example */
+        .risk-bar {
+            margin-top: 25px;
+        }
+
+        .risk-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .risk {
+            display: flex;
+            height: 25px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .risk div {
+            flex: 1;
+            text-align: center;
+            line-height: 25px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .low {
+            background: #4caf50;
+        }
+
+        .moderate {
+            background: #ff9800;
+        }
+
+        .high {
+            background: #f44336;
+        }
+
+
+
+
+        .patient-details-wrapper {
+            display: flex;
+            justify-content: center;
+
+        }
+
+        .patient-info-box {
+
+
+
+
+            width: 100%;
+
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .label-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .label-value {
+            font-weight: 500;
+            color: #333;
+            text-align: right;
+            flex: 2;
+            font-size: 14px;
+        }
+
+        .status-paid {
+            color: #2e7d32;
+            font-weight: 700;
+        }
+
+        .section-heading {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .gender-icon {
+            color: #4689b1;
+            /* Pink */
+        }
+
+        .age-icon {
+            color: #4689b1;
+            /* Blue */
+        }
+
+        .phone-icon {
+            color: #4689b1;
+            /* Teal */
+        }
+
+        .address-icon {
+            color: #4689b1;
+            /* Purple */
+        }
+
+        .status-icon {
+            color: #4689b1;
+            /* Green */
+        }
+
+        .label-title i {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .opd-card-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .opd-box {
+            background: #f1f8ff;
+            border-radius: 12px;
+            padding: 20px;
+            width: calc(33.333% - 13.33px);
+            min-width: 200px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .opd-box:hover {
+            background-color: #e3f2fd;
+            transform: translateY(-2px);
+        }
+
+        .opd-box .icon {
+            font-size: 22px;
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+
+        .opd-box h6 {
+            font-size: 14px;
+            margin: 0;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .opd-box p {
+            font-size: 16px;
+            margin: 5px 0 0;
+            color: #222;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background-color: #28a745;
+            color: #fff;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-left: 6px;
+        }
+
+        .table th,
+        .table td {
+            vertical-align: middle;
+        }
+
+        .badge-success {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 12px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .inner-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            margin-top: 10px;
+        }
+
+        .inner-tab {
+            padding: 10px 20px;
+
+            color: #1976d2;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: 0.3s;
+        }
+
+        .inner-tab:hover {
+            background: #bbdefb;
+        }
+
+        .inner-tab.active {
+            background: #1976d2;
+            color: white;
+        }
+
+        .inner-tab-content {
+            display: none;
+        }
+
+        .inner-tab-content.active {
+            display: block;
+        }
+
+        .opd-card {
+
+            border-radius: 10px;
+            padding: 20px 25px;
+            margin-top: 20px;
+
+            animation: fadeIn 0.4s ease-in-out;
+            max-width: 700px;
+        }
+
+        .opd-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .opd-row:last-child {
+            border-bottom: none;
+        }
+
+        .opd-row .label {
+            font-weight: 600;
+            color: #2c3e50;
+            flex: 1;
+        }
+
+        .opd-row .value {
+            text-align: right;
+            flex: 2;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background-color: #28a745;
+            color: white;
+            padding: 2px 8px;
+            font-size: 12px;
+            border-radius: 8px;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+    </style>
+@endpush
+
+@section('main-content')
+    {{-- WRITE YOUR CODE HERE --}}
+
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi justify-content-between">
+                    <h4 class="card-title card_hearder_mimi_text" style="margin-top:6px;">
+                        Medical Record
+                    </h4>
+                    <div>
+
+                    </div>
+                </div>
+
+
+            </div>
+            <div class="card-body">
+                <!-- Top Tabs -->
+                <div class="top-tabs">
+                    <div class="top-tab active" data-tab="personal">
+                        <i class="fas fa-user"></i> Patient Information
+                    </div>
+                    <div class="top-tab" data-tab="admin">
+                        <i class="fas fa-briefcase"></i> Medical Details
+                    </div>
+                    {{--  <div class="top-tab" data-tab="medical">
+                        <i class="fas fa-stethoscope"></i> IPD Details
+                    </div>  --}}
+                </div>
+
+                <div class="main">
+                    <!-- Side Tabs -->
+                    <div class="left-tabs">
+                        @if (@$opd_details[0]->id != null)
+                            <div class="left-tab" data-tab="admission">
+                                <i class="fas fa-first-aid iconnav mr-1"></i> Opd
+                            </div>
+                        @endif
+                        @if (@$emg_details[0]->id != null)
+                            <div class="left-tab" data-tab="status">
+                                <i class="fas fa-ambulance iconnav mr-1"></i> EMG
+                            </div>
+                        @endif
+                        @if (@$ipd_details[0]->id != null)
+                            <div class="left-tab" data-tab="schedule">
+                                <i class="fas fa-hospital-user iconnav mr-1"></i> IPD
+                            </div>
+                        @endif
+
+                        @if (@$daycare_details[0]->id != null)
+                            <div class="left-tab" data-tab="daycare">
+                                <i class="fas fa-hospital-user iconnav mr-1"></i> Day-Care
+                            </div>
+                        @endif
+
+                    </div>
+
+                    <!-- Content -->
+                    <div class="content-wrapper">
+                        <!-- Top Tab Content -->
+                        <div class="content-area active" data-tab-content="personal">
+                            <div class="patient-details-wrapper">
+                                <div class="patient-info-box">
+                                    <h4 class="section-heading"><i class="fas fa-user-circle"></i>
+                                        {{ @$patient_details->name }} (UHID: {{ @$patient_details->id }})</h4>
+
+                                    <div class="info-row">
+                                        <div class="label-title">
+                                            <i class="fas fa-venus-mars gender-icon"></i> Gender
+                                        </div>
+                                        <div class="label-value">{!! @$patient_details->gender !!}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="label-title">
+                                            <i class="fas fa-user-clock age-icon"></i> Age
+                                        </div>
+                                        <div class="label-value">
+                                            @if (@$patient_details->dob_year != null)
+                                                {{ @$patient_details->dob_year }}Y
+                                            @endif
+                                            @if (@$patient_details->dob_month != null)
+                                                {{ @$patient_details->dob_month }}M
+                                            @endif
+                                            @if (@$patient_details->dob_day != null)
+                                                {{ @$patient_details->dob_day }}D
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="label-title">
+                                            <i class="fas fa-phone-alt phone-icon"></i> Phone No
+                                        </div>
+                                        <div class="label-value">{{ @$patient_details->phone }}</div>
+                                    </div>
+                                    <div class="info-row">
+                                        <div class="label-title">
+                                            <i class="fas fa-map-marker-alt address-icon"></i> Address
+                                        </div>
+                                        <div class="label-value">
+                                            {!! @$patient_details->address !!} @if (@$patient_details->_state->name)
+                                                ,{!! @$patient_details->_district->name !!},{!! @$patient_details->_state->name !!},{!! @$patient_details->pin_no !!}
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @if (@$patient_details->identification_number != null)
+                                        <div class="info-row">
+                                            <div class="label-title">
+                                                <i class="fas fa-id-card age-icon"></i> Aadhar Card No
+                                            </div>
+                                            <div class="label-value status-paid">
+                                                {{ @$patient_details->identification_number }}
+                                            </div>
+                                        </div>
+                                    @endif
+                                    <div class="info-row">
+                                        {!! @$balance_amount !!}</br>
+                                        @if (@$credit_amount)
+                                            <span style="color: green;">{!! 'Credit Amount: ' . @$credit_amount !!}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+
+
+
+
+                        </div>
+
+                        <div class="content-area" data-tab-content="admin">
+                            <h3><i class="fas fa-prescription-bottle-alt"></i> Medical Details</h3>
+
+                            <!-- Inner Tabs -->
+                            <div class="inner-tabs">
+                                @if ($emr_details->contains('section', 'opd'))
+                                    <div class="inner-tab active" data-inner-tab="opd">OPD</div>
+                                @endif
+                                @if ($emr_details->contains('section', 'emg'))
+                                    <div class="inner-tab active" data-inner-tab="emg">EMG</div>
+                                @endif
+                                @if ($emr_details->contains('section', 'ipd'))
+                                    <div class="inner-tab active" data-inner-tab="ipd">IPD</div>
+                                @endif
+                            </div>
+
+                            <!-- Inner Tab Content -->
+                            @if ($emr_details->contains('section', 'opd'))
+                                <div class="inner-tab-content active" data-inner-content="opd">
+                                    @foreach ($emr_details as $key => $data)
+                                        @if ($data->section == 'opd')
+                                            @php
+
+                                                $vitals = json_decode($data->vitals);
+                                                // dd($vitals);
+                                                $complaints = json_decode($data->complaints);
+                                                $diagnosis = json_decode($data->diagnosis);
+                                                $medicines = json_decode($data->medicines);
+                                                $tests = json_decode($data->test_name);
+                                                // dd($tests)
+                                            @endphp
+                                            <div class="row">
+                                                <div class="cardn">
+                                                    <h5><i class="fas fa-first-aid iconnav mr-1" style="color: #1976d2;"></i> OPD
+                                                        Medical Record ({{ $data->section_id }})</h5>
+                                                    <p><strong>Date:</strong>
+                                                        {{ \Carbon\Carbon::parse($data->date)->format('d M Y, h:i A') }}</p>
+                                                    <p><strong>Doctor:</strong> {{ $data->doctor_name }}</p>
+
+                                                </div>
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-procedures"></i> Vitals</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Height</th>
+                                                                <th
+                                                                    style="background-color:   #2E5E88 !important; color: #fff;">
+                                                                    Weight</th>
+                                                                <th
+                                                                    style="background-color:   #2E5E88 !important; color: #fff;">
+                                                                    Pulse</th>
+                                                                <th
+                                                                    style="background-color:   #2E5E88 !important; color: #fff;">
+                                                                    BP</th>
+                                                                <th
+                                                                    style="background-color:   #2E5E88 !important; color: #fff;">
+                                                                    Temperature</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($vitals ?? [] as $vital)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $vital->height ?? '-' }}</td>
+                                                                    <td>{{ $vital->weight ?? '-' }}</td>
+                                                                    <td>{{ $vital->pulse ?? '-' }}</td>
+                                                                    <td>{{ $vital->bp_systolic ?? '-' }}/{{ $vital->bp_diastolic ?? '-' }}
+                                                                    </td>
+                                                                    <td>{{ $vital->temperature ?? '-' }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-stethoscope"></i> Complaints</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Complaint</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Frequency</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Severity</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($complaints ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $item->complaints ?? '-' }}</td>
+                                                                    <td>{{ $item->frequency ?? '-' }}</td>
+                                                                    <td>{{ $item->severity ?? '-' }}</td>
+                                                                    <td>{{ $item->duration ?? '-' }}</td>
+                                                                    <td>{{ $item->complaints_date ?? '-' }}</td>
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-diagnoses"></i>Diagnosis</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Diagnosis</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($diagnosis ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $item->diagnosis ?? '-' }}</td>
+                                                                    <td>{{ $item->diagnosis_duration ?? '-' }}</td>
+                                                                    <td>{{ $item->diagnosis_date ?? '-' }}</td>
+
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5> <i class="fas fa-pills"></i> Medicines</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Composition</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Medicine</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Dose</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    When</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Frequency</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Notes</th>
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($medicines ?? [] as $med)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $med->composition ?? '-' }}</td>
+                                                                    <td>{{ $med->medicine ?? '-' }}</td>
+                                                                    <td>{{ $med->dose ?? '-' }}</td>
+                                                                    <td>{{ $med->when ?? '-' }}</td>
+                                                                    <td>{{ $med->frequency ?? '-' }}</td>
+                                                                    <td>{{ $med->medicine_duration ?? '-' }}</td>
+                                                                    <td>{{ $med->notes_instructions ?? '-' }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div class="cardn">
+                                                    <p><i class="fas fa-vial"></i> <strong>Test Needed:</strong>
+                                                        {{ collect($tests ?? [])->implode(',   ') ?: '-' }}</p>
+                                                    <p><i class="fas fa-comment-medical"></i>
+                                                        <strong>Advice:</strong>{!! $data->advice ?? 'No advice given.' !!}
+                                                    </p>
+                                                </div>
+                                                {{-- <div class="cardn">
+                                                <div class="row">
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Date:</strong> 24-05-2025</p>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Doctor:</strong> DR SUBIR SEN</p>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Prescription:</strong>
+                                                            Tab Paracetamol 500mg – 1-1-1 × 3 days</p>
+                                                    </div>
+                                                </div>
+                                            </div> --}}
+                                            </div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @if ($emr_details->contains('section', 'emg'))
+                                <div class="inner-tab-content active" data-inner-content="emg">
+                                    @foreach ($emr_details as $key => $data)
+                                        @if ($data->section == 'emg')
+                                            @php
+
+                                                $vitals = json_decode($data->vitals);
+                                                // dd($vitals);
+                                                $complaints = json_decode($data->complaints);
+                                                $diagnosis = json_decode($data->diagnosis);
+                                                $medicines = json_decode($data->medicines);
+                                                $tests = json_decode($data->test_name);
+                                                // dd($tests)
+                                            @endphp
+                                            <div class="row">
+                                                <div class="cardn">
+                                                    <h5><i class="fas fa-door-open" style="color: #1976d2;"></i>EMG
+                                                        Medical Record ({{ $data->section_id }})</h5>
+                                                    <p><strong>Date:</strong>
+                                                        {{ \Carbon\Carbon::parse($data->date)->format('d M Y, h:i A') }}
+                                                    </p>
+                                                    <p><strong>Doctor:</strong> {{ $data->doctor_name }}</p>
+
+                                                </div>
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5> <i class="fas fa-procedures"></i> Vitals</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Height</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Weight</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Pulse</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    BP</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Temperature</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($vitals ?? [] as $vital)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $vital->height ?? '-' }}</td>
+                                                                    <td>{{ $vital->weight ?? '-' }}</td>
+                                                                    <td>{{ $vital->pulse ?? '-' }}</td>
+                                                                    <td>{{ $vital->bp_systolic ?? '-' }}/{{ $vital->bp_diastolic ?? '-' }}
+                                                                    </td>
+                                                                    <td>{{ $vital->temperature ?? '-' }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-stethoscope"></i> Complaints</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Complaint</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Frequency</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Severity</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($complaints ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $item->complaints ?? '-' }}</td>
+                                                                    <td>{{ $item->frequency ?? '-' }}</td>
+                                                                    <td>{{ $item->severity ?? '-' }}</td>
+                                                                    <td>{{ $item->duration ?? '-' }}</td>
+                                                                    <td>{{ $item->complaints_date ?? '-' }}</td>
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-diagnoses"></i>Diagnosis</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Diagnosis</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($diagnosis ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $item->diagnosis ?? '-' }}</td>
+                                                                    <td>{{ $item->diagnosis_duration ?? '-' }}</td>
+                                                                    <td>{{ $item->diagnosis_date ?? '-' }}</td>
+
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5> <i class="fas fa-pills"></i> Medicines</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Composition</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Medicine</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Dose</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    When</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Frequency</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Notes</th>
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($medicines ?? [] as $med)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $med->composition ?? '-' }}</td>
+                                                                    <td>{{ $med->medicine ?? '-' }}</td>
+                                                                    <td>{{ $med->dose ?? '-' }}</td>
+                                                                    <td>{{ $med->when ?? '-' }}</td>
+                                                                    <td>{{ $med->frequency ?? '-' }}</td>
+                                                                    <td>{{ $med->medicine_duration ?? '-' }}</td>
+                                                                    <td>{{ $med->notes_instructions ?? '-' }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div class="cardn">
+                                                    <p><i class="fas fa-vial"></i> <strong>Test Needed:</strong>
+                                                        {{ collect($tests ?? [])->implode(',   ') ?: '-' }}</p>
+                                                    <p><i class="fas fa-comment-medical"></i>
+                                                        <strong>Advice:</strong>{!! $data->advice ?? 'No advice given.' !!}
+                                                    </p>
+                                                </div>
+                                                {{-- <div class="cardn">
+                                                <div class="row">
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Date:</strong> 24-05-2025</p>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Doctor:</strong> DR SUBIR SEN</p>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Prescription:</strong>
+                                                            Tab Paracetamol 500mg – 1-1-1 × 3 days</p>
+                                                    </div>
+                                                </div>
+                                            </div> --}}
+                                            </div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
+                            @if ($emr_details->contains('section', 'ipd'))
+                                <div class="inner-tab-content active" data-inner-content="ipd">
+                                    @foreach ($emr_details as $key => $data)
+                                        @if ($data->section == 'ipd')
+                                            @php
+
+                                                $vitals = json_decode($data->vitals);
+                                                // dd($vitals);
+                                                $complaints = json_decode($data->complaints);
+                                                $diagnosis = json_decode($data->diagnosis);
+                                                $medicines = json_decode($data->medicines);
+                                                $tests = json_decode($data->test_name);
+                                                $progres_notes = json_decode($data->progress_note);
+                                                $instructions = json_decode($data->nursing_instructions);
+
+                                                // dd($tests)
+
+                                            @endphp
+                                            <div class="row">
+                                                <div class="cardn">
+                                                    <h5><i class="fas fa-hospital-user iconnav mr-1" style="color: #1976d2;"></i>IPD
+                                                        Medical Record ({{ $data->section_id }})</h5>
+                                                    <p><strong>Date:</strong>
+                                                        {{ \Carbon\Carbon::parse($data->date)->format('d M Y, h:i A') }}
+                                                    </p>
+                                                    <p><strong>Doctor:</strong> {{ $data->doctor_name }}</p>
+
+                                                </div>
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5> <i class="fas fa-procedures"></i> Vitals</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Height</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Weight</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Pulse</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    BP</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Temperature</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    RR</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    SpO2</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($vitals ?? [] as $vital)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ isset($vital->vital_date) ? \Carbon\Carbon::parse($vital->vital_date)->format('d M Y, h:i A') : '' }}
+                                                                    </td>
+                                                                    <td>{{ $vital->height ?? '-' }}</td>
+                                                                    <td>{{ $vital->weight ?? '-' }}</td>
+                                                                    <td>{{ $vital->pulse ?? '-' }}</td>
+                                                                    <td>{{ $vital->bp_systolic ?? '-' }}/{{ $vital->bp_diastolic ?? '-' }}
+                                                                    </td>
+                                                                    <td>{{ $vital->temperature ?? '-' }}</td>
+                                                                    <td>{{ $vital->respiratory ?? 0 }}</td>
+                                                                    <td>{{ $vital->SpO2 ?? 0 }}</td>
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-stethoscope"></i> Complaints</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Complaint</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Frequency</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Severity</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($complaints ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $item->complaints ?? '-' }}</td>
+                                                                    <td>{{ $item->frequency ?? '-' }}</td>
+                                                                    <td>{{ $item->severity ?? '-' }}</td>
+                                                                    <td>{{ $item->duration ?? '-' }}</td>
+                                                                    <td>{{ $item->complaints_date ?? '-' }}</td>
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-diagnoses"></i>Diagnosis</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Diagnosis</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($diagnosis ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $item->diagnosis ?? '-' }}</td>
+                                                                    <td>{{ $item->diagnosis_duration ?? '-' }}</td>
+                                                                    <td>{{ $item->diagnosis_date ?? '-' }}</td>
+
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5> <i class="fas fa-notes-medical"></i> Progress Notes / Doctor
+                                                            Notes</h5>
+                                                        <thead>
+                                                            <tr>
+
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Observation</th>
+
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($progres_notes ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ isset($item->progress_date) ? \Carbon\Carbon::parse($item->progress_date)->format('d M Y, h:i A') : '' }}
+                                                                    </td>
+                                                                    <td>{{ isset($item->observation) ? $item->observation : '' }}
+                                                                    </td>
+
+
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5> <i class="fas fa-pills"></i> Medicines</h5>
+                                                        <thead>
+                                                            <tr>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Composition</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Medicine</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Dose</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    When</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Frequency</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Duration</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Notes</th>
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($medicines ?? [] as $med)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ $med->composition ?? '-' }}</td>
+                                                                    <td>{{ $med->medicine ?? '-' }}</td>
+                                                                    <td>{{ $med->dose ?? '-' }}</td>
+                                                                    <td>{{ $med->when ?? '-' }}</td>
+                                                                    <td>{{ $med->frequency ?? '-' }}</td>
+                                                                    <td>{{ $med->medicine_duration ?? '-' }}</td>
+                                                                    <td>{{ $med->notes_instructions ?? '-' }}</td>
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div class="table-responsive">
+                                                    <table class="table table-bordered text-center table-striped"
+                                                        style="min-width: 900px;">
+                                                        <h5><i class="fas fa-user-nurse"></i> Nursing Instructions</h5>
+                                                        <thead>
+                                                            <tr>
+
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Date</th>
+                                                                <th
+                                                                    style="background-color: #2E5E88 !important ; color: #fff;">
+                                                                    Instructions</th>
+
+
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($instructions ?? [] as $item)
+                                                                <tr style="background-color: #E8F4F8;">
+                                                                    <td>{{ isset($item->instruction_date) ? \Carbon\Carbon::parse($item->instruction_date)->format('d M Y, h:i A') : '' }}
+                                                                    </td>
+                                                                    <td>{{ isset($item->instructions) ? $item->instructions : '' }}
+                                                                    </td>
+
+
+
+                                                                </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                {{-- <div class="row whitebackground" style="width:1300px;">
+                                                    <div class="col-lg-12">
+                                                      <h3 style="font-size:17px;"><i class="fas fa-calendar-alt" style="color: #3498db;margin-right: 9px;"></i>Date:</h3>
+                                                      <p style="color: #000000ad;">23/05/2025</p>
+                                                       <h3 style="font-size:17px;"><i class="fas fa-briefcase" style="color: #3498db;margin-right: 9px;"></i>Instructions</h3>
+                                                       <p style="color: #000000ad;">kjvkjfhkhnlijlkjk</p>
+                                                    </div>
+                                               </div> --}}
+                                                <div class="cardn">
+                                                    <p><i class="fas fa-vial"></i> <strong>Test Needed:</strong>
+                                                        {{ collect($tests ?? [])->implode(',   ') ?: '-' }}</p>
+                                                    <p><i class="fas fa-comment-medical"></i>
+                                                        <strong>Advice:</strong>{!! $data->advice ?? 'No advice given.' !!}
+                                                    </p>
+                                                </div>
+                                                {{-- <div class="cardn">
+                                                <div class="row">
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Date:</strong> 24-05-2025</p>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Doctor:</strong> DR SUBIR SEN</p>
+                                                    </div>
+                                                    <div class="col-lg-4">
+                                                        <p><strong>Prescription:</strong>
+                                                            Tab Paracetamol 500mg – 1-1-1 × 3 days</p>
+                                                    </div>
+                                                </div>
+                                            </div> --}}
+                                            </div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="content-area" data-tab-content="medical">
+                            <h3>Medical Details</h3>
+                            <ul>
+                                <li>Primary Diagnosis: Hypertension</li>
+                                <li>Initial BP: 145/92</li>
+                                <li>Secondary: Type 2 Diabetes</li>
+                            </ul>
+                        </div>
+
+                        <!-- Side Tab Content -->
+                        @if (@$opd_details[0]->id != null)
+                            <div class="content-area" data-tab-content="admission">
+                                <div class="table-responsive ">
+                                    <table
+                                        class="table table-bordered text-nowrap key-buttons border-left border-right border-bottom">
+                                        <thead class="bg-primary text-white">
+                                            <tr class="border-left">
+                                                <th class="text-white">Sl No.</th>
+                                                <th class="text-white">OPD Id</th>
+                                                <th class="text-white">Bill Id</th>
+                                                <th class="text-white">Appointment Date</th>
+                                                <th class="text-white">Department</th>
+                                                <th class="text-white">Doctor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($opd_details as $value)
+                                                <?php
+                                                if (@$value->due_amount > 0) {
+                                                    $balance_amount = '<span style="font-weight: 900;font-size: 22px;color:red">DUE AMOUNT : ₹' . abs(round(@$value->due_amount, 2)) . '</span>';
+                                                    $color = '#ffcfcf';
+                                                } else {
+                                                    $balance_amount = '<span  style="font-weight: 900;font-size: 27px;color:rgb(4, 121, 9)">Full Paid</span>';
+                                                    $color = '#b0ffb0';
+                                                }
+
+                                                if (@$value->cradit_amount > 0) {
+                                                    $amount_details = '<span class="badge badge-gradient-primary mt-2">Credit Amount : ₹' . abs(round(@$value->cradit_amount, 2)) . ' </span>';
+                                                } elseif (@$value->due_amount > 0) {
+                                                    $amount_details = '<span class="badge badge-gradient-secondary mt-2">Due Amount : ₹' . abs(round(@$value->due_amount, 2)) . ' </span>';
+                                                } else {
+                                                    $amount_details = '<span class="badge badge-gradient-success mt-2">No Due </span>';
+                                                }
+                                                ?>
+
+                                                <tr style="background-color:{{ @$color }}">
+                                                    <td>{{ $loop->iteration }}</td>
+                                                    <td> <a target="_blank" data-placement="left" data-toggle="tooltip"
+                                                            title="Click here" style="cursor: pointer !important"
+                                                            href="#">{{ @$value->id }}</a>
+                                                    </td>
+                                                    <td>
+                                                        <a href="{{ route('bill.billing-details', ['emg', ed(@$value->billing_id, true)]) }}"
+                                                            data-placement="top" data-toggle="tooltip"
+                                                            title="Click here to show bill details">
+                                                            {{ @$value->uid }}</a> <br>
+                                                        @if ($value->bill_status == 3)
+                                                            <span class="badge badge-gradient-secondary mt-2">Cancel
+                                                                Bill</span>
+                                                        @endif
+                                                        {!! $amount_details !!}
+                                                    </td>
+                                                    <td> {{ dateFor($value->appointment_date, true) }}</td>
+                                                    <td>
+                                                        {{ @$value->department_name }}
+                                                    </td>
+                                                    <td>
+                                                        {{ @$value->doctor_name }}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
+                        @if (@$ipd_details[0]->id != null)
+                            <div class="content-area" data-tab-content="schedule">
+                                <div class="table-responsive ">
+                                    <table
+                                        class="table table-bordered text-nowrap key-buttons border-left border-right border-bottom">
+                                        <thead class="bg-primary text-white">
+                                            <tr class="border-left">
+                                                <th class="text-white">Sl No.</th>
+                                                <th class="text-white">IPD Id</th>
+                                                <th class="text-white">Admission Date</th>
+                                                <th class="text-white">Department</th>
+                                                <th class="text-white">Doctor</th>
+                                                <th class="text-white">Bed</th>
+                                                <th class="text-white">Discharged Date</th>
+                                                <th class="text-white">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($ipd_details as $value)
+                                                <tr>
+                                                    <td>{{ $loop->iteration }}</td>
+                                                    <td><a data-placement="left" data-toggle="tooltip" title="Click here"
+                                                            href="{{ route('ipd.ipd-info', ed(@$value->id, true)) }}">{{ @$value->id }}</a>
+                                                    </td>
+                                                    <td>{{ dateFor($value->admission_date, true) }}</td>
+                                                    <td>
+                                                        {{ @$value->department_name }}
+                                                    </td>
+                                                    <td>
+                                                        {{ @$value->doctor_name }}
+                                                    </td>
+                                                    <td>
+                                                        @if (isset($value->ward_id))
+                                                            {{ @$value->bed_name }}( {{ @$value->ward_name }} )
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        {{ @$value->discharge_at ? dateFor(@$value->discharge_at, true) : '' }}
+                                                    </td>
+                                                    <td>
+                                                        {!! @$value->discharge_at
+                                                            ? '<span class="badge badge-danger">Discharged</span>'
+                                                            : ' <span class="badge badge-success">Admitted</span>' !!}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
+                        @if (@$emg_details[0]->id != null)
+                            <div class="content-area" data-tab-content="status">
+                                <div class="table-responsive ">
+                                    <table
+                                        class="table table-bordered text-nowrap key-buttons border-left border-right border-bottom">
+                                        <thead class="bg-primary text-white">
+                                            <tr class="border-left">
+                                                <th class="text-white">Sl No.</th>
+                                                <th class="text-white">EMG Id</th>
+                                                <th class="text-white">Bill Id</th>
+                                                <th class="text-white">Appointment Date</th>
+                                                <th class="text-white">Department</th>
+                                                <th class="text-white">Doctor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($emg_details as $value)
+                                                <?php
+                                                if (@$value->due_amount > 0) {
+                                                    $balance_amount = '<span style="font-weight: 900;font-size: 22px;color:red">DUE AMOUNT : ₹' . abs(round(@$value->due_amount, 2)) . '</span>';
+                                                    $color = '#ffcfcf';
+                                                } else {
+                                                    $balance_amount = '<span  style="font-weight: 900;font-size: 27px;color:rgb(4, 121, 9)">Full Paid</span>';
+                                                    $color = '#b0ffb0';
+                                                }
+
+                                                if (@$value->cradit_amount > 0) {
+                                                    $amount_details = '<span class="badge badge-gradient-primary mt-2">Credit Amount : ₹' . abs(round(@$value->cradit_amount, 2)) . ' </span>';
+                                                } elseif (@$value->due_amount > 0) {
+                                                    $amount_details = '<span class="badge badge-gradient-secondary mt-2">Due Amount : ₹' . abs(round(@$value->due_amount, 2)) . ' </span>';
+                                                } else {
+                                                    $amount_details = '<span class="badge badge-gradient-success mt-2">No Due </span>';
+                                                }
+                                                ?>
+                                                <tr style="background-color:{{ @$color }}">
+                                                    <td>{{ $loop->iteration }}</td>
+                                                    <td>
+                                                        <a data-placement="left" data-toggle="tooltip" title="Click here"
+                                                            style="cursor: pointer !important"
+                                                            href="#">{{ @$value->id }}</a>
+                                                    </td>
+                                                    <td>
+                                                        <a href="{{ route('bill.billing-details', ['emg', ed(@$value->billing_id, true)]) }}"
+                                                            data-placement="top" data-toggle="tooltip"
+                                                            title="Click here to show bill details">
+                                                            {{ @$value->uid }}</a> <br>
+                                                        @if ($value->bill_status == 3)
+                                                            <span class="badge badge-gradient-secondary mt-2">Cancel
+                                                                Bill</span>
+                                                        @endif
+                                                        {!! $amount_details !!}
+                                                    </td>
+                                                    <td>
+                                                        {{ dateFor($value->appointment_date, true) }}
+                                                    </td>
+                                                    <td>
+                                                        {{ @$value->department_name }}
+                                                    </td>
+                                                    <td>
+                                                        {{ @$value->doctor_name }}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
+                        @if (@$daycare_details[0]->id != null)
+                            <div class="content-area" data-tab-content="daycare">
+                                <div class="table-responsive ">
+                                    <table
+                                        class="table table-bordered text-nowrap key-buttons border-left border-right border-bottom">
+                                        <thead class="bg-primary text-white">
+                                            <tr class="border-left">
+                                                <th class="text-white">Sl No.</th>
+                                                <th class="text-white">DayCare Id</th>
+                                                <th class="text-white">Admission Date</th>
+                                                <th class="text-white">Department</th>
+                                                <th class="text-white">Doctor</th>
+                                                <th class="text-white">Bed</th>
+                                                <th class="text-white">Discharged Date</th>
+                                                <th class="text-white">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($daycare_details as $value)
+                                                <tr>
+                                                    <td>{{ $loop->iteration }}</td>
+                                                    <td><a data-placement="left" data-toggle="tooltip" title="Click here"
+                                                            href="{{ route('ipd.ipd-info', ed(@$value->id, true)) }}">{{ @$value->id }}</a>
+                                                    </td>
+                                                    <td>{{ dateFor($value->admission_date, true) }}</td>
+                                                    <td>
+                                                        {{ @$value->department_name }}
+                                                    </td>
+                                                    <td>
+                                                        {{ @$value->doctor_name }}</td>
+                                                    <td>
+                                                        @if (isset($value->ward_id))
+                                                            {{ @$value->bed_name }}( {{ @$value->ward_name }} )
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        {{ @$value->discharge_at ? dateFor($value->discharge_at, true) : '' }}
+                                                    </td>
+                                                    <td>
+                                                        {!! @$value->discharge_at
+                                                            ? '<span class="badge badge-danger">Discharged</span>'
+                                                            : ' <span class="badge badge-success">Admitted</span>' !!}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="content-area" data-tab-content="accounting">
+                            <h3>Billing & Accounting</h3>
+                            <p><span class="label">Insurance:</span> MediCare (80%)</p>
+                            <p><span class="label">Outstanding:</span> ₹5,200</p>
+                            <p><span class="label">Billing ID:</span> B123456</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    @endsection
+    @push('js')
+        <!-- JavaScript -->
+        <script>
+            // Handle Top Tabs + Left Tabs (Main Navigation)
+            const allTabs = document.querySelectorAll('.top-tab, .left-tab');
+            const allContents = document.querySelectorAll('.content-area');
+
+            allTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    allTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    const tabKey = tab.getAttribute('data-tab');
+                    allContents.forEach(content => {
+                        const contentKey = content.getAttribute('data-tab-content');
+                        content.classList.toggle('active', contentKey === tabKey);
+                    });
+                });
+            });
+
+            // Handle Inner Tabs inside Prescription Details
+            const innerTabs = document.querySelectorAll('.inner-tab');
+            const innerContents = document.querySelectorAll('.inner-tab-content');
+
+            innerTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    innerTabs.forEach(t => t.classList.remove('active'));
+                    innerContents.forEach(c => c.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    const target = tab.getAttribute('data-inner-tab');
+                    const targetContent = document.querySelector(`[data-inner-content="${target}"]`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                    }
+                });
+            });
+        </script>
+    @endpush

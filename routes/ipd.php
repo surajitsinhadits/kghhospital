@@ -1,0 +1,40 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\IPD\IPDController;
+use App\Http\Controllers\IPD\DialysisController;
+
+Route::middleware(['auth'])->prefix('ipd')->group(function () {
+    Route::controller(IPDController::class)->group(function () {
+        // ipd
+        Route::get('/', 'index')->name('ipd.ipd');
+        Route::get('/ipd-register', 'ipd_register')->name('ipd.ipd-register');
+        Route::get('/ipd-info/{id}', 'ipd_info')->name('ipd.ipd-info');
+        Route::get('/edit-admission/{ipd_id}', 'edit_admission')->name('ipd.edit-admission');
+        Route::get('/bed-history/ipd/{ipd_id}', 'bed_history')->name('ipd.bed-history');
+        Route::get('/discharge-patient/{section}/{id}', 'discharge_patient')->name('ipd.discharge-patient');
+
+        Route::post('/update-bed', 'update_bed')->name('ipd.update-bed');
+        Route::post('/update-ipd-register', 'update_ipd_register')->name('ipd.update-ipd-register');
+        Route::post('/update-admission/{ipd_id}', 'update_admission')->name('ipd.update-admission');
+        Route::post('/update-ipd-doctor', 'update_ipd_doctor')->name('ipd.update-ipd-doctor');
+        Route::post('/update-ipd-insurance', 'update_ipd_insurance')->name('ipd.update-ipd-insurance');
+        Route::post('/insert-discharge/{section}', 'insert_discharge')->name('ipd.insert-discharge');
+
+        Route::get('/get-advance/{ipd_id?}', 'get_advance')->name('ipd.get-advance-amount');
+        Route::post('/get-advance', 'save_advance')->name('ipd.save-advance-amount');
+    });
+});
+Route::middleware(['auth'])->prefix('dialysis')->group(function () {
+    Route::controller(DialysisController::class)->group(function () {
+        Route::get('/', 'index')->name('ipd.dialysis');
+        Route::get('/dialysis-register/{section?}/{section_id?}', 'dialysis_register')->name('ipd.dialysis-register');
+        Route::get('/edit-dialysis/{dialysis_id}', 'edit_admission')->name('ipd.edit-dialysis');
+        Route::get('/dialysis-info/{id}', 'dialysis_info')->name('ipd.dialysis-info');
+        Route::get('/bed-history/dialysis/{dialysis_id}', 'bed_history')->name('ipd.dialysis-bed-history');
+        Route::get('/relish-patient/{dialysis_id}', 'relish_patient')->name('ipd.relish-patient');
+        Route::post('/check-availability', 'check_availability')->name('ipd.dialysis-availability');
+        Route::post('/update-dialysis-register', 'update_dialysis_register')->name('ipd.update-dialysis-register');
+        Route::post('/update-dialysis/{dialysis_id}', 'update_admission')->name('ipd.update-dialysis');
+    });
+});

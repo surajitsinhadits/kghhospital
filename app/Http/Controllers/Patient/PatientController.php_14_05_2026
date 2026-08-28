@@ -1,0 +1,592 @@
+<?php
+
+namespace App\Http\Controllers\Patient;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use App\Models\Patient;
+use App\Models\Billing;
+use App\Models\EmgRegister;
+use App\Models\OpdEnquiry;
+use App\Models\OpdRegister;
+use App\Models\IpdRegister;
+use App\Models\Payment;
+use App\Models\PatientNote;
+use App\Models\State;
+use App\Models\User;
+use Carbon\Carbon;
+use App\Models\Childcare;
+use App\Models\EmrMaster;
+use Illuminate\Support\Facades\File;
+use Yajra\Datatables\DataTables;
+use DB;
+
+class PatientController extends Controller
+{
+    // public function patient_details($patient_id)
+    // {
+    //     $id = ed($patient_id, false);
+    //     $patient_details = Patient::where('id', $id)->first();
+    //     $bill_details = Billing::where('patient_id', $id)->orderBy('id', 'desc')->get();
+    //     $totalDue = Billing::where('patient_id', $id)->sum('due_amount');
+    //     $totalCredit = Billing::where('patient_id', $id)->sum('cradit_amount');
+    //     $emr_details = EmrMaster::select('emr_masters.*', 'u.name as doctor_name')
+    //         ->join('users as u', 'emr_masters.doctor_id', '=', 'u.id')
+    //         ->where('patient_id', $id)
+    //         ->orderBy('id', 'desc')->get();
+    //     $opd_details = OpdRegister::select(
+    //         "opd_registers.*",
+    //         'u.name as doctor_name',
+    //         'd.department_name',
+    //         'b.id as billing_id',
+    //         'b.uid',
+    //         'b.due_amount',
+    //         'b.cradit_amount',
+    //         'b.bill_status'
+    //     )
+    //         ->join('billings as b', function ($join) {
+    //             $join->on('b.section_id', '=', 'opd_registers.id')
+    //                 ->where('b.section', '=', 'OPD');
+    //         })
+    //         ->join('patients as p', 'p.id', '=', 'opd_registers.patient_id')
+    //         ->join('users as u', 'u.id', '=', 'opd_registers.doctor_id')
+    //         ->join('departments as d', 'd.id', '=', 'opd_registers.department_id')
+    //         ->where('opd_registers.patient_id', $id)
+    //         ->where('opd_registers.is_delete', 0)
+    //         ->orderBy('opd_registers.id', 'DESC')
+    //         ->get();
+    //     $enquiry_ids = $opd_details->pluck('enquiry_id')->toArray();
+    //     $opd_enquiry = OpdEnquiry::select(
+    //         "opd_enquiries.*",
+    //         'u.name as doctor_name',
+    //     )
+    //         ->join('users as u', 'u.id', '=', 'opd_enquiries.doctor_id')
+    //         ->where('opd_enquiries.id', $enquiry_ids)
+    //         ->get();
+
+    //     $emg_details = EmgRegister::select(
+    //         'emg_registers.*',
+    //         'u.name as doctor_name',
+    //         'd.department_name',
+    //         'b.id as billing_id',
+    //         'b.uid',
+    //         'b.due_amount',
+    //         'b.cradit_amount',
+    //         'b.bill_status'
+    //     )
+    //         ->join('billings as b', function ($join) {
+    //             $join->on('b.section_id', '=', 'emg_registers.id')
+    //                 ->where('b.section', '=', 'EMG');
+    //         })
+    //         ->join('users as u', 'u.id', '=', 'emg_registers.doctor_id')
+    //         ->join('departments as d', 'd.id', '=', 'emg_registers.department_id')
+    //         ->where('emg_registers.patient_id', $id)
+    //         ->where('emg_registers.is_delete', 0)
+    //         ->orderBy('emg_registers.id', 'DESC')
+    //         ->get();
+    //     $ipd_details = IpdRegister::select(
+    //         "ipd_registers.*",
+    //         'u.name as doctor_name',
+    //         'd.department_name',
+    //         'b.bed_name',
+    //         'w.ward_name'
+    //     )
+    //         ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+    //         ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+    //         ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+    //         ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+    //         ->where('admission_type', 'IPD')
+    //         ->where('ipd_registers.patient_id', $id)
+    //         ->where('ipd_registers.is_delete', 0)
+    //         ->orderBy('ipd_registers.id', 'DESC')
+    //         ->get();
+
+    //     $daycare_details = IpdRegister::select(
+    //         "ipd_registers.*",
+    //         'u.name as doctor_name',
+    //         'd.department_name',
+    //         'b.bed_name',
+    //         'w.ward_name'
+    //     )
+    //         ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+    //         ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+    //         ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+    //         ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+    //         ->where('admission_type', 'DAYCARE')
+    //         ->where('ipd_registers.patient_id', $id)
+    //         ->where('ipd_registers.is_delete', 0)
+    //         ->orderBy('ipd_registers.id', 'DESC')
+    //         ->get();
+
+    //     $receipt_details = Payment::select(
+    //         "payments.*",
+    //         'u.name as payment_recived_by_name'
+    //     )
+    //         ->join('users as u', 'u.id', '=', 'payments.payment_recived_by')
+    //         ->where('patient_id', $id)->orderBy('id', 'desc')
+    //         ->get();
+
+    //     $refund_details = Billing::select(
+    //         'billings.*',
+    //         'u1.name as doctor_name',
+    //         'u2.name as refund_name',
+    //         'pca.id as refund_id'
+    //     )
+    //         ->join('users as u1', 'u1.id', '=', 'billings.doctor_id')
+    //         ->join('users as u2', 'u2.id', '=', 'billings.refund_by')
+    //         ->join('patient_cradit_amounts as pca', 'pca.billing_id', '=', 'billings.id')
+    //         ->where('billings.refund_amount', '>', 0)
+    //         ->where('pca.type', 'debit')
+    //         ->where('pca.remarks', 'refund')
+    //         ->where('billings.patient_id', $id)
+    //         ->get();
+    //     // dd($refund_details);
+
+    //     $note_details = PatientNote::where('patient_id', $id)->where('is_delete', 0)->orderBy('id', 'desc')->get();
+
+    //     $data = compact(
+    //         'bill_details',
+    //         'patient_details',
+    //         'opd_details',
+    //         'totalCredit',
+    //         'totalDue',
+    //         'opd_enquiry',
+    //         'emg_details',
+    //         'ipd_details',
+    //         'daycare_details',
+    //         'receipt_details',
+    //         'refund_details',
+    //         'note_details',
+    //         'emr_details'
+    //     );
+
+    //     // return view('patient.patient-details')->with($data);
+    //     return view('patient.patient-emr-details')->with($data);
+    // }
+
+    public function patient_details($patient_id)
+    {
+        $id = ed($patient_id, false);
+
+        $patient_details = Patient::where('id', $id)->first();
+
+        $bill_details = Billing::where('patient_id', $id)->latest('id')->get();
+        $totalDue = $bill_details->sum('due_amount');
+        $totalCredit = $bill_details->sum('cradit_amount');
+
+        $emr_details = EmrMaster::select('emr_masters.*', 'u.name as doctor_name')
+            ->join('users as u', 'emr_masters.doctor_id', '=', 'u.id')
+            ->where('emr_masters.patient_id', $id)
+            ->latest('emr_masters.id')
+            ->get();
+
+        $opd_details = OpdRegister::select(
+            'opd_registers.*',
+            'u.name as doctor_name',
+            'd.department_name',
+            'b.id as billing_id',
+            'b.uid',
+            'b.due_amount',
+            'b.cradit_amount',
+            'b.bill_status'
+        )
+            ->join('users as u', 'u.id', '=', 'opd_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'opd_registers.department_id')
+            ->join('billings as b', function ($join) {
+                $join->on('b.section_id', '=', 'opd_registers.id')
+                    ->where('b.section', '=', 'OPD');
+            })
+            ->where('opd_registers.patient_id', $id)
+            ->where('opd_registers.is_delete', 0)
+            ->latest('opd_registers.id')
+            ->get();
+
+        // OPD Enquiry
+        $enquiry_ids = $opd_details->pluck('enquiry_id')->unique()->filter()->toArray();
+
+        $opd_enquiry = empty($enquiry_ids) ? collect() : OpdEnquiry::select(
+            'opd_enquiries.*',
+            'u.name as doctor_name'
+        )
+            ->join('users as u', 'u.id', '=', 'opd_enquiries.doctor_id')
+            ->whereIn('opd_enquiries.id', $enquiry_ids)
+            ->get();
+
+        // EMG Details
+        $emg_details = EmgRegister::select(
+            'emg_registers.*',
+            'u.name as doctor_name',
+            'd.department_name',
+            'b.id as billing_id',
+            'b.uid',
+            'b.due_amount',
+            'b.cradit_amount',
+            'b.bill_status'
+        )
+            ->join('users as u', 'u.id', '=', 'emg_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'emg_registers.department_id')
+            ->join('billings as b', function ($join) {
+                $join->on('b.section_id', '=', 'emg_registers.id')
+                    ->where('b.section', '=', 'EMG');
+            })
+            ->where('emg_registers.patient_id', $id)
+            ->where('emg_registers.is_delete', 0)
+            ->latest('emg_registers.id')
+            ->get();
+
+        // IPD Details
+        $ipd_details = IpdRegister::select(
+            'ipd_registers.*',
+            'u.name as doctor_name',
+            'd.department_name',
+            'b.bed_name',
+            'w.ward_name'
+        )
+            ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+            ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+            ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+            ->where('ipd_registers.admission_type', 'IPD')
+            ->where('ipd_registers.patient_id', $id)
+            ->where('ipd_registers.is_delete', 0)
+            ->latest('ipd_registers.id')
+            ->get();
+
+        // Daycare Details
+        $daycare_details = IpdRegister::select(
+            'ipd_registers.*',
+            'u.name as doctor_name',
+            'd.department_name',
+            'b.bed_name',
+            'w.ward_name'
+        )
+            ->join('users as u', 'u.id', '=', 'ipd_registers.doctor_id')
+            ->join('departments as d', 'd.id', '=', 'ipd_registers.department_id')
+            ->join('wards as w', 'w.id', '=', 'ipd_registers.ward_id')
+            ->join('beds as b', 'b.id', '=', 'ipd_registers.bed_id')
+            ->where('ipd_registers.admission_type', 'DAYCARE')
+            ->where('ipd_registers.patient_id', $id)
+            ->where('ipd_registers.is_delete', 0)
+            ->latest('ipd_registers.id')
+            ->get();
+
+        // Receipt Details
+        $receipt_details = Payment::select(
+            'payments.*',
+            'u.name as payment_recived_by_name'
+        )
+            ->join('users as u', 'u.id', '=', 'payments.payment_recived_by')
+            ->where('payments.patient_id', $id)
+            ->latest('payments.id')
+            ->get();
+
+        // Refund Details
+        $refund_details = Billing::select(
+            'billings.*',
+            'u1.name as doctor_name',
+            'u2.name as refund_name',
+            'pca.id as refund_id'
+        )
+            ->join('users as u1', 'u1.id', '=', 'billings.doctor_id')
+            ->join('users as u2', 'u2.id', '=', 'billings.refund_by')
+            ->join('patient_cradit_amounts as pca', 'pca.billing_id', '=', 'billings.id')
+            ->where('billings.refund_amount', '>', 0)
+            ->where('pca.type', 'debit')
+            ->where('pca.remarks', 'refund')
+            ->where('billings.patient_id', $id)
+            ->get();
+
+        // Notes
+        $note_details = PatientNote::where('patient_id', $id)
+            ->where('is_delete', 0)
+            ->latest('id')
+            ->get();
+
+        $data = compact(
+            'bill_details',
+            'patient_details',
+            'opd_details',
+            'totalCredit',
+            'totalDue',
+            'opd_enquiry',
+            'emg_details',
+            'ipd_details',
+            'daycare_details',
+            'receipt_details',
+            'refund_details',
+            'note_details',
+            'emr_details'
+        );
+
+        return view('patient.patient-emr-details')->with($data);
+    }
+
+
+
+    public function patient_save(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|max:50',
+            'note' => 'required',
+            'p_document' => 'nullable|file|mimes:pdf,doc,docx',
+        ]);
+        $patient_note = new PatientNote();
+        $filename = '';
+        if ($request->hasfile('p_document')) {
+            $file = $request->file('p_document');
+            $filename = rand() . '.' . $file->getClientOriginalExtension();
+            $fileSave =  $file->move("public/assets/images/patientdocument/", $filename);
+            $patient_note->p_document = $filename;
+        }
+        $patient_note->patient_id = $request->patient_id;
+        $patient_note->title = $request->title;
+        $patient_note->note = $request->note;
+        $patient_note->save();
+
+        return redirect()->back()->with('success', "Patient note added successfully");
+    }
+    public function edit_patient_details($id)
+    {
+        $id = ed($id, false);
+        $patient_details = Patient::where('id', $id)->first();
+        $states = State::where('country_id', '1')->get();
+        $data = compact('patient_details', 'states');
+        return view('patient.edit-patient')->with($data);
+    }
+    public function update_patient_details(Request $request)
+    {
+        // dd($request);
+        $request->validate([
+            'name' => 'required',
+            'gender' => 'required',
+            'dob_year' => 'required|numeric',
+            'dob_month' => 'nullable|numeric',
+            'dob_day' => 'nullable|numeric',
+            'phone' => 'required|digits:10',
+            'address' => 'required',
+            'state' => 'required',
+            'district' => 'required'
+        ]);
+        $patient = Patient::find($request->uhid);
+        $patient->name = ucwords($request->name);
+        $patient->phone = $request->phone;
+        $patient->gender = $request->gender;
+        $patient->guardian_name = $request->guardian_name;
+        $patient->guardian_contact_no = $request->guardian_contact_no;
+        $patient->dob_year = $request->dob_year;
+        $patient->dob_month = $request->dob_month;
+        $patient->dob_day = $request->dob_day;
+        $patient->address = $request->address;
+        $patient->state = $request->state;
+        $patient->district = $request->district;
+        $patient->pin_code = $request->pin_code;
+        $patient->identification_name = 'Aadhar Card';
+        $patient->identification_number = $request->identification_number;
+        $patient->save();
+        return redirect()->route('hr.patient-list')->with('success', 'Patient Updated Sucessfully');
+    }
+    public function patient_list(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = Patient::select(
+                'patients.*',
+                's.name as state_name',
+                'd.name as district_name',
+                DB::raw('(SELECT SUM(due_amount) FROM billings WHERE billings.patient_id = patients.id) as total_due')
+            )
+                ->leftjoin('districts as d', 'd.id', '=', 'patients.district')
+                ->leftjoin('states as s', 's.id', '=', 'patients.state')
+                ->orderBy('patients.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('address', function ($row) {
+                    $district = $row->district_name ?? 'N/A';
+                    $state = $row->state_name ?? 'N/A';
+                    return "{$row->address}, {$district},<br>{$state},";
+                })
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('hr.patient-edit-details', ed($row->id, true)) . '" class="btn btn-sm btn-outline-primary" title="Click here to Edit patient details"><i class="fa fa-edit"></i>Edit</a>';
+                    return $actionBtn;
+                })
+                ->rawColumns(['action', 'address'])
+                ->make(true);
+        }
+        return view('patient.patient_list');
+    }
+    public function patient_delete($id)
+    {
+        $id = ed($id, false);
+        $data = PatientNote::where('id', $id)->first();
+
+        if ($data) {
+            $data->update([
+                'is_delete' => 1
+            ]);
+            return redirect()->back()->with('success', "Patient note deleted successfully");
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+
+    public function child_register()
+    {
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $states = State::where('country_id', '1')->get();
+        $showButton = true;
+        $data = compact('doctor', 'states', 'showButton');
+        return view('patient.child-register')->with($data);
+    }
+    public function child_register_save(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|max:100',
+            'gender' => 'required',
+            'address' => 'required|max:255',
+            'state' => 'required',
+            'district' => 'required',
+            'doctor_id' => 'required',
+            'baby_status' => 'required'
+        ]);
+
+        $childcare = $request->id ? Childcare::find($request->id) : new Childcare();
+        $childcare->name = ucwords(strtolower($request->name));
+        $childcare->guardian_name = ucwords(strtolower($request->guardian_name));
+        $childcare->blood_group = $request->blood_group;
+        $childcare->gender = $request->gender;
+        $childcare->date_of_birth = $request->date_of_birth ? date('Y-m-d H:i:s', strtotime($request->date_of_birth)) : null;
+        $childcare->dob_year = $request->date_of_birth_year;
+        $childcare->dob_month = $request->date_of_birth_month;
+        $childcare->dob_day = $request->date_of_birth_day;
+        $childcare->address = $request->address;
+        $childcare->state = $request->state;
+        $childcare->district = $request->district;
+        $childcare->pin_code = $request->pin_code;
+        $childcare->doctor_id = $request->doctor_id;
+        $childcare->diagnosis = $request->diagnosis;
+        $childcare->operation = $request->operation;
+        $childcare->weight    = $request->weight;
+        $childcare->baby_status = $request->baby_status;
+        $childcare->delivery_mode = $request->delivery_mode;
+        $childcare->admission_date = $request->admission_date ? date('Y-m-d H:i:s', strtotime($request->admission_date)) : null;
+        $childcare->discharge_date = $request->discharge_date ? date('Y-m-d H:i:s', strtotime($request->discharge_date)) : null;
+        $childcare->created_by = Auth::user()->id;
+
+        if ($request->id) {
+            $childcare->edit_by = Auth::user()->id;
+            $childcare->edit_at = now();
+        }
+
+        if ($childcare->save()) {
+            return redirect()->route('hr.child-list')->with('success', 'Childcare Registration Sucessfully');
+        } else {
+            return redirect()->back()->with('error', 'Failed! Please try again!');
+        }
+    }
+    public function child_list(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = Childcare::where('is_delete', 0)->orderBy('id', 'DESC');
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->editColumn('date_of_birth', function ($row) {
+                    return $row->date_of_birth ? dateFor($row->date_of_birth, true) : null;
+                })
+                ->editColumn('admission_date', function ($row) {
+                    return $row->admission_date ? dateFor($row->admission_date, true) : '---';
+                })
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('hr.child-register-view', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    $actionBtn .= '<a href="' . route('hr.child-certificate-print', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="Download"><i class="bx bxs-download"></i></a>';
+                    // $actionBtn .= '<a href="' . route('', ['id' => ed($row->id, true)]) . '" class="btn btn-sm btn-outline-info mx-1" title="Download"><i class="bx bxs-file"></i></a>';
+                    $actionBtn .= '<a href="' . route('hr.child-register-edit', ed($row->id, true)) . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                    $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('hr.child-register-delete', ed($row->id, true)) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+        return view('patient.child-listing');
+    }
+    public function child_certificate_print($id)
+    {
+        $id = ed($id, false);
+        $child_details = Childcare::where('id', $id)->first();
+        $data = compact('child_details');
+        return view('patient.child-certificate')->with($data);
+    }
+    public function child_register_view($id)
+    {
+        $id = ed($id, false);
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $childcare_details = Childcare::where('id', $id)->first();
+        $states = State::where('country_id', '1')->get();
+        $showButton =  false;
+        $data = compact('childcare_details', 'states', 'showButton', 'doctor');
+        return view('patient.child-register')->with($data);
+    }
+    public function child_register_edit($id)
+    {
+        $id = ed($id, false);
+        $doctor = User::where('user_type', 'doctor')->where('is_active', 1)->where('is_delete', 0)->get();
+        $childcare_details = Childcare::where('id', $id)->first();
+        $states = State::where('country_id', '1')->get();
+        $showButton = true;
+        $data = compact('childcare_details', 'states', 'showButton', 'doctor');
+        return view('patient.child-register')->with($data);
+    }
+    public function child_register_delete($id)
+    {
+        $id = ed($id, false);
+        $data = Childcare::where('id', $id)->first();
+
+        if ($data) {
+            $data->update([
+                'is_delete' => 1
+            ]);
+            return redirect()->route('hr.child-list')->with('success', 'Childcare Deleted Successfully');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+    public function global_pateint_bill_search(Request $request)
+    {
+        $uhid = trim($request->input('p_uhid'));
+        $billNo = trim($request->input('bill_no'));
+
+        if ($uhid && !$billNo) {
+            return $this->searchByUhid($uhid);
+        }
+
+        if ($billNo && !$uhid) {
+            return $this->searchByBillNo($billNo);
+        }
+
+        // If both or neither are filled
+        return redirect()->back()->with('error', 'Please enter only one value — either UHID or Bill No.');
+    }
+
+    private function searchByUhid($uhid)
+    {
+        $patient = Patient::where('id', $uhid)->first();
+
+        if (!$patient) {
+            return redirect()->back()->with('error', 'No patient found with this UHID.');
+        }
+
+        // Redirect to the patient profile details route with patient ID
+        return redirect()->route('hr.patient-profile-details', ['id' => ed($patient->id, 'encrypt')]);
+    }
+
+    private function searchByBillNo($billNo)
+    {
+        $bill = Billing::where('uid', $billNo)->first();
+
+        if (!$bill) {
+            return redirect()->back()->with('error', 'No bill found with this Bill No.');
+        }
+
+        return redirect()->route('bill.billing-details', ['section' => $bill->section, 'bill_id' => ed($bill->id, 'encrypt')]);
+    }
+}

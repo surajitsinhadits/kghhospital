@@ -1,0 +1,229 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Aefi-Reports List</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+        <div class="card">
+            <div class="card-header card_hearder_mimi justify-content-between">
+                <h4 class="card-title card_hearder_mimi_text">
+                    Aefi-Reports List
+                </h4>
+            </div>
+            <div class="card-body p-0" style="margin-bottom: 32px;">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped table-bordered data-table w-100">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- AEFI Report Modal -->
+    <div class="modal fade" id="aefiModal" tabindex="-1" role="dialog" aria-labelledby="aefiModalLabel"
+        aria-hidden="true" style="width: 600px;left:28%;">
+        <div class="modal-dialog modal-md" role="document">
+            <form action="" method="POST" id="aefiEditForm">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="aefiModalLabel">Add AEFI Report</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row">
+                            <input type="hidden" name="patient_vaccination_id" id="modal_vaccination_id">
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="">Patient Name</label>
+                                    <input type="text" name="" id="modal_vaccination_patient_name" readonly>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="">Vaccine Name</label>
+                                    <input type="text" name="" id="modal_vaccination_vaccine_name" readonly>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="symptoms">Symptoms</label>
+                                    <input type="text" class="form-control" name="symptoms">
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="classification">Classification</label>
+                                    <select class="form-control" name="classification">
+                                        <option value="">Select</option>
+                                        <option value="minor">Minor</option>
+                                        <option value="serious">Serious</option>
+                                        <option value="severe">Severe</option>
+                                        <option value="unrelated">Unrelated</option>
+                                        <option value="unknown">Unknown</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="onset_interval">Onset Interval</label>
+                                    <input type="text" class="form-control" name="onset_interval">
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="outcome">Outcome</label>
+                                    <select class="form-control" name="outcome">
+                                        <option value="">Select</option>
+                                        <option value="recovered">Recovered</option>
+                                        <option value="ongoing">Ongoing</option>
+                                        <option value="referred">Referred</option>
+                                        <option value="hospitalized">Hospitalized</option>
+                                        <option value="deceased">Deceased</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="action_taken">Action Taken</label>
+                                    <input type="text" class="form-control" name="action_taken">
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-group">
+                                    <label for="investigation_notes">Investigation Notes</label>
+                                    <input type="text" class="form-control" name="investigation_notes">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Submit Report</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+@endsection
+@push('js')
+<script type="text/javascript">
+    $(function() {
+        var table = $('.data-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: "{{ route('vc.listing-aefi-reports') }}",
+            columns: [
+                {
+                    data: null,
+                    name: 'sl_no',
+                    title: 'SN',
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    },
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'patient_name',
+                    name: 'p.name',
+                    title: 'Patient Name',
+                    render: function(data, type, row) {
+                        return `${row.patient_name} (${row.patient_uhid || row.patient_id})`;
+                    },
+                },
+                {
+                    data: 'vaccine_name',
+                    name: 'vac.vaccine_name',
+                    title: 'Vaccine Name'
+                },
+                {
+                    data: 'date',
+                    name: 'date',
+                    title: 'Date',
+                    orderable: false,
+                    searchable: false,
+                    render: function(data, type, row) {
+                        return `${formatDateTime(row.date,'date')}`;
+                    },
+                },
+                {
+                    data: 'reported_at',
+                    name: 'reported_at',
+                    title: 'Reported At',
+                    orderable: false,
+                    searchable: false,
+                    render: function(data, type, row) {
+                        return `${formatDateTime(row.reported_at,'date')}`;
+                    },
+                },
+                {
+                    data: 'symptoms',
+                    name: 'symptoms',
+                    title: 'Symptoms',
+                },
+                {
+                    data: 'classification',
+                    name: 'classification',
+                    title: 'Classification',
+                },
+               {
+                    data: 'onset_interval',
+                    name: 'onset_interval',
+                    title: 'Onset Interval',
+                },
+                {
+                    data: 'outcome',
+                    name: 'outcome',
+                    title: 'Outcome',
+                },
+                {
+                    data: 'action',
+                    name: 'action',
+                    title: 'Action',
+                    searchable: true
+                },
+            ],
+        });
+
+        $(document).on('click', '.openEditAefiModal', function () {
+            const id = $(this).data('id');
+            const vaccinationId = $(this).data('vaccination_id');
+            const patientName = $(this).data('patient_name');
+            const vaccineName = $(this).data('vaccine_name');
+            const symptoms = $(this).data('symptoms');
+            const classification = $(this).data('classification');
+            const onsetInterval = $(this).data('onset_interval');
+            const outcome = $(this).data('outcome');
+            const actionTaken = $(this).data('action_taken');
+            const investigationNotes = $(this).data('investigation_notes');
+
+            $('#modal_vaccination_id').val(vaccinationId);
+            $('#modal_vaccination_patient_name').val(patientName);
+            $('#modal_vaccination_vaccine_name').val(vaccineName);
+            $('input[name="symptoms"]').val(symptoms);
+            $('select[name="classification"]').val(classification);
+            $('input[name="onset_interval"]').val(onsetInterval);
+            $('select[name="outcome"]').val(outcome);
+            $('input[name="action_taken"]').val(actionTaken);
+            $('input[name="investigation_notes"]').val(investigationNotes);
+
+            let actionUrl = "{{ route('vc.update-aefi-reports', ['id' => '__ID__']) }}".replace('__ID__', id);
+            $('#aefiEditForm').attr('action', actionUrl);
+
+            $('#aefiModal').modal('show');
+        });
+    });
+</script>
+@endpush

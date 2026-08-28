@@ -1,0 +1,531 @@
+@extends('layouts.structure')
+
+@push('title')
+    <title>{{ $title }}</title>
+@endpush
+
+@section('main-content')
+    <style>
+        .miscellaneous-table th,
+        .miscellaneous-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+    </style>
+    <div class="row">
+        <div class="col-lg-3">
+            <div class="card">
+                <div class="card-header card_hearder_mimi justify-content-between">
+                    <h4 class="card-title card_hearder_mimi_text" id="miscFormTitle">Add Miscellaneous Bill</h4>
+                </div>
+                <div class="card-body">
+                    <form
+                        action="{{ route('hr.miscellaneous.store') }}"
+                        method="POST"
+                        enctype="multipart/form-data"
+                        id="misc-form"
+                    >
+                        @csrf
+
+                        <input type="hidden" name="_method" value="POST" id="miscFormMethod">
+                        <input type="hidden" name="misc_id" id="misc_id">
+
+                        <div class="form-group">
+                            <label for="bill_purpose">Bill Purpose <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="bill_purpose" name="bill_purpose"
+                                value="{{ old('bill_purpose') }}" required>
+                            @error('bill_purpose')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label for="service_provider">Service Provider <span class="text-danger">*</span></label>
+                            <select class="form-control" id="service_provider" name="service_provider" required>
+                                <option value="">Select a service provider</option>
+                                @foreach ($serviceProviders as $provider)
+                                    @php
+                                        $providerValue = (string) $provider->id;
+                                        $oldProvider = (string) old('service_provider');
+                                    @endphp
+                                    <option value="{{ $provider->id }}"
+                                        {{ $oldProvider === $providerValue ? 'selected' : '' }}>
+                                        {{ $provider->vendor_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('service_provider')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label for="bill_amount">Bill Amount <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" id="bill_amount" name="bill_amount"
+                                value="{{ old('bill_amount') }}" required>
+                            @error('bill_amount')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label for="note">Note</label>
+                            <textarea
+                                class="form-control"
+                                id="note"
+                                name="note"
+                                rows="3"
+                                placeholder="Enter note"
+                            >{{ old('note') }}</textarea>
+                            @error('note')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div class="form-group">
+                            {{-- <label for="invoice_upload">Invoice Upload</label> --}}
+                            <div class="d-flex align-items-center" style="gap: 8px;">
+                                <button type="button" id="openCamera" class="btn btn-outline-secondary btn-sm" style="white-space: nowrap;">
+                                    <i class="fa fa-camera mr-1"></i> Open Camera
+                                </button>
+                                <div class="custom-file" style="flex: 1;">
+                                    <input
+                                        type="file"
+                                        class="custom-file-input"
+                                        id="invoice_upload"
+                                        name="invoice_upload"
+                                        accept="image/*"
+                                    >
+                                    <label class="custom-file-label" for="invoice_upload" style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+                                        Choose file
+                                    </label>
+                                </div>
+                            </div>
+                            {{-- <small class="text-muted d-block mt-1">Use camera to capture or choose a file to upload.</small> --}}
+
+                            <div id="cameraSection" class="mt-3 d-none">
+                                <video id="invoiceCamera" autoplay playsinline muted style="width:100%; max-height:240px; border:1px solid #ccc; border-radius:4px;"></video>
+                                <div class="mt-2">
+                                    <button type="button" id="captureInvoice" class="btn btn-success btn-sm">Capture Photo</button>
+                                    <button type="button" id="closeCamera" class="btn btn-light btn-sm">Close Camera</button>
+                                </div>
+                                <img id="cameraPreview" class="mt-2 d-none img-fluid" alt="Captured preview" style="max-height:240px; border:1px solid #ccc; border-radius:4px;">
+                                <canvas id="invoiceCanvas" style="display:none;"></canvas>
+                            </div>
+                            @error('invoice_upload')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                            name="submit_action"
+                            value="Save Bill"
+                        >Save Bill</button>
+                        <button type="button" class="btn btn-secondary ml-2" id="miscFormReset">Reset</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9">
+            <div class="card">
+                <div class="card-header card_hearder_mimi justify-content-between">
+                    <h4 class="card-title card_hearder_mimi_text">Miscellaneous Bills List</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover mb-0 miscellaneous-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Bill No</th>
+                                    <th>Invoice</th>
+                                    <th>Bill Purpose</th>
+                                    <th>Service Provider</th>
+                                    <th>Bill Amount</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @forelse ($miscellaneous as $misc)
+                                    @php
+                                        $serviceProviderName = $misc->serviceProviderVendor?->vendor_name
+                                            ?? ($serviceProviders->firstWhere('id', (int) $misc->service_provider)->vendor_name ?? $misc->service_provider);
+                                        if ($misc->approved_by) {
+                                            $statusLabel = 'Approved';
+                                            $statusClass = 'badge-success';
+                                        } elseif ($misc->verified_by) {
+                                            $statusLabel = 'Verified';
+                                            $statusClass = 'badge-info';
+                                        } else {
+                                            $statusLabel = 'Created';
+                                            $statusClass = 'badge-warning';
+                                        }
+                                    @endphp
+
+                                    <tr>
+                                        <td>{{ $loop->iteration }}</td>
+                                        <td>{{ $misc->display_bill_no }}</td>
+                                        <td class="text-center">
+                                            @if ($misc->invoice_url)
+                                                <a
+                                                    target="_blank"
+                                                    href="{{ $misc->invoice_url }}"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    title="View Invoice"
+                                                    aria-label="View Invoice"
+                                                >
+                                                    <i class="fa fa-eye"></i>
+                                                </a>
+                                            @else
+                                                <span class="text-muted">No invoice</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $misc->bill_purpose }}</td>
+                                        <td>{{ $serviceProviderName }}</td>
+                                        <td>₹{{ number_format($misc->bill_amount, 2) }}</td>
+                                        <td>
+                                            <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
+                                        </td>
+                                        <td>
+                                            @if (!$misc->verified_by && !$misc->approved_by)
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-primary misc-edit-btn"
+                                                    data-action="{{ route('hr.miscellaneous.update', $misc) }}"
+                                                    data-bill-purpose="{{ $misc->bill_purpose }}"
+                                                    data-service-provider="{{ $misc->service_provider }}"
+                                                    data-bill-amount="{{ $misc->bill_amount }}"
+                                                    data-note="{{ $misc->note }}"
+                                                    data-id="{{ $misc->id }}"
+                                                >
+                                                    Edit
+                                                </button>
+                                            @else
+                                                <span class="text-muted small">Locked</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center">No miscellaneous bills recorded yet.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Payment Modal --}}
+    <style>
+    /* center modal vertically + keep it small */
+    #paymentModal .modal-dialog {
+        width: 380px;              /* small width */
+        margin: 0 auto;            /* center horizontally */
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    /* mobile friendly */
+    @media (max-width: 480px) {
+        #paymentModal .modal-dialog {
+            width: 95%;
+        }
+    }
+
+    /* reduce padding a bit to look compact */
+    #paymentModal .modal-body {
+        padding: 12px 15px;
+    }
+    #paymentModal .modal-header,
+    #paymentModal .modal-footer {
+        padding: 10px 15px;
+    }
+</style>
+
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" id="paymentForm">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="paymentModalLabel">Record Payment</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Remaining Due</label>
+                        <p class="form-control-static font-weight-bold" id="modalRemainingDue">₹0.00</p>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="amount_paid">Pay Amount</label>
+                            <input type="number" step="0.01" name="amount_paid" class="form-control" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="payment_discount">Discount</label>
+                            <input type="number" step="0.01" name="discount" class="form-control" value="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="details">Details</label>
+                        <textarea name="details" rows="3" class="form-control"></textarea>
+                    </div>
+
+                    <div>
+                        <strong>Past Payments</strong>
+                        <ul class="list-group mt-2" id="paymentHistory"></ul>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Payment</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@endsection
+
+@push('js')
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const payButtons = document.querySelectorAll('.pay-trigger');
+            const paymentForm = document.getElementById('paymentForm');
+            const remainingDueEl = document.getElementById('modalRemainingDue');
+            const historyList = document.getElementById('paymentHistory');
+            const paymentModal = document.getElementById('paymentModal');
+            const payAmountInput = paymentForm.querySelector('input[name="amount_paid"]');
+
+            const routeTemplate = "{{ route('hr.miscellaneous.pay', ['id' => '__id__']) }}";
+
+            payButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const id = button.getAttribute('data-id');
+                    const due = parseFloat(button.getAttribute('data-due') || '0').toFixed(2);
+
+                    let payments = [];
+                    try {
+                        payments = JSON.parse(button.getAttribute('data-payments') || '[]');
+                    } catch (e) {
+                        payments = [];
+                    }
+
+                    paymentForm.setAttribute('action', routeTemplate.replace('__id__', id));
+                    remainingDueEl.textContent = `₹${due}`;
+                    if (payAmountInput) {
+                        payAmountInput.value = due;
+                    }
+
+                    historyList.innerHTML = '';
+                    if (payments.length) {
+                        payments.forEach(payment => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item small';
+
+                            const details = (payment.details && payment.details.trim()) ? payment.details : 'No details';
+                            const paidAt = payment.paid_at ? `<br><small>${payment.paid_at}</small>` : '';
+
+                            li.innerHTML =
+                                `<strong>₹${payment.amount_paid}</strong> paid, discount <strong>₹${payment.discount}</strong><br>${details}${paidAt}`;
+
+                            historyList.appendChild(li);
+                        });
+                    } else {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item small text-muted';
+                        li.textContent = 'No payments recorded yet.';
+                        historyList.appendChild(li);
+                    }
+
+                    $(paymentModal).modal('show');
+                });
+            });
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('misc-form');
+            if (!form) {
+                return;
+            }
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (!submitBtn) {
+                return;
+            }
+
+            form.addEventListener('submit', function (event) {
+                if (submitBtn.dataset.submitted === 'true') {
+                    event.preventDefault();
+                    return;
+                }
+
+                submitBtn.dataset.submitted = 'true';
+                submitBtn.disabled = true;
+                const spinner = '<i class="fa fa-spinner fa-spin mr-2"></i>';
+                submitBtn.innerHTML = spinner + 'Processing...';
+            });
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const openButton = document.getElementById('openCamera');
+            const closeButton = document.getElementById('closeCamera');
+            const cameraSection = document.getElementById('cameraSection');
+            const video = document.getElementById('invoiceCamera');
+            const captureButton = document.getElementById('captureInvoice');
+            const preview = document.getElementById('cameraPreview');
+            const canvas = document.getElementById('invoiceCanvas');
+            const fileInput = document.getElementById('invoice_upload');
+
+            let stream;
+
+            async function startCamera() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    alert('Camera APIs are not available in this browser.');
+                    return;
+                }
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    video.srcObject = stream;
+                    cameraSection.classList.remove('d-none');
+                } catch (error) {
+                    console.error('Camera access denied.', error);
+                    alert('Unable to access the camera. Please allow permissions or use a file upload.');
+                }
+            }
+
+            function stopCamera() {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                video.srcObject = null;
+                cameraSection.classList.add('d-none');
+            }
+
+            captureButton.addEventListener('click', function () {
+                if (!stream) {
+                    return;
+                }
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(blob => {
+                    if (!blob) {
+                        return;
+                    }
+                    const file = new File([blob], 'invoice.jpg', { type: blob.type });
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    fileInput.files = dt.files;
+                    preview.src = URL.createObjectURL(file);
+                    preview.classList.remove('d-none');
+                }, 'image/jpeg', 0.92);
+            });
+
+            openButton.addEventListener('click', startCamera);
+            closeButton.addEventListener('click', function () {
+                stopCamera();
+            });
+
+            window.addEventListener('beforeunload', stopCamera);
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('misc-form');
+            if (!form) {
+                return;
+            }
+            const hasValidationErrors = @json($errors->any());
+            const hasOldInput = @json(old('bill_purpose') || old('service_provider') || old('bill_amount') || old('note'));
+            const defaultAction = form.getAttribute('action');
+            const methodInput = document.getElementById('miscFormMethod');
+            const miscIdInput = document.getElementById('misc_id');
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const resetBtn = document.getElementById('miscFormReset');
+            const titleEl = document.getElementById('miscFormTitle');
+            const billPurpose = document.getElementById('bill_purpose');
+            const serviceProvider = document.getElementById('service_provider');
+            const billAmount = document.getElementById('bill_amount');
+            const note = document.getElementById('note');
+            const editButtons = document.querySelectorAll('.misc-edit-btn');
+
+            function resetFormState() {
+                form.reset();
+                methodInput.value = 'POST';
+                form.setAttribute('action', defaultAction);
+                miscIdInput.value = '';
+                submitBtn.textContent = 'Save Bill';
+                titleEl.textContent = 'Add Miscellaneous Bill';
+                if (note) {
+                    note.value = '';
+                }
+            }
+
+            function setServiceProvider(value) {
+                if (!value) {
+                    serviceProvider.value = '';
+                    return;
+                }
+                const normalizedValue = String(value).trim();
+                const match = Array.from(serviceProvider.options).find(opt => String(opt.value).trim() === normalizedValue);
+                serviceProvider.value = match ? match.value : '';
+            }
+
+            editButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    methodInput.value = 'PATCH';
+                    form.setAttribute('action', button.dataset.action);
+                    miscIdInput.value = button.dataset.id;
+                    billPurpose.value = button.dataset.billPurpose || '';
+                    setServiceProvider(button.dataset.serviceProvider || '');
+                    billAmount.value = button.dataset.billAmount || '';
+                    if (note) {
+                        note.value = button.dataset.note || '';
+                    }
+                    submitBtn.textContent = 'Update Bill';
+                    titleEl.textContent = 'Edit Miscellaneous Bill';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', resetFormState);
+            }
+            if (!hasValidationErrors && !hasOldInput) {
+                resetFormState();
+            }
+        });
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const fileInput = document.getElementById('invoice_upload');
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                const label = this.nextElementSibling;
+                if (label && this.files.length) {
+                    label.textContent = this.files[0].name;
+                }
+            });
+        }
+    });
+</script>
+@endpush

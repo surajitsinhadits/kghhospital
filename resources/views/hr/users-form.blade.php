@@ -1,0 +1,257 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{$title}}</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <h4 class="card-title card_hearder_mimi_text">{{$title}}</h4>
+                </div>
+                <div class="card-body">
+                    <form class="form-horizontal" enctype="multipart/form-data" method="POST" action="{{$action}}">
+                        @csrf
+                        <div class="row">
+                            <div class="card-body hospital_allcardbodydesign">
+                                <h5 class="font-weight-bold"><i class="fas fa-user"></i> Personal Information</h5>
+                                <div class="main-profile-bio mb-0">
+                                    <div class="row">
+                                        @if ($type == 'main')
+                                        <div class="col-md-2 newuserchange">
+                                            <label>Role <span class="text-danger">*</span></label>
+                                            <select class="form-control select2-show-search" name="role" id="role">
+                                                <option value="">Select Role</option>
+                                                @foreach ($roles as $role)
+                                                    <option value="{{ $role->id }}" {{ (old('role', $edit->role_id ?? '') == $role->id) ? 'selected' : '' }}>
+                                                        {{ $role->role }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @error('role') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+                                        @endif
+                                        <div class="col-md-2 newuserchange">
+                                            <label for="employee_id">Employee Id <span class="text-danger">*</span></label>
+                                            <input type="text" id="employee_id" name="employee_id"
+                                                value="{{ old('employee_id', $edit->empId ?? '') }}"
+                                                {{ @$type == 'profile' ? 'readonly' : '' }} class="form-control">
+                                            @error('employee_id') <small class="text-danger">{{ $message }}</small> @enderror
+                                        </div>
+                                        <div class="col-md-2 newuserchange">
+                                            <label>Salutation </label>
+                                            <select name="salutation" class="form-control" id="salutation">
+                                                <option value="">Select Salutation</option>
+                                                @foreach(['Mr.' => 'Mr.', 'Mrs.' => 'Mrs.', 'Ms.' => 'Ms.', 'Miss' => 'Miss', 'Dr.' => 'Dr.', 'Prof.' => 'Prof.'] as $key => $value)
+                                                    <option value="{{ $key }}" {{ (old('salutation', $edit->salutation ?? '') == $key) ? 'selected' : '' }}>{{ $value }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('salutation') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserchange">
+                                            <label for="name"> Name <span class="text-danger">*</span></label>
+                                            <input type="text" name="name" id="name" value="{{ old('name', $edit->name ?? '') }}">
+                                            @error('name') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 useradddtwo">
+                                            <label for="father_name"> Father Name</label>
+                                            <input type="text" name="father_name" id="father_name" value="{{ old('father_name', $edit->father_name ?? '') }}">
+                                            @error('father_name') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 useradddtwo">
+                                            <label for="mother_name"> Mother Name</label>
+                                            <input type="text" name="mother_name" id="mother_name" value="{{ old('mother_name', $edit->mother_name ?? '') }}">
+                                            @error('mother_name') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserchange">
+                                            <label>Gender <span class="text-danger">*</span></label>
+                                            <select name="gender" class="form-control" id="gender">
+                                                <option value="">Select Gender</option>
+                                                @foreach(['Male' => 'Male', 'Female' => 'Female', 'Others' => 'Others'] as $key)
+                                                    <option value="{{ $key }}" {{ (old('gender', $edit->gender ?? '') == $key) ? 'selected' : '' }}>{{ $key }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('gender') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserchange">
+                                            <label>Marital Status</label>
+                                            <select name="marital_status" class="form-control" id="marital_status">
+                                                <option value="">Marital Status</option>
+                                                @foreach(['Single', 'Married', 'Widowed', 'Separated', 'Not Specified'] as $key)
+                                                    <option value="{{ $key }}" {{ (old('marital_status', $edit->marital_status ?? '') == $key) ? 'selected' : '' }}>{{ $key }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('marital_status') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserchange">
+                                            <label>Blood Group</label>
+                                            <select name="blood_group" class="form-control" id="blood_group">
+                                                <option value="">Select Blood Group</option>
+                                                @foreach(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as $group)
+                                                    <option value="{{ $group }}" {{ (old('blood_group', $edit->blood_group ?? '') == $group) ? 'selected' : '' }}>{{ $group }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('blood_group') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserchange">
+                                            <label>Date Of Birth</label>
+                                            <input type="text" class="datePickr" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth', $edit->dob ?? '') }}">
+                                            @error('date_of_birth') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        {{-- <div class="col-md-2 newuserchange">
+                                            <label>Date Of Joining</label>
+                                            <input type="text" class="datePickr" name="date_of_joining" id="date_of_joining" value="{{ old('date_of_joining', $edit->joining_date ?? '') }}">
+                                            @error('date_of_joining') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div> --}}
+                                        <div class="col-md-2 newuserchange">
+                                            <label>Date Of Joining</label>
+                                            <input type="text" class="datePickr" value="{{ old('date_of_joining', $edit->joining_date ?? '') }}" @if ($type != 'main') disabled @endif>
+                                            {{-- <input type="hidden" name="date_of_joining" value="{{ old('date_of_joining', $edit->joining_date ?? '') }}"> --}}
+                                            {{-- <label>Date Of Joining</label>
+                                            <input type="text" class="datePickr" name="date_of_joining" id="date_of_joining"
+                                                value="{{ old('date_of_joining', $edit->joining_date ?? '') }}"
+                                                {{ @$edit ? 'disabled' : '' }}> --}}
+                                            @error('date_of_joining') <small class="text-danger">{{ $message }}</small> @enderror
+                                        </div>
+                                        <div class="col-md-2 useradddtwoo">
+                                            <label for="phone_no"> Phone <span class="text-danger">*</span></label>
+                                            <input type="text" name="phone_no" id="phone_no" value="{{ old('phone_no', $edit->phone_no ?? '') }}">
+                                            @error('phone_no') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserlisttchangee">
+                                            <label for="whatsapp_no">Whatsapp No</label>
+                                            <input type="text" name="whatsapp_no" id="whatsapp_no" value="{{ old('whatsapp_no', $edit->whatsapp_no ?? '') }}">
+                                            @error('whatsapp_no') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserlisttchangee">
+                                            <label for="emg_phone_no">Emergency Phone No.</label>
+                                            <input type="text" name="emg_phone_no" id="emg_phone_no" value="{{ old('emg_phone_no', $edit->emg_no ?? '') }}">
+                                            @error('emg_phone_no') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserlisttchangee">
+                                            <label for="email">Email <span class="text-danger">*</span></label>
+                                            <input type="email" name="email" id="email" value="{{ old('email', $edit->email ?? '') }}">
+                                            @error('email') <small class="text-danger">{{$message}}</small> @enderror
+                                        </div>
+
+                                        <div class="col-md-2 newuserlisttfour">
+                                            <label class="form-label">Photo (512 x 512)</label>
+                                            <input type="file" name="profile_image" id="profile_image">
+                                            <input type="hidden" name="old_profile_image" id="old_profile_image" value="{{ $edit->profile_image ?? '' }}">
+                                            @if(!empty($edit->profile_image))
+                                                <div class="mt-2">
+                                                    <img src="{{ asset('public/assets/images/users/' . $edit->profile_image) }}"
+                                                        alt="Current Profile Photo"
+                                                        width="80" height="80" style="object-fit: cover; border: 1px solid #ccc; border-radius: 5px;">
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-body hospital_allcardbodydesign">
+                                <h5 class="font-weight-bold"><i class="fas fa-map-marker-alt"></i> Address</h5>
+                                <div class="main-profile-bio mb-0">
+                                    <div class="row">
+                                        <div class="col-md-6 newuserchange">
+                                            <label for="current_address">Current Address </label>
+                                            <textarea name="current_address" class="form-control" id="current_address" rows="5">{{ old('current_address', $edit->current_address ?? '') }}</textarea>
+                                            @error('current_address')<small class="text-danger">{{$message}}</small>@enderror
+                                        </div>
+                                        <div class="col-md-6 newuserchange">
+                                            <label for="permanent_address">Permanent Address </label>
+                                            <textarea name="permanent_address" class="form-control" id="permanent_address" rows="5">{{ old('permanent_address', $edit->permanent_address ?? '') }}</textarea>
+                                            @error('permanent_address')<small class="text-danger">{{$message}}</small>@enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-body hospital_allcardbodydesign">
+                                <h5 class="font-weight-bold"><i class="fa fa-cube"></i> Others</h5>
+                                <div class="main-profile-bio mb-0">
+                                    <div class="row">
+                                        @foreach(['qualification', 'experience', 'specialization', 'note'] as $field)
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="{{ $field }}">{{ ucfirst(str_replace('_', ' ', $field)) }}</label>
+                                                <input type="text" name="{{ $field }}" id="{{ $field }}" value="{{ old($field, $edit->$field ?? '') }}">
+                                                @error($field)<small class="text-danger">{{$message}}</small>@enderror
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-body hospital_allcardbodydesign">
+                                <h5 class="font-weight-bold"><i class="fas fa-tasks"></i> Identification Details</h5>
+                                <div class="main-profile-bio mb-0">
+                                    <div class="row">
+                                        @foreach(['pan_number', 'identification_name', 'identification_number'] as $field)
+                                            <div class="col-md-4 newuserchange">
+                                                <label for="{{ $field }}">{{ ucfirst(str_replace('_', ' ', $field)) }}</label>
+                                                <input type="text" name="{{ $field }}" id="{{ $field }}" value="{{ old($field, $edit->$field ?? '') }}">
+                                                @error($field)<small class="text-danger">{{$message}}</small>@enderror
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="card-body hospital_allcardbodydesign">
+                                <button
+                                    type="submit"
+                                    name="submit_action"
+                                    value="{{$btn}}"
+                                    class="btn btn-primary"
+                                ><i class="fa fa-paper-plane mr-2"></i> {{$btn}}</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+@endsection
+@push('js')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.querySelector('form.form-horizontal');
+            if (!form) {
+                return;
+            }
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (!submitButton) {
+                return;
+            }
+
+            form.addEventListener('submit', function (event) {
+                if (submitButton.dataset.submitted === 'true') {
+                    event.preventDefault();
+                    return;
+                }
+
+                submitButton.dataset.submitted = 'true';
+                submitButton.disabled = true;
+                const spinner = '<i class="fa fa-spinner fa-spin mr-2"></i>';
+                submitButton.innerHTML = spinner + 'Processing...';
+            });
+        });
+    </script>
+@endpush

@@ -1,0 +1,582 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Vaccination Registration</title>
+@endpush
+@push('css')
+<style>
+    hr {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+</style>
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <form action="{{ route('vc.update-vaccination-register', @$edit->id) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="row">
+                    <div class="col-xl-12 col-lg-12 col-md-12">
+                        <div class="border-0">
+                            <div class="tab-content">
+                                <div class="tab-pane active" id="tab-7">
+                                    <div class="card">
+                                        <div class="card-header card_hearder_mimi">
+                                            <h4 class="card_hearder_mimi_text">VACCINATION REGISTRATION</h4>
+                                        </div>
+                                        <div class="card-body hospital_allcardbodydesign ">
+                                            <div class="hospital_allcardbodydesign border">
+                                                <div class="row">
+                                                    <div class="col-lg-12">
+                                                        <div class="main-profile-contact-list ">
+                                                            <div class="row mt-2">
+                                                                <div class="col-md-3">
+                                                                    <label class="form-label">Scheduled Date <span
+                                                                            class="text-danger">*</span></label>
+                                                                    <input type="text" class="form-control datePickr"
+                                                                        id="scheduled_date" name="scheduled_date"
+                                                                        value="{{ old('scheduled_date', dateFor(@$edit->scheduled_date)) }}">
+                                                                    @error('scheduled_date')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="col-md-3">
+                                                                    <label class="form-label">Vaccine <span
+                                                                            class="text-danger">*</span></label>
+                                                                    <select name="vaccine" id="vaccine"
+                                                                        class="form-control select2-show-search">
+                                                                        <option value="">Select</option>
+                                                                        @foreach ($vaccine as $vac)
+                                                                        <option value="{{$vac->id}}" {{ old('vaccine', @$edit->vaccine_id) == $vac->id ? 'selected' : '' }}>{{$vac->vaccine_name}}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                    @error('vaccine')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <label class="form-label" for="notes">Note </label>
+                                                                    <input type="text" class="form-control"
+                                                                        id="notes" name="notes"
+                                                                        value="{{ old('notes', @$edit->notes) }}">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="hospital_allcardbodydesign border mt-2">
+                                                <h5 class="text-blue"> <i class="fa fa-user text-orange"></i> PATIENT DETAILS : </h5>
+                                                <div class="row">
+                                                    <div class="col-lg-12 ">
+                                                        <div class="main-profile-contact-list ">
+                                                            <div class="row">
+                                                                <div class="form-group col-md-1 newdesignadd45">
+                                                                    <label for="uhid" class="form-label"> UHID </label>
+                                                                    <input type="text" id="uhid" onkeyup="getPatient(this.value,'id')" class="text-capitalize" name="uhid" value="{{ old('uhid', @$edit_patient->id) }}" readonly>
+                                                                    @error('uhid')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="form-gsroup col-md-2 newdesignadd45">
+                                                                    <label class="form-label" for="patient_ph_no"> Mobile <span class="text-danger">*</span></label>
+                                                                    <input type="text" id="patient_ph_no" name="phone" onkeyup="getPatient(this.value, 'phone')" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="{{ old('phone', @$edit_patient->phone) }}">
+                                                                    @error('phone')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="form-group col-md-2 newdesignadd45">
+                                                                    <label for="name" class="form-label"> Patient's name <span class="text-danger">*</span></label>
+                                                                    <input type="text" id="name" class="text-capitalize" name="name" onkeyup="getPatient(this.value, 'name')" value="{{ old('name', @$edit_patient->name) }}">
+                                                                    @error('name')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="form-group col-md-1 newaddappon45">
+                                                                    <label for="gender">Gender <span class="text-danger">*</span></label>
+                                                                    <select name="gender" class="form-control" id="gender">
+                                                                        <option value="">Select</option>
+                                                                        <option value="Male" {{ old('gender', @$edit_patient->gender) == 'Male' ? 'selected' : '' }}>Male</option>
+                                                                        <option value="Female" {{ old('gender', @$edit_patient->gender) == 'Female' ? 'selected' : '' }}>Female</option>
+                                                                        <option value="Others" {{ old('gender', @$edit_patient->gender) == 'Others' ? 'selected' : '' }}>Others</option>
+                                                                    </select>
+                                                                    @error('gender')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="form-group col-md-1 newdesignadd45">
+                                                                    <label>Marital Status</label>
+                                                                    <select name="marital_status" class="form-control" id="marital_status">
+                                                                        <option value="">Select</option>
+                                                                        <option value="Single" {{ old('marital_status', @$edit_patient->marital_status) == 'Single' ? 'selected' : '' }}>Single</option>
+                                                                        <option value="Married" {{ old('marital_status', @$edit_patient->marital_status) == 'Married' ? 'selected' : '' }}>Married</option>
+                                                                        <option value="Widowed" {{ old('marital_status', @$edit_patient->marital_status) == 'Widowed' ? 'selected' : '' }}>Widowed</option>
+                                                                        <option value="Separated" {{ old('marital_status', @$edit_patient->marital_status) == 'Separated' ? 'selected' : '' }}>Separated</option>
+                                                                        <option value="Not Specified" {{ old('marital_status', @$edit_patient->marital_status) == 'Not Specified' ? 'selected' : '' }}>Not Specified</option>
+                                                                    </select>
+                                                                    @error('marital_status')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="col-lg-2 newdesignadd45">
+                                                                    <label for="guardian_name" class="form-label">Guardian Name</label>
+                                                                    <input type="text" id="guardian_name" name="guardian_name" class="text-capitalize" value="{{ old('guardian_name', @$edit_patient->guardian_name) }}">
+                                                                    @error('guardian_name')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="form-group col-md-1 newaddappon45">
+                                                                    <label class="form-label">Relation </label>
+                                                                    <select name="relation" class="form-control select2-show-search" id="relation">
+                                                                        <option value="">Select</option>
+                                                                        <option value="Father" {{ old('relation', @$edit_patient->guardian_realation) == 'Father' ? 'selected' : '' }}>Father</option>
+                                                                        <option value="Mother" {{ old('relation', @$edit_patient->guardian_realation) == 'Mother' ? 'selected' : '' }}>Mother</option>
+                                                                        <option value="Son" {{ old('relation', @$edit_patient->guardian_realation) == 'Son' ? 'selected' : '' }}>Son</option>
+                                                                        <option value="Daughter" {{ old('relation', @$edit_patient->guardian_realation) == 'Daughter' ? 'selected' : '' }}>Daughter</option>
+                                                                        <option value="Relative" {{ old('relation', @$edit_patient->guardian_realation) == 'Relative' ? 'selected' : '' }}>Relative</option>
+                                                                        <option value="Friend" {{ old('relation', @$edit_patient->guardian_realation) == 'Friend' ? 'selected' : '' }}>Friend</option>
+                                                                        <option value="Husband" {{ old('relation', @$edit_patient->guardian_realation) == 'Husband' ? 'selected' : '' }}>Husband</option>
+                                                                        <option value="Wife" {{ old('relation', @$edit_patient->guardian_realation) == 'Wife' ? 'selected' : '' }}>Wife</option>
+                                                                        <option value="Guardian" {{ old('relation', @$edit_patient->guardian_realation) == 'Guardian' ? 'selected' : '' }}>Guardian</option>
+                                                                        <option value="Daughter-in-law" {{ old('relation', @$edit_patient->guardian_realation) == 'Daughter-in-law' ? 'selected' : '' }}>Daughter-in-law</option>
+                                                                        <option value="Son-in-law" {{ old('relation', @$edit_patient->guardian_realation) == 'Son-in-law' ? 'selected' : '' }}>Son-in-law</option>
+                                                                        <option value="Neighbour" {{ old('relation', @$edit_patient->guardian_realation) == 'Neighbour' ? 'selected' : '' }}>Neighbour</option>
+                                                                        <option value="Nephew" {{ old('relation', @$edit_patient->guardian_realation) == 'Nephew' ? 'selected' : '' }}>Nephew</option>
+                                                                        <option value="Niece" {{ old('relation', @$edit_patient->guardian_realation) == 'Niece' ? 'selected' : '' }}>Niece</option>
+                                                                        <option value="Grand Mother" {{ old('relation', @$edit_patient->guardian_realation) == 'Grand Mother' ? 'selected' : '' }}>Grand Mother</option>
+                                                                        <option value="Grand Father" {{ old('relation', @$edit_patient->guardian_realation) == 'Grand Father' ? 'selected' : '' }}>Grand Father</option>
+                                                                        <option value="Teacher" {{ old('relation', @$edit_patient->guardian_realation) == 'Teacher' ? 'selected' : '' }}>Teacher</option>
+                                                                        <option value="Mother-in-law" {{ old('relation', @$edit_patient->guardian_realation) == 'Mother-in-law' ? 'selected' : '' }}>Mother-in-law</option>
+                                                                        <option value="Father-in-law" {{ old('relation', @$edit_patient->guardian_realation) == 'Father-in-law' ? 'selected' : '' }}>Father-in-law</option>
+                                                                        <option value="Brother" {{ old('relation', @$edit_patient->guardian_realation) == 'Brother' ? 'selected' : '' }}>Brother</option>
+                                                                        <option value="Sister" {{ old('relation', @$edit_patient->guardian_realation) == 'Sister' ? 'selected' : '' }}>Sister</option>
+                                                                        <option value="Cousin" {{ old('relation', @$edit_patient->guardian_realation) == 'Cousin' ? 'selected' : '' }}>Cousin</option>
+                                                                        <option value="Grand Daughter" {{ old('relation', @$edit_patient->guardian_realation) == 'Grand Daughter' ? 'selected' : '' }}>Grand Daughter</option>
+                                                                        <option value="Grand Son" {{ old('relation', @$edit_patient->guardian_realation) == 'Grand Son' ? 'selected' : '' }}>Grand Son</option>
+                                                                    </select>
+                                                                    @error('relation')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="form-gsroup col-md-2 newdesignadd45 ">
+                                                                    <label class="form-label"> Alternative Number </label>
+                                                                    <input type="text" name="guardian_contact_no" id="guardian_contact_no" class="form-control" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="{{ old('guardian_contact_no', @$edit_patient->guardian_contact_no) }}">
+                                                                    @error('guardian_contact_no')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                            </div>
+                                                            <div class="card-body hospital_allcardbodydesign border mt-2" style="display:none;" id="search_result">
+                                                                <div class="table-responsive">
+                                                                    <table class="table table-hover card-table table-vcenter text-nowrap border-left border-right border-bottom">
+                                                                        <thead class="bg-primary text-white">
+                                                                            <tr class="border-left">
+                                                                                <th class="text-white">UHID</th>
+                                                                                <th class="text-white">Patient Name</th>
+                                                                                <th class="text-white">Age</th>
+                                                                                <th class="text-white">Phone</th>
+                                                                                <th class="text-white">Address</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody id="search_result_row"></tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                            <div class="row">
+                                                                <div class="col-lg-1 newdesignadd45">
+                                                                    <label class="form-label" for="date_of_birth_year">DOB</label>
+                                                                    <input type="text" class="form-control datePickr" id="date_of_birth" name="date_of_birth" onchange="getagefromdate(this.value)" value="{{ old('date_of_birth', dateFor(@$edit_patient->date_of_birth)) }}">
+                                                                    @error('date_of_birth')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="col-lg-1 newdesignadd45">
+                                                                    <label class="form-label" for="date_of_birth_year">Year</label>
+                                                                    <input type="text" id="date_of_birth_year" name="date_of_birth_year" onkeyup="getage()" value="{{ old('date_of_birth_year', @$edit_patient->dob_year) }}" maxlength="2" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                                                    @error('date_of_birth_year')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+
+                                                                <div class="col-lg-1 newdesignadd45">
+                                                                    <label class="form-label" for="date_of_birth_month">Month</label>
+                                                                    <input type="text" id="date_of_birth_month" name="date_of_birth_month" onkeyup="getage()" value="{{ old('date_of_birth_month', @$edit_patient->dob_month) }}" maxlength="2" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                                                    @error('date_of_birth_month')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                                <div class="col-lg-1 newdesignadd45">
+                                                                    <label class="form-label" for="date_of_birth_day">Day</label>
+                                                                    <input type="text" id="date_of_birth_day" name="date_of_birth_day" onkeyup="getage()" value="{{ old('date_of_birth_day', @$edit_patient->dob_day) }}" maxlength="2" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                                                    @error('date_of_birth_day')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+
+                                                                <div class="form-group col-md-2 newdesignadd45">
+                                                                    <label class="form-label" for="address">Address <span class="text-danger">*</span></label>
+                                                                    <input type="text" id="address" name="address" value="{{ old('address', @$edit_patient->address) }}">
+                                                                    @error('address')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+
+                                                                <div class="form-group col-md-2 newaddappon45">
+                                                                    <label class="form-label" for="state">State <span class="text-danger">*</span></label>
+                                                                    <select name="state" class="form-control select2-show-search" onchange="getDistrict(this.value)" id="state">
+                                                                        <option value="">Select State</option>
+                                                                        @foreach ($states as $s)
+                                                                            <option value="{{ $s->id }}" {{ old('state', @$edit_patient->state ?? 35) == $s->id ? 'selected' : '' }}>
+                                                                                {{ $s->name }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                    @error('state')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+
+                                                                <div class="form-group col-md-1 newaddappon45">
+                                                                    <label class="form-label" for="district">District</label>
+                                                                    <select name="district" class="form-control select2-show-search" id="district">
+                                                                        <option value="">Select District</option>
+                                                                    </select>
+                                                                    @error('district')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+
+                                                                <div class="form-group col-md-1 newdesignadd45">
+                                                                    <label class="form-label" for="pin_code">Pin Code</label>
+                                                                    <input type="text" id="pin_code" name="pin_code" value="{{ old('pin_code', @$edit_patient->pin_code) }}" maxlength="6" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                                                    @error('pin_code')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+
+                                                                <div class="form-group col-md-2 newdesignadd45">
+                                                                    <label class="form-label" for="aadhar_card_no">Aadhar Number</label>
+                                                                    <input type="text" id="aadhar_card_no" name="aadhar_card_no" value="{{ old('aadhar_card_no', @$edit_patient->identification_number) }}" maxlength="12" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                                                    @error('aadhar_card_no')
+                                                                        <span class="text-danger">{{ $message }}</span>
+                                                                    @enderror
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            @if(@$stocks)
+                                            <hr>
+                                            <div class="hospital_allcardbodydesign border mt-2">
+                                                <div class="row">
+                                                    <div class="col-lg-12 ">
+                                                        <div class="main-profile-contact-list ">
+                                                            <div class="row">
+                                                                <div class="col-md-8">
+                                                                    <h6 class="text-blue"> <i class="fas fa-syringe text-orange"></i> VACCINATION : </h6>
+                                                                    <div class="row">
+                                                                        <input type="hidden" id="vaccine_lot_id" name="vaccine_lot_id" value="{{ @$edit->vaccine_lot_id }}">
+                                                                        <div class="form-gsroup col-md-3">
+                                                                            <label class="form-label" for="administered_date"> Administered Date & Time <span class="text-danger">*</span></label>
+                                                                            <input type="text" id="administered_date" class="dateTimePickr" name="administered_date" value="{{ old('administered_date', dateFor(@$edit->administered_date ?? date('d-m-Y H:i K'), true)) }}">
+                                                                            @error('administered_date')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                        <div class="form-group col-md-2">
+                                                                            <label for="batch_number" class="form-label"> Batch Number <span class="text-danger">*</span></label>
+                                                                            <select id="batch_number" name="batch_number" class="form-control select2-show-search">
+                                                                                <option value="">Select</option>
+                                                                                @foreach ($stocks as $batch)
+                                                                                    <option value="{{ $batch->batch_number }}" data-value="{{ $batch }}" {{ old('batch_number', @$edit->batch_no) == $batch->batch_number ? 'selected' : '' }}>{{ $batch->batch_number }}</option>
+                                                                                @endforeach
+                                                                            </select>
+                                                                            @error('batch_number')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                        <div class="form-gsroup col-md-3">
+                                                                            <label class="form-label" for="expiry_date"> Expiry Date</label>
+                                                                            <input type="text" id="expiry_date" name="expiry_date" value="{{ old('expiry_date') }}" readonly>
+                                                                            @error('expiry_date')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                        <div class="form-gsroup col-md-2">
+                                                                            <label class="form-label" for="rate"> Rate</label>
+                                                                            <input type="text" id="rate" name="rate" value="{{ old('rate', @$edit->amount) }}">
+                                                                            @error('rate')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                         <div class="form-group col-md-2">
+                                                                            <label for="administered_by" class="form-label"> Administered By</label>
+                                                                            <input type="text" id="administered_by" name="administered_by" value="{{ old('administered_by', @$edit->administered_by) }}">
+                                                                            @error('administered_by')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                    </div>
+                                                                    <h6 class="text-blue mt-3"> <i class="fas fa-user text-orange"></i> CONSENTS : </h6>
+                                                                    <div class="row">
+                                                                        <div class="form-group col-md-3">
+                                                                            <label for="consent_name" class="form-label"> Consent Name</label>
+                                                                            <input type="text" id="consent_name" name="consent_name" value="{{ old('consent_name', @$edit_consent->signed_by) }}">
+                                                                            @error('consent_name')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                        <div class="form-gsroup col-md-3">
+                                                                            <label class="form-label" for="consent_phone"> Consent Mobile</label>
+                                                                            <input type="text" id="consent_phone" name="consent_phone" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="{{ old('consent_phone', @$edit_consent->signed_phone) }}">
+                                                                            @error('consent_phone')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                        <div class="form-gsroup col-md-3">
+                                                                            <label class="form-label" for="signature"> Signature</label>
+                                                                            <input type="file" id="signature" class="m-0" name="signature" value="{{ old('signature') }}">
+                                                                            @error('signature')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                        <div class="form-gsroup col-md-3">
+                                                                            <label class="form-label" for="consent_form"> Consent Form</label>
+                                                                            <input type="file" id="consent_form" class="m-0" name="consent_form" value="{{ old('consent_form') }}">
+                                                                            @error('consent_form')
+                                                                                <span class="text-danger">{{ $message }}</span>
+                                                                            @enderror
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-md-4">
+                                                                    <div class="card-header bg-primary text-white">
+                                                                        <h5 class="mb-0"><i class="fas fa-syringe mr-2"></i>Vaccine Information</h5>
+                                                                    </div>
+                                                                    <div class="card-body">
+                                                                        @if($vaccine_info->vaccine_name)
+                                                                            <p><strong>Vaccine Name:</strong> {{ $vaccine_info->vaccine_name }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->brand_name)
+                                                                            <p><strong>Brand:</strong> {{ $vaccine_info->brand_name }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->manufacturer)
+                                                                            <p><strong>Manufacturer:</strong> {{ $vaccine_info->manufacturer }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->age_group)
+                                                                            <p><strong>Age/Group:</strong> {{ $vaccine_info->age_group }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->injection_site)
+                                                                            <p><strong>Injection Site:</strong> {{ $vaccine_info->injection_site }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->route)
+                                                                            <p><strong>Route:</strong> {{ $vaccine_info->route }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->disease_prevented)
+                                                                            <p><strong>Disease Prevented:</strong> {{ $vaccine_info->disease_prevented }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->drawbacks)
+                                                                            <p><strong>Drawbacks:</strong> {{ $vaccine_info->drawbacks }}</p>
+                                                                        @endif
+                                                                        @if($vaccine_info->remarks)
+                                                                            <p><strong>Remarks:</strong> {{ $vaccine_info->remarks }}</p>
+                                                                        @endif
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @endif
+
+                                            <div class="modal-footer justify-content-center">
+                                                <button class="btn btn-primary" type="submit" name="save"
+                                                    value="save"><i class="fa fa-file text-success"></i> {{ $btn }}</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+@endsection
+@push('js')
+    <script>
+        document.addEventListener("click", function(event) {
+            const inputField = document.getElementById("uhid");
+
+            const table = document.getElementById("search_result");
+
+            if (event.target !== inputField && !table.contains(event.target)) {
+                table.style.display = "none";
+            }
+        });
+
+        let dist = @json(@$edit_patient->district) ?? null;
+        getDistrict(35, dist);
+
+        function getPatient(val, col = mull) {
+            var div_data = '';
+            $('#search_result').attr('style', 'display:none', true);
+            $('#search_result_row').html('');
+            if (val && col) {
+                $.ajax({
+                    url: "{{ route('opd.get-patients') }}",
+                    type: "POST",
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        field: col,
+                        value: val,
+                    },
+                    success: function(response) {
+                        if (response.success && (response.patients.length > 0)) {
+                            $('#search_result').removeAttr('style', true);
+                            $.each(response.patients, function(key, value) {
+                                let patientData = encodeURIComponent(JSON.stringify(value));
+                                div_data += `<tr class="color_hover_charnge" onclick="selectPatient('${patientData}')" style="cursor: pointer !important;">
+                                <td>${value.uhid || value.id}</td>
+                                <td>${value.name}</td>
+                                <td>${value.dob_year || 0}Y ${value.dob_month || 0}M ${value.dob_day || 0}D</td>
+                                <td>${value.phone}</td>
+                                <td>${value.address}</td>
+                            </tr>`;
+                            });
+                            $('#search_result_row').html(div_data);
+                        }
+                    },
+                    error: function(error) {
+                        console.log(error);
+                    }
+                });
+            }
+        }
+
+        function selectPatient(data) {
+            let patient = JSON.parse(decodeURIComponent(data));
+            $('#uhid').val(patient.id);
+            $('#name').val(patient.name);
+            $('#patient_ph_no').val(patient.phone);
+            $('#guardian_name').val(patient.guardian_name);
+            $('#relation').val(patient.guardian_realation).trigger('change');
+            $('#marital_status').val(patient.marital_status).trigger('change');
+            $('#guardian_contact_no').val(patient.guardian_contact_no);
+            $('#gender').val(patient.gender).trigger('change');
+            if (patient.date_of_birth) {
+                let dateObj = new Date(patient.date_of_birth);
+                let formattedDOB = dateObj.getDate().toString().padStart(2, '0') + '-' +
+                    (dateObj.getMonth() + 1).toString().padStart(2, '0') + '-' +
+                    dateObj.getFullYear();
+                $('#date_of_birth').val(formattedDOB).trigger('change');
+                getagefromdate(formattedDOB);
+            } else {
+                if (patient.dob_day || patient.dob_month || patient.dob_year) {
+                    $('#date_of_birth_day').val(patient.dob_day);
+                    $('#date_of_birth_month').val(patient.dob_month);
+                    $('#date_of_birth_year').val(patient.dob_year);
+                    getage();
+                }
+            }
+            $('#address').val(patient.address);
+            getDistrict(patient.state, patient.district);
+            $('#pin_code').val(patient.pin_code);
+            $('#aadhar_card_no').val(patient.identification_number);
+            $('#search_result_row').html('');
+            $('#search_result').attr('style', 'display:none', true);
+        }
+
+        function getDistrict(state_id, district_id = 0) {
+            if (state_id) {
+                $('#district').html('<option vaule="">Select District</option>');
+                $.ajax({
+                    url: "{{ Route('get-district') }}",
+                    type: "POST",
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        state_id: state_id,
+                    },
+                    success: function(response) {
+                        if (response.success && (response.districts.length > 0)) {
+                            $.each(response.districts, function(key, value) {
+                                if (district_id == value.id) {
+                                    $('#district').append(
+                                        `<option value="${value.id}" selected>${value.name}</option>`
+                                    );
+                                } else {
+                                    $('#district').append(
+                                        `<option value="${value.id}">${value.name}</option>`);
+                                }
+                            });
+                        }
+                    },
+                    error: function(error) {
+                        console.log(error);
+                    }
+                });
+            }
+        }
+
+        function getage() {
+            var year = $('#date_of_birth_year').val();
+            var month = $('#date_of_birth_month').val();
+            var days = $('#date_of_birth_day').val();
+            var currentDate = new Date();
+            var date = new Date(currentDate.getFullYear() - year,
+                currentDate.getMonth() - month,
+                currentDate.getDate() - days);
+            var yyyy = date.getFullYear().toString();
+            var mm = (date.getMonth() + 1).toString().padStart(2, '0');
+            var dd = date.getDate().toString().padStart(2, '0');
+            var formattedDate = dd + '-' + mm + '-' + yyyy;
+            $('#date_of_birth').val(formattedDate);
+        }
+
+        function getagefromdate(dob_date) {
+            const nw = new Date();
+            const dateArray = dob_date.split("-").map(Number);
+
+            let nw_year = nw.getFullYear();
+            let nw_month = nw.getMonth() + 1;
+            let nw_day = nw.getDate();
+
+            let dob_year = dateArray[2];
+            let dob_month = dateArray[1];
+            let dob_day = dateArray[0];
+
+            let dob_in_date = ((parseInt(dob_year) * parseInt(365)) + (parseInt(dob_month) * parseInt(30)) + parseInt(
+                dob_day));
+            let now_in_date = ((parseInt(nw_year) * parseInt(365)) + (parseInt(nw_month) * parseInt(30)) + parseInt(
+                nw_day));
+
+            if (now_in_date >= dob_in_date) {
+                let diffe_date = parseInt(parseInt(now_in_date) - parseInt(dob_in_date));
+
+                let year = parseInt(diffe_date / 365);
+                let remnder = diffe_date % 365;
+
+                let month = parseInt(remnder / 30);
+                let days = remnder % 30;
+
+                $('#date_of_birth_year').val(year);
+                $('#date_of_birth_month').val(month);
+                $('#date_of_birth_day').val(days);
+            } else {
+                alert('Enter a Valid Date');
+                $('#date_of_birth').reset();
+            }
+        }
+
+        $('#batch_number').on('change', function() {
+            var dataValue = $(this).find('option:selected').data('value');
+            $('#vaccine_lot_id').val(dataValue.id);
+            $('#expiry_date').val(dataValue.exp_date ? formatDateTime(dataValue.exp_date, 'date').split('T')[0] : '');
+            $('#rate').val(dataValue.s_rate ? dataValue.s_rate : 0);
+        });
+    </script>
+@endpush

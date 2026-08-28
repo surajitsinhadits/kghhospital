@@ -1,0 +1,124 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\MiscellaneousPayment;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Miscellaneous extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'bill_no',
+        'invoice_upload',
+        'bill_purpose',
+        'service_provider',
+        'bill_amount',
+        'note',
+        'tds_section_code',
+        'tds_percentage',
+        'tds_bill_amount',
+        'tds_deduction_amount',
+        'total_amount',
+        'pay_amount',
+        'discount',
+        'payment_status',
+        'gst',
+        'created_by',
+        'verified_by',
+        'verified_at',
+        'approved_by',
+        'approved_at',
+        'gst_amount',
+    ];
+
+    protected $table = 'miscellanies';
+
+    protected $casts = [
+        'bill_amount' => 'decimal:2',
+        'pay_amount' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'gst' => 'decimal:2',
+        'gst_amount' => 'decimal:2',
+        'tds_percentage' => 'decimal:2',
+        'tds_bill_amount' => 'decimal:2',
+        'tds_deduction_amount' => 'decimal:2',
+        'created_by' => 'int',
+        'verified_by' => 'int',
+        'approved_by' => 'int',
+        'verified_at' => 'datetime',
+        'approved_at' => 'datetime',
+    ];
+
+    public function payments()
+    {
+        return $this->hasMany(MiscellaneousPayment::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function verifier()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function getTotalPaidAmountAttribute()
+    {
+        return $this->payments()->sum('amount_paid');
+    }
+
+    public function getTotalDiscountPaidAttribute()
+    {
+        return $this->payments()->sum('discount');
+    }
+
+    public function getNetDueAttribute()
+    {
+        $baseAmount = $this->total_amount ?? $this->gst_amount ?? $this->bill_amount ?? 0;
+        $discount = $this->discount ?? 0;
+        $paidAmount = $this->total_paid_amount + $this->total_discount_paid;
+        return max($baseAmount - $discount - $paidAmount, 0);
+    }
+
+    public function updatePaymentStatus()
+    {
+        $netDue = $this->net_due;
+        $status = $netDue > 0 ? 'due' : 'paid';
+
+        if ($this->payment_status !== $status) {
+            $this->payment_status = $status;
+            $this->saveQuietly();
+        }
+    }
+
+    public function getInvoiceUrlAttribute()
+    {
+        return $this->invoice_upload ? asset($this->invoice_upload) : null;
+    }
+
+    public function getDisplayBillNoAttribute(): string
+    {
+        if (!empty($this->bill_no)) {
+            return $this->bill_no;
+        }
+
+        $baseDate = $this->created_at ? $this->created_at->copy() : now();
+        $year = (int) $baseDate->format('Y');
+        $month = (int) $baseDate->format('n');
+        $startYear = $month < 4 ? $year - 1 : $year;
+        $endYear = $startYear + 1;
+
+        return sprintf('MB-%02d-%02d#%04d', $startYear % 100, $endYear % 100, (int) $this->id);
+    }
+}

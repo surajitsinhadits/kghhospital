@@ -1,0 +1,77 @@
+<?php
+
+namespace App\Http\Controllers\Investigation;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Investigation;
+use App\Models\InvestigationDetail;
+use App\Models\Header;
+
+class PrintController extends Controller
+{
+    public function create_barcode($id){
+        $id = ed($id, false);
+        $report =  Investigation::select('investigations.patient_id','p.name as patient_name','p.dob_year','p.dob_month','p.dob_day','c.charge_name')
+            ->join('patients as p','p.id','=','investigations.patient_id')
+            ->join('charges as c','c.id','=','investigations.charge_id')
+            ->where('investigations.id', $id)
+            ->first();
+        return view('investigation.print.barcode', compact('report'));
+    }
+    public function print_from_report_update($id){
+        $id = ed($id, false);
+        // dd($id);
+        $header_image = Header::where('header_name', 'bill')->first();
+        $report[0] = Investigation::select('investigations.*','p.name as patient_name','p.phone','p.gender','p.dob_year','p.dob_month','p.dob_day','c.charge_name','c.instrument_used','c.template','c.charge_section','st.sample_name','r.referral_name','u.name as doctor_name','u1.name as approve_name','u1.empId','u1.signature','u1.experience','u1.qualification','d.department_name')
+            ->join('patients as p','p.id','=','investigations.patient_id')
+            ->join('charges as c','c.id','=','investigations.charge_id')
+            ->leftJoin('sample_types as st','st.id','=','c.sample_id')
+            ->leftJoin('referrals as r','r.id','=','investigations.referral_id')
+            ->leftJoin('users as u','u.id','=','investigations.doctor_id')
+            ->leftJoin('users as u1','u1.id','=','investigations.approved_doctor_by')
+            ->leftJoin('departments as d','d.id','=','u1.department_id')
+            ->where('investigations.id', $id)
+            ->first();
+        $report[0]->details = InvestigationDetail::select('investigation_details.id as inv_id','investigation_details.*','chn.*')
+            ->leftjoin('charges_has_normals as chn','chn.id','=','investigation_details.charge_normal_id')
+            ->where('investigation_details.investigation_id', $id)
+            ->get();
+        $data = compact('header_image','report');
+        // dd($data);
+        return view('investigation.print.report-print')->with($data);
+    }
+    public function print_clear_page(Request $request)
+    {
+        $all_data = $request->all();
+        $header_image = Header::where('header_name', 'bill')->first();
+        return view('investigation.print.rate-query-print', compact('all_data', 'header_image'));
+    }
+    public function print_bulk_reports(Request $request)
+    {
+        $report = Investigation::select('investigations.*','p.name as patient_name','p.phone','p.gender','p.dob_year','p.dob_month','p.dob_day','c.charge_name','c.note as charge_note','c.instrument_used','c.template','c.charge_section','st.sample_name','r.referral_name','u.name as doctor_name','u1.name as approve_name','u1.empId','u1.signature','u1.experience','u1.qualification','d.department_name')
+            ->join('patients as p','p.id','=','investigations.patient_id')
+            ->join('charges as c','c.id','=','investigations.charge_id')
+            ->leftJoin('sample_types as st','st.id','=','c.sample_id')
+            ->leftJoin('referrals as r','r.id','=','investigations.referral_id')
+            ->leftJoin('users as u','u.id','=','investigations.doctor_id')
+            ->leftJoin('users as u1','u1.id','=','investigations.approved_doctor_by')
+            ->leftJoin('departments as d','d.id','=','u1.department_id')
+            ->whereIn('investigations.id', $request->test_row)
+            ->get();
+        $report->transform(function ($rep) {
+            $rep->details = InvestigationDetail::select(
+                    'investigation_details.id as inv_id',
+                    'investigation_details.*',
+                    'chn.*'
+                )
+                ->leftJoin('charges_has_normals as chn', 'chn.id', '=', 'investigation_details.charge_normal_id')
+                ->where('investigation_details.investigation_id', $rep->id)
+                ->get();
+
+            return $rep;
+        });
+        $data = compact('report');
+        return view('investigation.print.report-print')->with($data);
+    }
+}

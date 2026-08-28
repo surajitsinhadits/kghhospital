@@ -1,0 +1,68 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Reports\BillController;
+use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Reports\CollectionController;
+
+
+Route::middleware(['auth'])->prefix('reports')->group(function () {
+    Route::controller(BillController::class)->group(function () {
+        // bill reports
+        Route::get('/bill-list', 'bill_reports')->name('reports.bill');
+        Route::get('/bill-export/{format}', 'bill_export')->name('reports.bill.export');
+        Route::get('/receipt-list', 'receipt_reports')->name('reports.receipt');
+        Route::get('/receipt-export/{format}', 'receipt_export')->name('reports.receipt.export');
+        Route::get('/refund-list', 'refund_reports')->name('reports.refund');
+        Route::get('/refund-export/{format}', 'refund_export')->name('reports.refund.export');
+        Route::get('/billing-reports', 'billing_reports')->name('reports.billing');
+        Route::get('/billing-reports-export/{format}', 'billing_export')->name('reports.billing.export');
+        Route::get('/edit-bill-report', 'edit_bill_report')->name('reports.edit-bill');
+        Route::get('/edit-bill-export/{format}', 'edit_bill_export')->name('reports.edit-bill.export');
+    });
+    Route::controller(CollectionController::class)->group(function () {
+        // collection reports
+        Route::any('/collection', 'collection')->name('reports.collection');
+        Route::get('/collection-export/{format}', 'collection_export')->name('reports.collection.export');
+        Route::any('/my-collection', 'my_collection')->name('reports.my-collection');
+        Route::get('/my-collection-export/{format}', 'my_collection_export')->name('reports.my-collection-export');
+        Route::any('/users-collection', 'users_collection')->name('reports.users-collection');
+        Route::any('/total-collection-view', 'total_collection_view')->name('reports.total-collection-view');
+        Route::any('/cash-bank-collection-view', 'cash_bnak_collection_view')->name('reports.cash-bank-collection-view');
+        Route::any('/doctor-payout', 'doctor_payout')->name('reports.doctor-payout');
+        Route::any('/due-reports', 'due_reports')->name('reports.due-reports');
+        Route::get('/due-reports-export/{format}', 'due_reports_export')->name('reports.due-reports.export');
+        Route::any('/revenue-reports', 'revenue_report')->name('reports.revenue-report');
+    });
+    Route::controller(ReportController::class)->group(function () {
+        // other reports
+        Route::get('/opd-patients', 'opd_reports')->name('reports.opd');
+        Route::get('/opd-patients-export/{format}', 'opd_export')->name('reports.opd.export');
+        Route::get('/emg-patients', 'emg_reports')->name('reports.emg');
+        Route::get('/emg-patients-export/{format}', 'emg_export')->name('reports.emg.export');
+        Route::get('/ipd-patients', 'ipd_reports')->name('reports.ipd');
+        Route::get('/ipd-patients-export/{format}', 'ipd_export')->name('reports.ipd.export');
+        Route::get('/dialysis-patients', 'dialysis_reports')->name('reports.dialysis');
+        Route::get('/dialysis-patients-export/{format}', 'dialysis_export')->name('reports.dialysis.export');
+        Route::get('/birth-report', 'birth_report')->name('reports.birth');
+        Route::get('/birth-report-export/{format}', 'birth_export')->name('reports.birth.export');
+        Route::get('/death-report', 'death_report')->name('reports.death');
+        Route::get('/death-report-export/{format}', 'death_export')->name('reports.death.export');
+
+        Route::get('/admission-report', 'admission_report')->name('reports.admission');
+
+        Route::get('/discharge-report', 'discharge_report')->name('reports.discharge');
+        Route::get('/discharge-report-export/{format}', 'discharge_export')->name('reports.discharge.export');
+
+        //commission report
+        Route::any('/commission-report', 'commission_report')->name('reports.commission-report');
+        Route::get('/commission-report-export/{format}', 'commission_report_export')->name('reports.commission-report-export');
+        Route::any('/commission-patient-charge', 'commission_patient_charge')->name('reports.commission-patient-charge');
+        Route::post('/commission-discount', 'commission_discount')->name('reports.commission-discount');
+        Route::get('/commission-report-view/{master_id}', 'commission_report_view')->name('reports.commission-report-view');
+        Route::get('/commission-report-print/{master_id}', 'commission_report_print')->name('reports.commission-report-print');
+        Route::post('/commission-report-approved', 'commission_report_approved')->name('reports.commission-report-approved');
+        Route::post('/commission-report-paid', 'commission_report_paid')->name('reports.commission-report-paid');
+        Route::post('/commission-report-delete', 'commission_report_delete')->name('reports.commission-report-delete');
+    });
+});

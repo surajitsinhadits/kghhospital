@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Miscellaneous Bill {{ $miscellaneous->display_bill_no }}</title>
+    <style>
+        body {
+            font-family: "DejaVu Sans", "Helvetica Neue", Arial, sans-serif;
+            font-size: 12px;
+            color: #222;
+            margin: 20px;
+        }
+        h1, h2 {
+            margin: 0 0 10px;
+            font-weight: 600;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            text-align: left;
+            padding: 6px 8px;
+            border: 1px solid #888;
+        }
+        th {
+            background: #f4f4f4;
+            font-weight: 600;
+        }
+        .small {
+            font-size: 11px;
+            color: #555;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .badge-success {
+            background: #28a745;
+            color: #fff;
+        }
+        .badge-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+    </style>
+</head>
+<body>
+    <h1>Miscellaneous Bill {{ $miscellaneous->display_bill_no }}</h1>
+    <p class="small">Prepared on {{ now()->format('d-m-Y h:i A') }}</p>
+
+    <table>
+        <tr>
+            <th>Bill Purpose</th>
+            <td>{{ $miscellaneous->bill_purpose }}</td>
+        </tr>
+        <tr>
+            <th>Service Provider</th>
+            <td>{{ $miscellaneous->serviceProviderVendor?->vendor_name ?? ($miscellaneous->service_provider ?? '-') }}</td>
+        </tr>
+        <tr>
+            <th>Bill Amount</th>
+            <td>₹{{ number_format($miscellaneous->bill_amount, 2) }}</td>
+        </tr>
+        <tr>
+            <th>Expense Ledger</th>
+            <td>{{ $miscellaneous->expenseLedger?->ledger_name ?? '-' }}</td>
+        </tr>
+        <tr>
+            <th>TDS Duties Taxes Ledger</th>
+            <td>{{ $miscellaneous->tdsLedger?->tds_ledger_name ?? '-' }}</td>
+        </tr>
+        <tr>
+            <th>TDS Bill Amount</th>
+            <td>{{ $miscellaneous->tds_bill_amount !== null ? '₹' . number_format($miscellaneous->tds_bill_amount, 2) : '-' }}</td>
+        </tr>
+        <tr>
+            <th>TDS Percentage</th>
+            <td>{{ $miscellaneous->tds_percentage !== null ? number_format($miscellaneous->tds_percentage, 2) . '%' : '-' }}</td>
+        </tr>
+        <tr>
+            <th>TDS Deduction Amount</th>
+            <td>{{ $miscellaneous->tds_deduction_amount !== null ? '₹' . number_format($miscellaneous->tds_deduction_amount, 2) : '-' }}</td>
+        </tr>
+        <tr>
+            <th>Payable Amount</th>
+            <td>₹{{ number_format($miscellaneous->total_amount ?? 0, 2) }}</td>
+        </tr>
+        <tr>
+            <th>Total Paid</th>
+            <td>₹{{ number_format($miscellaneous->total_paid_amount, 2) }}</td>
+        </tr>
+        <tr>
+            <th>Remaining Due</th>
+            <td>₹{{ number_format($miscellaneous->net_due, 2) }}</td>
+        </tr>
+        <tr>
+            <th>Due Date</th>
+            <td>{{ optional($miscellaneous->due_date)->format('d-m-Y') ?? '-' }}</td>
+        </tr>
+        <tr>
+            <th>Narration</th>
+            <td>{{ $miscellaneous->narration ?: '-' }}</td>
+        </tr>
+        <tr>
+            <th>Status</th>
+            <td>
+                @if ($miscellaneous->payment_status === 'paid')
+                    <span class="badge badge-success">Paid</span>
+                @else
+                    <span class="badge badge-warning">Due</span>
+                @endif
+            </td>
+        </tr>
+        <tr>
+            <th>Invoice</th>
+            <td>
+                @if ($miscellaneous->invoice_url)
+                    Provided
+                @else
+                    Not provided
+                @endif
+            </td>
+        </tr>
+    </table>
+
+    <h2>Payment History</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Amount Paid</th>
+                {{-- <th>Discount</th>
+                <th>Details</th> --}}
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($payments as $payment)
+                <tr>
+                    <td>{{ $loop->iteration }}</td>
+                    <td>{{ number_format($payment->amount_paid, 2) }}</td>
+                    {{-- <td>{{ number_format($payment->discount ?? 0, 2) }}</td>
+                    <td>{{ $payment->details ?: '-' }}</td> --}}
+                    <td>{{ optional($payment->paid_at)->format('d-m-Y h:i A') ?? 'N/A' }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="5" class="small text-center">No payments recorded yet.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+</body>
+</html>

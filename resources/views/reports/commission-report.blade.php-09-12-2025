@@ -1,0 +1,691 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{ $title }}</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="card">
+            <div class="card-header card_hearder_mimi">
+                <div class="card-title card_hearder_mimi_text"> {{ $title }} Report</div>
+            </div>
+            <div class="card-body p-0">
+                <div class="col-md-12 border-right">
+                    <form method="POST" action="{{ $action }}">
+                        @csrf
+                        <div class="whitebackground">
+
+                            @if (session('success'))
+                                <div class="alert alert-success">{{ session('success') }}</div>
+                            @endif
+
+                            <div class="row ">
+                                {{-- <div class="col-sm-2">
+                                    <div class="form-group">
+                                        <select name="section" id="section" class="form-control">
+                                            @foreach (['OPD'] as $sec)
+                                                <option value="{{ $sec }}"
+                                                    {{ @$request_data['section'] == $sec ? 'selected' : '' }}>
+                                                    {{ $sec }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('section')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div> --}}
+
+                                {{-- for market_by --}}
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        <label class="date-format">Market By </label>
+                                        <select name="market_by[]" id="market_by" class="form-control select2-show-search"
+                                            multiple>
+                                            <option value="">Select Market By</option>
+                                            @foreach ($market_by as $marketBy)
+                                                @php
+                                                    if( $marketBy->id == 4 ){
+                                                        continue;
+                                                    }
+                                                @endphp
+                                                <option value="{{ $marketBy->id }}"
+                                                    @if (count($request_data['marketBy']) < 5) {{ in_array($marketBy->id, $request_data['marketBy']) ? 'selected' : '' }} @endif>
+                                                    Dr. {{ $marketBy->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('market_by')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                {{-- for provider --}}
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        <label class="date-format">Provider By </label>
+                                        <select name="provider[]" id="provider" class="form-control select2-show-search"
+                                            multiple>
+                                            <option value="">Select Provider</option>
+                                            @foreach ($provider as $provider_by)
+                                                @php
+                                                    if( $provider_by->id == 4 ){
+                                                        continue;
+                                                    }
+                                                @endphp
+                                                <option value="{{ $provider_by->id }}"
+                                                    @if (count($request_data['provider']) < 5) {{ in_array($provider_by->id, $request_data['provider']) ? 'selected' : '' }} @endif>
+                                                    Dr. {{ $provider_by->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('provider')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                {{-- for referral --}}
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        <label class="date-format">Referral By </label>
+                                        <select name="referral[]" id="referral" class="form-control select2-show-search"
+                                            multiple>
+                                            <option value="">Select Referral</option>
+                                            @foreach ($referral as $referral_by)
+                                                @php
+                                                    if( $referral_by->id == 4 ){
+                                                        continue;
+                                                    }
+                                                @endphp
+                                                <option value="{{ $referral_by->id }}"
+                                                    @if (count($request_data['referral']) < 5) {{ in_array($referral_by->id, $request_data['referral']) ? 'selected' : '' }} @endif>
+                                                    Dr. {{ $referral_by->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('referral')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        <label class="date-format">From Date </label>
+                                        <input type="text" class="form-control datePickr"
+                                            value="{{ dateFor(@$request_data['from_date']) }}" id="fromDate"
+                                            name="from_date" placeholder="Choose From Date">
+                                        @error('from_date')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="col-sm-2">
+                                    <div class="form-group">
+                                        <label class="date-format">To Date </label>
+                                        <input type="text" class="form-control datePickr"
+                                            value="{{ dateFor(@$request_data['to_date']) }}" id="toDate" name="to_date"
+                                            placeholder="Choose To Date">
+                                        @error('to_date')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="col-sm-2 mt-5">
+                                    <div class="form-group d-flex pull-right">
+                                        <button type="submit" class="btn btn-primary px-3 mr-2"><i
+                                                class="fas fa-search"></i> Search</button>
+                                        <a href="{{ $action }}" class="btn btn-warning px-3 mr-2"><i
+                                                class="fas fa-history"></i> Reset</a>
+                                        {{-- <button type="button" onclick="window.print()" class="btn btn-info px-3"><i
+                                                class="fas fa-print"></i> Print</button> --}}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <!-- END GRAPHS SECTION -->
+            <div class="whitebackground">
+                <div class="card-body">
+                    {{-- <div class="table-responsive" id="table-responsive" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc;"> --}}
+                    <div class="table-responsive" id="table-responsive">
+                        <table class="table table-bordered text-nowrap"
+                            style="width:100%; border-collapse: separate; border-spacing: 0;">
+                            <thead style="background-color: #007bff; color: white;">
+                                <tr>
+                                    <th style="position: sticky; top: 0; background-color: #007bff; z-index: 2;">#</th>
+                                    <th style="position: sticky; top: 0; background-color: #007bff; z-index: 2;">Billing ID</th>
+                                    <th style="position: sticky; top: 0; background-color: #007bff; z-index: 2;">Date</th>
+                                    <th style="position: sticky; top: 0; background-color: #007bff; z-index: 2;">Patient</th>
+                                    <th style="position: sticky; top: 0; background-color: #007bff; z-index: 2;">Lab Amount</th>
+                                    <th style="position: sticky; top: 0; background-color: #007bff; z-index: 2;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($request_data['referral'] as $charge_id)
+
+                                    @php
+                                        $_referral = $referral->firstWhere('id', $charge_id);
+                                        $totalItems = $response->where('referred_by_id', $charge_id);
+                                        $patientCount = $totalItems->count();
+                                    @endphp
+
+                                    <tr style="background-color: #d1cbcb;">
+                                        <th colspan="6" class="text-center">
+                                            <strong style="color: #0000ff;">{{ $_referral->name }}</strong><br>
+                                            <small style="color: #080808;">
+                                                 <strong style="padding: 0 5px;">Total Patients:
+                                                        {{ $patientCount }}</strong> |
+                                                <strong style="padding: 0 5px;">Date:
+                                                    {{ dateFor(@$request_data['from_date']) }} to
+                                                    {{ dateFor(@$request_data['to_date']) }}</strong>
+                                            </small>
+                                        </th>
+                                    </tr>
+
+
+                                    @if ( count($totalItems) > 0 )
+                                        @php
+                                            $s = 1;
+                                        @endphp
+                                        @foreach ($totalItems as $charge)
+                                            <tr>
+                                                <td>{{ $s++ }}</td>
+                                                <td>
+                                                    <a href="{{ route('bill.billing-details', [strtolower($charge->section), ed($charge->billing_id, true)]) }}">{{ $charge->uid }}</a>
+                                                    <span class="badge badge-gradient-success mt-2">{{ $charge->section }}</span>
+                                                </td>
+                                                <td>{{ dateFor($charge->bill_date, true) }}</td>
+                                                <td>
+                                                    @if( empty($charge->master_id) )
+                                                        <a href="javascript:void(0)" class="openModal" onClick="getData('referred_by', '{{ $charge_id }}', '{{ $charge->billing_id }}')">
+                                                            {{ $charge->patient_name }} ({{ $charge->patient_id }})
+                                                        </a>
+                                                    @else
+                                                        {{ $charge->patient_name }} ({{ $charge->patient_id }})
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if( $charge->sub_total > 0 )
+                                                    ₹ {{ number_format($charge->sub_total, 2) }}
+                                                    @else
+                                                    ₹ {{ number_format($charge->total, 2) }}
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if( !empty($charge->master_id) )
+                                                    <a href="{{ route('reports.commission-report-view', $charge->master_id) }}" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-eye"></i> View</a>
+                                                    @endif
+
+                                                    @if( !empty($charge->master_approved_by) )
+                                                        <span class="badge badge-gradient-success" style="font-size: .8rem; padding: 0.4rem 0.55rem;">Approved</span>
+                                                    @else
+                                                        @if( !empty($charge->master_id) && !empty($uid) && $uid == 2 )
+                                                            <a onClick="approveCommission('{{ $charge->master_id }}')" class="btn btn-sm btn-outline-info mx-1" title="Approve"><i class="fa fa-check"></i> Approve</a>
+                                                        @endif
+                                                    @endif
+
+                                                    @if( !empty($charge->master_paid_by) )
+                                                        <span class="badge badge-gradient-success" style="font-size: .8rem; padding: 0.4rem 0.55rem;">Paid</span>
+                                                    @else
+                                                        @if( !empty($charge->master_approved_by) && !empty($charge->master_id) && !empty($uid) && $uid == 2 )
+                                                            <a onClick="payCommission('{{ $charge->master_id }}')" class="btn btn-sm btn-outline-info mx-1" title="Approve"><i class="fa fa-check"></i> Pay</a>
+                                                        @endif
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
+
+                                @endforeach
+
+                                @foreach ($request_data['marketBy'] as $charge_id)
+
+                                    @php
+                                        $_referral = $market_by->firstWhere('id', $charge_id);
+                                        $totalItems = $response->where('market_by_id', $charge_id);
+                                        $patientCount = $totalItems->count();
+                                    @endphp
+
+                                    <tr style="background-color: #d1cbcb;">
+                                        <th colspan="6" class="text-center">
+                                            <strong style="color: #0000ff;">{{ $_referral->name }}</strong><br>
+                                            <small style="color: #080808;">
+                                                 <strong style="padding: 0 5px;">Total Patients:
+                                                        {{ $patientCount }}</strong> |
+                                                <strong style="padding: 0 5px;">Date:
+                                                    {{ dateFor(@$request_data['from_date']) }} to
+                                                    {{ dateFor(@$request_data['to_date']) }}</strong>
+                                            </small>
+                                        </th>
+                                    </tr>
+
+                                    @if ( count($totalItems) > 0 )
+                                        @php
+                                            $s = 1;
+                                        @endphp
+                                        @foreach ($totalItems as $charge)
+                                            <tr>
+                                                <td>{{ $s++ }}</td>
+                                                <td>
+                                                    <a href="{{ route('bill.billing-details', [strtolower($charge->section), ed($charge->billing_id, true)]) }}">{{ $charge->uid }}</a>
+                                                    <span class="badge badge-gradient-success mt-2">{{ $charge->section }}</span>
+                                                </td>
+                                                <td>{{ dateFor($charge->bill_date, true) }}</td>
+                                                <td>
+                                                    @if( empty($charge->master_id) )
+                                                        <a href="javascript:void(0)" class="openModal" onClick="getData('market_by', '{{ $charge_id }}', '{{ $charge->billing_id }}')">
+                                                            {{ $charge->patient_name }} ({{ $charge->patient_id }})
+                                                        </a>
+                                                    @else
+                                                        {{ $charge->patient_name }} ({{ $charge->patient_id }})
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if( $charge->sub_total > 0 )
+                                                    ₹ {{ number_format($charge->sub_total, 2) }}
+                                                    @else
+                                                    ₹ {{ number_format($charge->total, 2) }}
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if( !empty($charge->master_id) )
+                                                    <a href="{{ route('reports.commission-report-view', $charge->master_id) }}" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-eye"></i> View</a>
+                                                    @endif
+
+                                                    @if( !empty($charge->master_approved_by) )
+                                                        <span class="badge badge-gradient-success" style="font-size: .8rem; padding: 0.4rem 0.55rem;">Approved</span>
+                                                    @else
+                                                        @if( !empty($charge->master_id) && !empty($uid) && $uid == 2 )
+                                                            <a onClick="approveCommission('{{ $charge->master_id }}')" class="btn btn-sm btn-outline-info mx-1" title="Approve"><i class="fa fa-check"></i> Approve</a>
+                                                        @endif
+                                                    @endif
+
+                                                    @if( !empty($charge->master_paid_by) )
+                                                        <span class="badge badge-gradient-success" style="font-size: .8rem; padding: 0.4rem 0.55rem;">Paid</span>
+                                                    @else
+                                                        @if( !empty($charge->master_approved_by) && !empty($charge->master_id) && !empty($uid) && $uid == 2 )
+                                                            <a onClick="payCommission('{{ $charge->master_id }}')" class="btn btn-sm btn-outline-info mx-1" title="Approve"><i class="fa fa-check"></i> Pay</a>
+                                                        @endif
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
+
+                                @endforeach
+
+                                @foreach ($request_data['provider'] as $charge_id)
+
+                                    @php
+                                        $_referral = $provider->firstWhere('id', $charge_id);
+                                        $totalItems = $response->where('provider_id', $charge_id);
+                                        $patientCount = $totalItems->count();
+                                    @endphp
+
+                                    <tr style="background-color: #d1cbcb;">
+                                        <th colspan="6" class="text-center">
+                                            <strong style="color: #0000ff;">{{ $_referral->name }}</strong><br>
+                                            <small style="color: #080808;">
+                                                 <strong style="padding: 0 5px;">Total Patients:
+                                                        {{ $patientCount }}</strong> |
+                                                <strong style="padding: 0 5px;">Date:
+                                                    {{ dateFor(@$request_data['from_date']) }} to
+                                                    {{ dateFor(@$request_data['to_date']) }}</strong>
+                                            </small>
+                                        </th>
+                                    </tr>
+
+                                    @if ( count($totalItems) > 0 )
+                                        @php
+                                            $s = 1;
+                                        @endphp
+                                        @foreach ($totalItems as $charge)
+                                            <tr>
+                                                <td>{{ $s++ }}</td>
+                                                <td>
+                                                    <a href="{{ route('bill.billing-details', [strtolower($charge->section), ed($charge->billing_id, true)]) }}">{{ $charge->uid }}</a>
+                                                    <span class="badge badge-gradient-success mt-2">{{ $charge->section }}</span>
+                                                </td>
+                                                <td>{{ dateFor($charge->bill_date, true) }}</td>
+                                                <td>
+                                                    @if( empty($charge->master_id) )
+                                                        <a href="javascript:void(0)" class="openModal" onClick="getData('provider', '{{ $charge_id }}', '{{ $charge->billing_id }}')">
+                                                            {{ $charge->patient_name }} ({{ $charge->patient_id }})
+                                                        </a>
+                                                    @else
+                                                        {{ $charge->patient_name }} ({{ $charge->patient_id }})
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if( $charge->sub_total > 0 )
+                                                    ₹ {{ number_format($charge->sub_total, 2) }}
+                                                    @else
+                                                    ₹ {{ number_format($charge->total, 2) }}
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if( !empty($charge->master_id) )
+                                                    <a href="{{ route('reports.commission-report-view', $charge->master_id) }}" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-eye"></i> View</a>
+                                                    @endif
+
+                                                    @if( !empty($charge->master_approved_by) )
+                                                        <span class="badge badge-gradient-success" style="font-size: .8rem; padding: 0.4rem 0.55rem;">Approved</span>
+                                                    @else
+                                                        @if( !empty($charge->master_id) && !empty($uid) && $uid == 2 )
+                                                            <a onClick="approveCommission('{{ $charge->master_id }}')" class="btn btn-sm btn-outline-info mx-1" title="Approve"><i class="fa fa-check"></i> Approve</a>
+                                                        @endif
+                                                    @endif
+
+                                                    @if( !empty($charge->master_paid_by) )
+                                                        <span class="badge badge-gradient-success" style="font-size: .8rem; padding: 0.4rem 0.55rem;">Paid</span>
+                                                    @else
+                                                        @if( !empty($charge->master_approved_by) && !empty($charge->master_id) && !empty($uid) && $uid == 2 )
+                                                            <a onClick="payCommission('{{ $charge->master_id }}')" class="btn btn-sm btn-outline-info mx-1" title="Approve"><i class="fa fa-check"></i> Pay</a>
+                                                        @endif
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
+
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+<form id="conssion">
+    @csrf
+    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div style="min-width:600px;" class="modal-dialog modal-md" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Patient Test Report</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-bordered text-nowrap" style="width:100%; border-collapse: separate; border-spacing: 1%;">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="background-color: #50ab57 !important;">#</th>
+                                <th class="text-center" style="background-color: #50ab57 !important;">Bill ID</th>
+                                <th class="text-center" style="background-color: #50ab57 !important;">Test Name</th>
+                                <th class="text-center" style="background-color: #50ab57 !important;">Test Amount</th>
+                                <th class="text-center" style="background-color: #50ab57 !important;">Commission(%)</th>
+                                <th class="text-center" style="background-color: #50ab57 !important;">Commission Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTable">
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="5" class="text-end">Total Commission</th>
+                                <th>
+                                    <input type="text" name="commission_total_amount" class="form-control commission-total" id="commissionTotal" readonly>
+                                    <!-- or: <span id="commissionTotalText"></span> -->
+                                </th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="saveBtn" class="btn btn-success">Save Commission</button>
+                    <button type="button" id="close-btn" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <meta name="csrf-token" content="{{ csrf_token() }}">
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+
+<div id="loader" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+@endsection
+@push('js')
+    <script>
+        $('.data-table').DataTable({
+            "pageLength": 50, // Default number of rows per page
+            "lengthMenu": [10, 25, 50, 100, 200], // Dropdown options for rows per page
+            "language": {
+                "emptyTable": "No data available in table" // Custom message when table is empty
+            }
+        });
+
+        function getData(user_type, type_id, bill_id){
+
+            $("#userTable").html('');
+            let formData = $(this).serialize();
+            console.log(formData);
+            if( bill_id ){
+                $.ajax({
+                    url: "{{ route('reports.commission-patient-charge') }}",
+                    type: "POST",
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        bill_id: bill_id,
+                        user_type: user_type,
+                        type_id: type_id
+                    },
+                    beforeSend: function() {
+                        $("#loader").show();
+                    },
+                    success: function(response) {
+                        if(response.status == 'success') {
+                            $.each(response.data, function(index, user) {
+                                var s_no = index + 1;
+                                $("#userTable").append(`
+                                                    <tr>
+                                                        <td class="text-center">${s_no}</td>
+                                                        <td class="text-center">${user.billing_id}</td>
+                                                        <td class="text-center">${user.charge_name}</td>
+                                                        <td class="text-center amount-text">${user.amount}</td>
+
+                                                        <td class="text-center">
+                                                            <input type="number" min="0" class="discount" name="discount[]" />
+                                                            <input type="hidden" class="total-amount" name="total_amount[]" value="${user.amount}">
+                                                            <input type="hidden" name="bill_id"    value="${user.billing_id}">
+                                                            <input type="hidden" name="patient_id" value="${user.patient_id}">
+                                                            <input type="hidden" name="charge_id[]"  value="${user.charge_id}">
+                                                            <input type="hidden" name="type"       value="${user_type}">
+                                                            <input type="hidden" name="type_id"    value="${type_id}">
+                                                        </td>
+
+                                                        <td>
+                                                            <input type="text" class="discount-amount" name="discount_amount[]" readonly>
+                                                        </td>
+                                                        </tr>
+                                                    `);
+
+                            });
+                            var myModal = new bootstrap.Modal(document.getElementById('exampleModal'));
+                            myModal.show();
+                        }
+                    },
+                    error: function(error) {
+                        console.log(error);
+                    },
+                    complete: function() {
+                        $("#loader").hide();
+                    }
+                });
+            }
+
+        }
+
+        $('#saveBtn').on('click', function (e) {
+            e.preventDefault();
+
+            let invalid = false, firstBad = null;
+
+            $('.discount').each(function () {
+                const v = $(this).val().trim();
+
+                if (v === '') {                 // empty → set to 0
+                $(this).val(0);
+                return;
+                }
+
+                const n = Number(v);
+                if (!Number.isFinite(n) || n < 0) {
+                invalid = true;
+                firstBad = firstBad || this;
+                return false; // break .each
+                }
+            });
+
+            if (invalid) {
+                alert('Discount must be a number that is 0 or greater.');
+                if (firstBad) firstBad.focus();
+                return; // don’t submit
+            }
+
+            const fd = new FormData(document.getElementById('conssion'));
+
+            $.ajax({
+                url: "{{ route('reports.commission-discount') }}",
+                type: "POST",
+                dataType: "json",
+                data: fd,
+                processData: false,     // required for FormData
+                contentType: false,     // required for FormData
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                beforeSend() { $("#loader").show(); },
+                success(res) {
+                if (String(res.status) === '1') {
+                    location.reload();
+                } else {
+                    alert(res.message || 'Save failed.');
+                }
+                },
+                error(xhr) {
+                console.log('AJAX error:', xhr.status, xhr.responseText);
+                alert('Request failed.');
+                },
+                complete() { $("#loader").hide(); }
+            });
+        });
+
+        /* amount calculate start */
+
+        function toNum(v){ return parseFloat(String(v).replace(/,/g,'')) || 0; }
+        function fmt2(n){ return Number(n).toFixed(2); }
+
+
+        function recalcRow($tr){
+        let amount = toNum($tr.find('.total-amount').val());
+        if (!amount) amount = toNum($tr.find('.amount-text').text());
+
+        let pct = toNum($tr.find('.discount').val());
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+
+        const commAmt = amount * (pct / 100);
+        $tr.find('.discount-amount').val(fmt2(commAmt));
+        }
+
+        function recalcTotal(){
+        let sum = 0;
+        $('.discount-amount').each(function(){
+            sum += toNum($(this).val());
+        });
+        $('#commissionTotal').val(fmt2(sum));
+        // If you used a <span>, uncomment the next line:
+        // $('#commissionTotalText').text(fmt2(sum));
+        }
+
+        // When user types/pastes a commission %
+$(document).on('input change', '.discount', function () {
+  const $tr = $(this).closest('tr');
+  recalcRow($tr);
+  recalcTotal();
+});
+
+// If rows can be added dynamically, re-run totals after adding a row
+// Also initialize totals on first load:
+$(function(){
+  // compute each existing row once
+  $('#commissionTable tbody tr').each(function(){ recalcRow($(this)); });
+  recalcTotal();
+});
+
+
+
+        /* amount calculate end */
+
+        function approveCommission(master_id){
+
+            if( master_id ){
+                if (!confirm('Approve this commission?')) return;
+                $.ajax({
+                    url: "{{ route('reports.commission-report-approved') }}",
+                    type: "POST",
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        master_id: master_id
+                    },
+                    beforeSend: function() {
+                        $("#loader").show();
+                    },
+                    success: function(response) {
+                        if(response.status == '1') {
+                            location.reload();
+                        } else {
+                            alert(response.message || 'Save failed.');
+                        }
+                    },
+                    error: function(error) {
+                        console.log(error);
+                    },
+                    complete: function() {
+                        $("#loader").hide();
+                    }
+                });
+            }
+
+        }
+
+        function payCommission(master_id){
+
+            if( master_id ){
+                if (!confirm('Pay this commission?')) return;
+                $.ajax({
+                    url: "{{ route('reports.commission-report-paid') }}",
+                    type: "POST",
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        master_id: master_id
+                    },
+                    beforeSend: function() {
+                        $("#loader").show();
+                    },
+                    success: function(response) {
+                        if(response.status == '1') {
+                            location.reload();
+                        } else {
+                            alert(response.message || 'Save failed.');
+                        }
+                    },
+                    error: function(error) {
+                        console.log(error);
+                    },
+                    complete: function() {
+                        $("#loader").hide();
+                    }
+                });
+            }
+
+        }
+    </script>
+@endpush

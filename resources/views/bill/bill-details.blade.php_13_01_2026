@@ -1,0 +1,347 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Billing Details</title>
+@endpush
+@push('css')
+@php
+    if(@$bill->bill_status == 3){
+        $bg = url('public/assets/images/canceled.png');
+    }else{
+        $section == 'ipd' ? $bg = url('public/assets/images/approved.png') : ($bill->due_amount > 0 ? $bg = url('public/assets/images/draft.png') : $bg = url('public/assets/images/paid.png'));
+    }
+@endphp
+<style>
+    body::before {
+        content: "";
+        background-image: url("{{$bg}}");
+        background-size: 30%;
+        background-repeat: no-repeat;
+        background-position: center center;
+        opacity: 0.2;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 9999;
+    }
+</style>
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="card ">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 leftside_fixarea">
+                    <x-billbar section="{{ $section }}" id="{{$bill->id}}" type="bill" />
+                </div>
+
+                <div class="col-md-9 rightside_fixarea" style="border:2px solid black">
+                    <div class="bill_details_header">
+                        <p class="bill_details_header1">*BILL NO : {{$bill->uid}}
+                            <span class="mx-2">||</span> *BILL DATE : {{dateFor($bill->bill_date)}}
+                            <span class="mx-2">||</span> *BILL SECTION :
+                            @if($bill->section == 'OP' && @$bill->enquiry_id)
+                                Vision Care
+                            @elseif($bill->section == 'OP')
+                                OPTICAL
+                            @else
+                                {{ $bill->section }}
+                            @endif
+                        </p>
+                        <p class="bill_details_header2">
+                            Bill Created By - {{$bill->created_name}}
+                            @if($bill->edited_name) <span class="mx-2">||</span> Bill Edited By - {{$bill->edited_name}} @endif
+                            @if($bill->approved_user_name) <span class="mx-2">||</span> Bill Approve By - {{$bill->approved_user_name}} ({{ dateFor(@$bill->updated_at, true) }}) @endif
+                        </p>
+                    </div>
+
+                    <div class="row">
+                        <div class="table-responsive">
+                            <table class="table table-striped card-table table-vcenter text-nowrap border">
+                                <thead class="bg-primary text-white">
+                                    <tr class="border-left">
+                                        <th class="text-white">#</th>
+                                        <th class="text-white">Date</th>
+                                        <th class="text-white">{{$bill->section == 'OP' ? '' : 'Charge'}} Name</th>
+                                        <th class="text-white">{{$bill->section == 'OP' ? '' : 'Charge'}} Amount (₹)</th>
+                                        <th class="text-white">QTY</th>
+                                        <th class="text-white">Dis Amt</th>
+                                        <th class="text-white">Dis Per (%)</th>
+                                        <th class="text-white">Status</th>
+                                        <th class="text-white">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($bill_info as $key => $bi)
+                                    <tr style="background-color: #d5ffd5">
+                                        <th scope="row">{{++$key}}</th>
+                                        <td>{{dateFor($bi->date)}}</td>
+                                        <td>
+                                            {{$bi->actual_charge_name}}
+                                            {!! @$bi->doctor_name ? '<br><small> (Dr. '.$bi->doctor_name.')</small>' : '' !!}
+                                        </td>
+                                        <td>{{$bi->standard_charges}}</td>
+                                        <td>{{$bi->qty}}</td>
+                                        <td>{{$bi->discount_amount}}</td>
+                                        <td>{{$bi->discount_percentage}}</td>
+                                        <td>
+                                            {!! $bi->is_delete == 1 ? '<span class="badge badge-danger">Cancelled</span>': '<span class="badge badge-success">Done</span>' !!}
+                                        </td>
+                                        <td>{{$bi->amount}}</td>
+                                    </tr>
+                                    @endforeach
+
+                                    @if ($section == 'ipd' || $section == 'dialysis')
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Sub Total</td>
+                                        <td class="text-blue"><b>₹{{@$bill->sub_total}}</b></td>
+                                    </tr>
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Miscellaneous Charge</td>
+                                        <td class="text-blue"><b>₹{{@$bill->miscellaneous_amount}}</b></td>
+                                    </tr>
+                                    @endif
+
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Total</td>
+                                        <td class="text-blue"><b>₹{{$bill->total}}</b></td>
+                                    </tr>
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Discount</td>
+                                        <td class="text-blue"><b>₹{{$bill->discount_amount}}</b></td>
+                                    </tr>
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Payable Amount</td>
+                                        <td class="text-blue"><b>₹{{$bill->total - $bill->discount_amount}}</b></td>
+                                    </tr>
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Total Payment</td>
+                                        <td class="text-blue"><b>₹{{$bill->total_payment}}</b></td>
+                                    </tr>
+                                    @if ($bill->due_amount > 0)
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Due</td>
+                                        <td class="text-blue"><b>₹{{$bill->due_amount}}</b></td>
+                                    </tr>
+                                    @endif
+                                    @if ($bill->cradit_amount > 0)
+                                    <tr style="font-size: 17px;font-weight:800">
+                                        <td colspan="8" class="text-right px-5">Credit</td>
+                                        <td class="text-blue"><b>₹{{$bill->cradit_amount}}</b></td>
+                                    </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <span style="font-size: 20px;font-weight:600">** <u>Receipt/Adjust Amount List </u> :</span>
+                        </div>
+                        {{-- <div class="col-md-6 text-right">
+                            @if( !empty($section) && ($section == 'ipd' || $section == 'dialysis') )
+                                <span style="font-size: 12px;font-weight:bold;" class="pr-2">TDS (%) : ₹{{$bill->tds_amount ?? 0}}</span>
+                            @endif
+                        </div> --}}
+                        <div class="table-responsive">
+                            <table class="table table-striped card-table table-vcenter text-nowrap border">
+                                <thead class="bg-primary text-white">
+                                    <tr class="border-left">
+                                        <th class="text-white">Receipt/Adjust ID</th>
+                                        <th class="text-white">Date</th>
+                                        <th class="text-white">Amount (₹)</th>
+                                        <th class="text-white">Mode</th>
+                                        <th class="text-white">Bank</th>
+                                        <th class="text-white">Note</th>
+                                        <th class="text-white">Generated By</th>
+                                        <th class="text-white">#</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($payments as $pay)
+                                    <tr style="background-color: rgb(255, 255, 164)">
+                                        <td>R{{$pay->id}}</td>
+                                        <td>{{dateFor($pay->payment_date,true)}}</td>
+                                        <td>{{$pay->payment_amount}}</td>
+                                        <td>{{$pay->payment_mode}}</td>
+                                        <td>{{$pay->payment_bank}}</td>
+                                        <td>{{$pay->note}}</td>
+                                        <td>{{$pay->created_name}}</td>
+                                        <td>
+                                            <a href="{{route('bill.print-payment-receipt',[$section, ed($pay->id,true)])}}" target="_blank" data-placement="left" data-toggle="tooltip" title="Print Receipt" data-original-title="Print Receipt">
+                                                <i class="fa fa-print"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                    @foreach ($reused as $use)
+                                    <tr style="background-color: rgb(255, 255, 164)">
+                                        <td>RAJ{{$use->id}}</td>
+                                        <td>{{dateFor($use->created_at,true)}}</td>
+                                        <td>{{$use->amount}}</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td>{{$use->remarks}}</td>
+                                        <td>{{$use->created_name}}</td>
+                                        <td></td>
+                                    </tr>
+                                    @endforeach
+
+                                    @foreach ($advance_used as $use)
+                                    <tr style="background-color: rgb(255, 255, 164)">
+                                        <td>RAJ{{$use->id}}</td>
+                                        <td>{{dateFor($use->created_at,true)}}</td>
+                                        <td>{{$use->amount}}</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td>{{$use->remarks}}</td>
+                                        <td>{{$use->created_name}}</td>
+                                        <td>Payment id of R{{$use->from_payment_id}}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                            <div class="mt-2 text-right text-blue">
+                                <span class="bilpo_name">Total Payment</span><span class="bilpo_value"> : ₹{{$bill->total_payment}}</span>
+                            </div>
+                        </div>
+                    </div>
+                    @if(count($refund) > 0)
+                    <div class="row">
+                        <span style="font-size: 20px;font-weight:600">** <u>Refund Amount List </u> :</span>
+                        <div class="table-responsive">
+                            <table class="table table-striped card-table table-vcenter text-nowrap border">
+                                <thead class="bg-primary text-white">
+                                    <tr class="border-left">
+                                        <th class="text-white">Refund ID</th>
+                                        <th class="text-white">Date</th>
+                                        <th class="text-white">Refund By</th>
+                                        <th class="text-white">Amount (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @php $total_refund = 0; @endphp
+                                    @foreach ($refund as $cra)
+                                    @php $total_refund = $total_refund + $cra->amount; @endphp
+                                    <tr style="background-color:rgb(188, 188, 255)">
+                                        <td>RF{{$cra->id}}</td>
+                                        <td>{{dateFor($cra->created_at,true)}}</td>
+                                        <td>{{$cra->created_name}}</td>
+                                        <td>{{$cra->amount}}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                            <div class="mt-2 text-right text-blue">
+                                <span class="bilpo_name">Total Refund </span><span class="bilpo_value"> : ₹{{$total_refund}}</span>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="text-primary" style="display: inline;">Finance Remark : {{$bill->finance_remark}}</h4>
+                        </div>
+                        <div class="col-md-6">
+                            <h4 class="text-primary" style="display: inline;">Party/Department Remark : {{$bill->department_party_remark}}</h4>
+                        </div>
+                    </div>
+                    <hr>
+                    @if( $section == 'opd' || $section == 'investigation'  )
+                    <div class="row">
+
+                        <div class="col-md-12 px-3">
+                            <h6 class="modal-title">Update Referral</h6>
+                        </div>
+
+                        <div class="col-md-12 mt-5 px-3">
+                            <form method="POST" action="{{ route('bill.update-user-id', ['section' => $section]) }}">
+                                @csrf
+
+                                <input type="hidden" name="bill_id" value="{{ $bill->id }}">
+                                <input type="hidden" name="section" value="{{ $section }}">
+
+                                <div class="">
+                                    <div class="row">
+
+                                        {{-- for market_by --}}
+                                        <div class="col-sm-3">
+                                            <div class="form-group">
+                                                <label class="date-format">Market By </label>
+                                                <select name="market_by" id="market_by" class="form-control select2-show-search">
+                                                    <option value="">Select Market By</option>
+                                                    @foreach ($market_by as $marketBy)
+                                                        @php
+                                                            if( $marketBy->id == 4 ){
+                                                                continue;
+                                                            }
+                                                        @endphp
+                                                        <option value="{{ $marketBy->id }}" @if( @$bill->add_market_by == $marketBy->id ) selected @endif >Dr. {{ $marketBy->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {{-- for provider --}}
+                                        <div class="col-sm-3">
+                                            <div class="form-group">
+                                                <label class="date-format">Provider By </label>
+                                                <select name="provider" id="provider" class="form-control select2-show-search">
+                                                    <option value="">Select Provider</option>
+                                                    @foreach ($provider as $provider_by)
+                                                        @php
+                                                            if( $provider_by->id == 4 ){
+                                                                continue;
+                                                            }
+                                                        @endphp
+                                                        <option value="{{ $provider_by->id }}" @if( @$bill->add_provider == $provider_by->id ) selected @endif>Dr. {{ $provider_by->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {{-- for referral --}}
+                                        <div class="col-sm-3">
+                                            <div class="form-group">
+                                                <label class="date-format">Referral By </label>
+                                                <select name="referral" id="referral" class="form-control select2-show-search">
+                                                    <option value="">Select Referral</option>
+                                                    @foreach ($referral as $referral_by)
+                                                        @php
+                                                            if( $referral_by->id == 4 ){
+                                                                continue;
+                                                            }
+                                                        @endphp
+                                                        <option value="{{ $referral_by->id }}" @if( @$bill->add_referred_by == $referral_by->id ) selected @endif>Dr. {{ $referral_by->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+
+
+                                        <div class="col-sm-2 mt-5">
+                                            <div class="form-group d-flex pull-right">
+                                                <button type="submit" class="btn btn-primary px-3 mr-2">
+                                                    <i class="fas fa-search"></i> Update</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+0
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+@push('js')
+
+@endpush

@@ -1,0 +1,839 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Dialysis Admission</title>
+@endpush
+@push('css')
+<style>
+    .upload-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 20px;
+        transition: 0.3s;
+        float: right;
+    }
+
+    .upload-btn:hover {
+        background-color: #0056b3;
+    }
+
+    input[type="file"] {
+        display: none;
+    }
+
+    #loader-overlay {
+        display: none; /* Hidden by default */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255,255,255,0.8);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .spinner {
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #007bff; /* Blue spinner */
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        100% { transform: rotate(360deg); }
+    }
+
+</style>
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+        <div class="card">
+            <div class="card-header card_hearder_mimi justify-content-between">
+                <h4 class="card-title card_hearder_mimi_text">
+                    Dialysis Admission
+                </h4>
+            </div>
+            <form action="{{ route('ipd.update-dialysis-register') }}" id="yourFormId" method="POST">
+                @csrf
+                <input type="hidden" name="save" id="activeSubmitValue" value="">
+                <input type="hidden" name="moved_by" value="{{ $moved_by }}">
+                <div class="card-body p-0" style="margin-bottom: 32px;">
+                    <div class="card-body">
+                        <div class="hospital_allcardbodydesign border">
+                            <div class="row">
+                                <div class="col-lg-12 ">
+                                    <div class="main-profile-contact-list ">
+                                        <div class="row mt-2">
+                                            <div class="col-md-4">
+                                                <label class="admission_date">Admission Date & time <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control dateTimePickr" name="admission_date" id="admission_date" value="{{ old('admission_date', date('d-m-Y h:i A')) }}" />
+                                                @error('admission_date')
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="insurance_type">Patient Type <span class="text-danger">*</span></label>
+                                                <select name="insurance_type" id="insurance_type"
+                                                    class="form-group select2-show-search">
+                                                    <option value="">Select</option>
+                                                    @foreach ($tpa as $value)
+                                                        <option value="{{ $value->id }}" {{ old('insurance_type', @$section_info->insurance_id) == $value->id ? 'selected' : '' }}>{{ $value->tpa_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('insurance_type')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="insurance_no">Insurance No</label>
+                                                <input type="text" class="form-control" name="insurance_no" id="insurance_no" value="{{ old('insurance_no', @$section_info->insurance_no)}}" />
+                                                @error('insurance_no')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hospital_allcardbodydesign border mt-2">
+                            <h5 class="text-blue"> <i class="fa fa-user text-orange"></i> PATIENT DETAILS : </h5>
+                            <div class="row">
+                                <div class="col-lg-12 ">
+                                    <div class="main-profile-contact-list ">
+                                        <div class="row">
+                                            <div class="form-group col-md-1 custom-field newdesignadd45">
+                                                <label for="uhid"> UHID </label>
+                                                <input type="text" id="uhid" onkeyup="getPatient(this.value,'id')"
+                                                    class="text-capitalize" name="uhid" value="{{ old('uhid', @$patient_info->id) }}" readonly>
+                                                @error('uhid')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="form-gsroup col-md-2 newdesignadd45 ">
+                                                <label for="phone"> Mobile <span class="text-danger">*</span></label>
+                                                <input type="text" id="phone" name="phone"
+                                                    onkeyup="getPatient(this.value, 'phone')" maxlength="10"
+                                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="{{ old('phone', @$patient_info->phone) }}">
+                                                @error('phone')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="form-group col-md-1 newaddappon45 ">
+                                                <label>Marital Status</label>
+                                                    <select name="marital_status" class="form-control" id="marital_status">
+                                                        <option value="">Select</option>
+                                                        <option value="Single" {{ old('marital_status', @$patient_info->marital_status) == 'Single' ? 'selected' : '' }}> Single</option>
+                                                        <option value="Married" {{ old('marital_status', @$patient_info->marital_status) == 'Married' ? 'selected' : '' }}> Married</option>
+                                                        <option value="Widowed" {{ old('marital_status', @$patient_info->marital_status) == 'Widowed' ? 'selected' : '' }}> Widowed</option>
+                                                        <option value="Separated" {{ old('marital_status', @$patient_info->marital_status) == 'Separated' ? 'selected' : '' }}> Separated</option>
+                                                        <option value="Not Specified" {{ old('marital_status', @$patient_info->marital_status) == 'Not Specified' ? 'selected' : '' }}> Not Specified</option>
+                                                    </select>
+                                                    @error('marital_status')
+                                                        <span class="text-danger">{{ $message }}</span>
+                                                    @enderror
+                                            </div>
+                                            <div class="form-group col-md-2 custom-field newdesignadd45">
+                                                <label for="name"> Patient's name<span class="text-danger">*</span></label>
+                                                <input type="text" id="name" class="text-capitalize" name="name"
+                                                    onkeyup="getPatient(this.value, 'name')" value="{{ old('name', @$patient_info->name) }}">
+                                                @error('name')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="form-group col-md-1 newaddappon45 ">
+                                                <label for="gender">Gender <span class="text-danger">*</span></label>
+                                                <select name="gender" class="form-control" id="gender">
+                                                    <option value="">Select</option>
+                                                    <option value="Male" {{ old('gender', @$patient_info->gender) == 'Male' ? 'selected' : '' }}> Male</option>
+                                                    <option value="Female" {{ old('gender', @$patient_info->gender) == 'Female' ? 'selected' : '' }}> Female</option>
+                                                    <option value="Others" {{ old('gender', @$patient_info->gender) == 'Others' ? 'selected' : '' }}> Others</option>
+                                                </select>
+                                                @error('gender')
+                                                    <span class="text-danger">{{ $message }}</span>
+                                                @enderror
+                                            </div>
+                                            <div class="col-lg-2 newdesignadd45">
+                                                <label for="guardian_name" class="form-label"> Guardian Name<span
+                                                        class="text-danger">*</span></label>
+                                                <input type="text" id="guardian_name" name="guardian_name"
+                                                    class="text-capitalize" onkeyup="getPatient(this.value, 'guardian_name')" value="{{ old('guardian_name', @$patient_info->guardian_name) }}" />
+                                                    @error('guardian_name')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="form-group col-md-1 newaddappon45 ">
+                                                <label class="form-label">Relation <span class="text-danger">*</span></label>
+                                                    <select name="relation" class="form-control select2-show-search" id="relation">
+                                                        <option value="">Select</option>
+                                                        <option value="Father" {{ old('relation', @$patient_info->guardian_realation) == 'Father' ? 'selected' : '' }}> Father</option>
+                                                        <option value="Mother" {{ old('relation', @$patient_info->guardian_realation) == 'Mother' ? 'selected' : '' }}> Mother</option>
+                                                        <option value="Son" {{ old('relation', @$patient_info->guardian_realation) == 'Son' ? 'selected' : '' }}> Son</option>
+                                                        <option value="Daughter" {{ old('relation', @$patient_info->guardian_realation) == 'Daughter' ? 'selected' : '' }}> Daughter</option>
+                                                        <option value="Relative" {{ old('relation', @$patient_info->guardian_realation) == 'Relative' ? 'selected' : '' }}> Relative</option>
+                                                        <option value="Friend" {{ old('relation', @$patient_info->guardian_realation) == 'Friend' ? 'selected' : '' }}> Friend</option>
+                                                        <option value="Husband" {{ old('relation', @$patient_info->guardian_realation) == 'Husband' ? 'selected' : '' }}> Husband</option>
+                                                        <option value="Wife" {{ old('relation', @$patient_info->guardian_realation) == 'Wife' ? 'selected' : '' }}> Wife</option>
+                                                        <option value="Guardian" {{ old('relation', @$patient_info->guardian_realation) == 'Guardian' ? 'selected' : '' }}> Guardian</option>
+                                                        <option value="Daughter-in-law" {{ old('relation', @$patient_info->guardian_realation) == 'Daughter-in-law' ? 'selected' : '' }}> Daughter-in-law</option>
+                                                        <option value="Son-in-law" {{ old('relation', @$patient_info->guardian_realation) == 'Son-in-law' ? 'selected' : '' }}> Son-in-law</option>
+                                                        <option value="Neighbour" {{ old('relation', @$patient_info->guardian_realation) == 'Neighbour' ? 'selected' : '' }}> Neighbour</option>
+                                                        <option value="Nephew" {{ old('relation', @$patient_info->guardian_realation) == 'Nephew' ? 'selected' : '' }}> Nephew</option>
+                                                        <option value="Niece" {{ old('relation', @$patient_info->guardian_realation) == 'Niece' ? 'selected' : '' }}> Niece</option>
+                                                        <option value="Grand Mother" {{ old('relation', @$patient_info->guardian_realation) == 'Grand Mother' ? 'selected' : '' }}> Grand Mother</option>
+                                                        <option value="Grand Father" {{ old('relation', @$patient_info->guardian_realation) == 'Grand Father' ? 'selected' : '' }}> Grand Father</option>
+                                                        <option value="Teacher" {{ old('relation', @$patient_info->guardian_realation) == 'Teacher' ? 'selected' : '' }}> Teacher</option>
+                                                        <option value="Mother-in-law" {{ old('relation', @$patient_info->guardian_realation) == 'Mother-in-law' ? 'selected' : '' }}> Mother-in-law</option>
+                                                        <option value="Father-in-law" {{ old('relation', @$patient_info->guardian_realation) == 'Father-in-law' ? 'selected' : '' }}> Father-in-law</option>
+                                                        <option value="Brother" {{ old('relation', @$patient_info->guardian_realation) == 'Brother' ? 'selected' : '' }}> Brother</option>
+                                                        <option value="Sister" {{ old('relation', @$patient_info->guardian_realation) == 'Sister' ? 'selected' : '' }}> Sister</option>
+                                                        <option value="Cousin" {{ old('relation', @$patient_info->guardian_realation) == 'Cousin' ? 'selected' : '' }}> Cousin</option>
+                                                        <option value="Grand Daughter" {{ old('relation', @$patient_info->guardian_realation) == 'Grand Daughter' ? 'selected' : '' }}> Grand Daughter</option>
+                                                        <option value="Grand Son" {{ old('relation', @$patient_info->guardian_realation) == 'Grand Son' ? 'selected' : '' }}> Grand Son</option>
+                                                    </select>
+                                                    @error('relation')
+                                                        <span class="text-danger">{{ $message }}</span>
+                                                    @enderror
+                                            </div>
+                                            <div class="form-gsroup col-md-2 newdesignadd45 ">
+                                                <label>Guardian Contact No </label>
+                                                <input type="text" name="guardian_contact_no" id="guardian_contact_no" class="form-control" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="{{ old('guardian_contact_no', @$patient_info->guardian_contact_no) }}" >
+                                            </div>
+                                            @error('guardian_contact_no')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                            </div>
+                                            <div class="card-body hospital_allcardbodydesign border mt-2" style="display:none;" id="search_result">
+                                                <div class="table-responsive">
+                                                    <table class="table table-hover card-table table-vcenter text-nowrap border-left border-right border-bottom">
+                                                        <thead class="bg-primary text-white">
+                                                            <tr class="border-left">
+                                                                <th class="text-white">UHID</th>
+                                                                <th class="text-white">Patient Name</th>
+                                                                <th class="text-white">Age</th>
+                                                                <th class="text-white">Phone</th>
+                                                                <th class="text-white">Address</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="search_result_row"></tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        <div class="row">
+                                            <div class="col-lg-1 newdesignadd45">
+                                                <label class="form-label" for="date_of_birth_year"> DOB</label>
+                                                <input type="text" class="form-control datePickr" id="date_of_birth" name="date_of_birth" onchange="getagefromdate(this.value)" value="{{ old('date_of_birth', @$patient_info->date_of_birth) }}">
+                                                @error('date_of_birth')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-lg-1 newdesignadd45">
+                                                <label class="form-label" for="date_of_birth_year"> Year</label>
+                                                <input type="text" id="date_of_birth_year" name="date_of_birth_year" onkeyup="getage()" value="{{ old('date_of_birth_year', @$patient_info->dob_year) }}">
+                                                @error('date_of_birth_year')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+
+                                            <div class="col-lg-1 newdesignadd45">
+                                                <label class="form-label" for="date_of_birth_month"> Month</label>
+                                                <input type="text" id="date_of_birth_month" name="date_of_birth_month" onkeyup="getage()" value="{{ old('date_of_birth_month', @$patient_info->dob_month) }}">
+                                                @error('date_of_birth_month')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-lg-1 newdesignadd45">
+                                                <label class="form-label" for="date_of_birth_day"> Day</label>
+                                                <input type="text" id="date_of_birth_day" name="date_of_birth_day" onkeyup="getage()" value="{{ old('date_of_birth_day', @$patient_info->dob_day) }}">
+                                                @error('date_of_birth_day')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+
+                                            <div class="form-group col-md-2 newdesignadd45">
+                                                <label for="address">Address<span class="text-danger">*</span></label>
+                                                <input type="text" id="address" name="address" value="{{ old('address', @$patient_info->address) }}">
+                                                @error('address')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+
+                                            <div class="form-group col-md-2 newaddappon45">
+                                                <label class="form-label" for="state">State <span class="text-danger">*</span></label>
+                                                    <select name="state" class="form-control select2-show-search" onchange="getDistrict(this.value)" id="state">
+                                                        <option value="">Select State</option>
+                                                        @foreach ($states as $s)
+                                                            <option value="{{$s->id}}" {{ old('state', @$patient_info->state ?? 35) == $s->id ? 'selected' : '' }}>{{$s->name}}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('state')
+                                                        <small class="text-danger">{{ $message }}</small>
+                                                    @enderror
+                                            </div>
+                                            <div class="form-group col-md-1 newaddappon45">
+                                                <label class="form-label" for="district">District</label>
+                                                <select name="district" class="form-control select2-show-search" id="district">
+                                                    <option value="">Select District</option>
+                                                </select>
+                                                @error('district')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+
+                                            <div class="form-group col-md-1 newdesignadd45">
+                                                <label for="pin_code">Pin No.</label>
+                                                <input type="text" id="pin_code" maxlength="6" name="pin_code" value="{{ old('pin_code', @$patient_info->pin_code) }}">
+                                                @error('pin_code')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+
+                                            <div class="form-group col-md-2 mb-0 mt-4">
+                                                <label for="aadhaar_card" style="margin: 0;line-height: 34px;">
+                                                    Aadhaar Card
+                                                    <label for="aadhaarFile" class="upload-btn">
+                                                    <i class="fa fa-upload"></i>
+                                                </label>
+                                                <input type="file" id="aadhaarFile" name="aadhaar_file" onchange="uploadAadhaar()">
+                                                </label>
+                                                <input type="text" tabindex="2" value="{{ old('aadhar_card_no', @$patient_info->identification_number) }}"
+                                                    name="aadhar_card_no" id="aadhaar_card" readonly
+                                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                            </div>
+
+                                            {{-- <div class="form-group col-md-2 newdesignadd45">
+                                                <label for="aadhar_card_no">Aadhar Card No.</label>
+                                                <input type="text" id="aadhar_card_no"
+                                                    name="aadhar_card_no" maxlength="12" value="{{ old('aadhar_card_no', @$patient_info->identification_number) }}">
+                                                @error('aadhar_card_no')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div> --}}
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hospital_allcardbodydesign border mt-2">
+                            <h5 class="text-blue"> <i class="fa fa-bed text-orange"></i> PATIENT ADMISSION INFORMATION : </h5>
+                            <div class="row">
+                                <div class="col-lg-12 ">
+                                    <div class="main-profile-contact-list ">
+                                        <div class="row">
+                                            <div class="col-md-4 ipd-registrationproaddd">
+                                                <label class="form-label">Under Doctor <span class="text-danger">*</span></label>
+                                                    <select id="under_doctor" name="under_doctor" class="form-control select2-show-search">
+                                                        <option value="">Select</option>
+                                                        @foreach ($doctor as $doc)
+                                                            <option value="{{$doc->id}}" {{ old('under_doctor', @$section_info->doctor_id) == $doc->id ? 'selected' : '' }}>{{$doc->salutation}} {{$doc->name}}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('under_doctor')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-4 ipd-registrationproaddd">
+                                                <label class="form-label">Bed Category <span class="text-danger">*</span></label>
+                                                    <select id="bed_category" name="bed_category" class="form-control select2-show-search" onchange="getWard(this.value)">
+                                                        <option value="">Select</option>
+                                                        @foreach ($wards as $ward)
+                                                            <option value="{{$ward->id}}" {{ old('bed_category') == $ward->id ? 'selected' : '' }}>{{$ward->ward_name}}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('bed_category')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="col-md-4 ipd-registrationproaddd">
+                                                <label class="form-label">Bed <span class="text-danger">*</span></label>
+                                                <select name="bed" class="form-control select2-show-search" id="bed">
+                                                    <option value="">Select</option>
+                                                </select>
+                                                @error('bed')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="form-group col-md-4 newaddappon45">
+                                                <label>Referred By <span class="text-danger">*</span></label>
+                                                    <select id="referred_by" name="referred_by" class="form-control select2-show-search">
+                                                        <option value="">Select</option>
+                                                        @foreach ($referral as $ref)
+                                                            <option value="{{$ref->id}}" {{ old('referred_by', @$section_info->referred_by) == $ref->id ? 'selected' : '' }}>{{$ref->referral_name}}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('referred_by')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="form-group col-md-4 newaddappon45">
+                                                <label>Provider</label>
+                                                <select id="provider" name="provider" class="form-control select2-show-search">
+                                                    <option value="">Select</option>
+                                                    @foreach ($provider as $pro)
+                                                        <option value="{{$pro->id}}" {{ old('provider', @$section_info->provider) == $pro->id ? 'selected' : '' }}>{{$pro->referral_name}}</option>
+                                                    @endforeach
+                                                </select>
+                                                @error('provider')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                            <div class="form-group col-md-4 newaddappon45">
+                                                <label>Market By</label>
+                                                    <select id="market_by" name="market_by" class="form-control select2-show-search">
+                                                        <option value="">Select</option>
+                                                        @foreach ($market_by as $mar)
+                                                            <option value="{{$mar->id}}" {{ old('market_by', @$section_info->market_by) == $mar->id ? 'selected' : '' }}>{{$mar->referral_name}}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('market_by')<small class="text-danger">{{ $message }}</small>@enderror
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hospital_allcardbodydesign border mt-2">
+                            <h5 class="text-blue"> <i class="fa fa-bed text-orange"></i> RESPONSIBLE PERSON DETAILS : </h5>
+                            <div class="row">
+                                <div class="col-lg-12 ">
+                                    <div class="row">
+                                        <div class="col-md-3 ipd-registrationproaddd">
+                                            <label for="responsible_person" class="form-label">Name</label>
+                                            <input type="text" id="responsible_person" class="text-capitalize"
+                                                name="responsible_person" value="{{ old('responsible_person', @$section_info->responsible_person) }}">
+                                            @error('responsible_person')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-2 ipd-registrationproaddd">
+                                            <label class="form-label">Relation With Patient</label>
+                                            <select name="responsible_person_relation" class="form-control select2-show-search" id="responsible_person_relation">
+                                                <option value="">Select</option>
+                                                <option value="Father" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Father' ? 'selected' : '' }}>Father</option>
+                                                <option value="Mother" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Mother' ? 'selected' : '' }}>Mother</option>
+                                                <option value="Son" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Son' ? 'selected' : '' }}>Son</option>
+                                                <option value="Daughter" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Daughter' ? 'selected' : '' }}>Daughter</option>
+                                                <option value="Relative" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Relative' ? 'selected' : '' }}>Relative</option>
+                                                <option value="Friend" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Friend' ? 'selected' : '' }}>Friend</option>
+                                                <option value="Husband" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Husband' ? 'selected' : '' }}>Husband</option>
+                                                <option value="Wife" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Wife' ? 'selected' : '' }}>Wife</option>
+                                                <option value="Guardian" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Guardian' ? 'selected' : '' }}>Guardian</option>
+                                                <option value="Daughter-in-law" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Daughter-in-law' ? 'selected' : '' }}>Daughter-in-law</option>
+                                                <option value="Son-in-law" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Son-in-law' ? 'selected' : '' }}>Son-in-law</option>
+                                                <option value="Neighbour" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Neighbour' ? 'selected' : '' }}>Neighbour</option>
+                                                <option value="Nephew" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Nephew' ? 'selected' : '' }}>Nephew</option>
+                                                <option value="Niece" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Niece' ? 'selected' : '' }}>Niece</option>
+                                                <option value="Grand Mother" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Grand Mother' ? 'selected' : '' }}>Grand Mother</option>
+                                                <option value="Grand Father" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Grand Father' ? 'selected' : '' }}>Grand Father</option>
+                                                <option value="Teacher" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Teacher' ? 'selected' : '' }}>Teacher</option>
+                                                <option value="Mother-in-law" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Mother-in-law' ? 'selected' : '' }}>Mother-in-law</option>
+                                                <option value="Father-in-law" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Father-in-law' ? 'selected' : '' }}>Father-in-law</option>
+                                                <option value="Brother" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Brother' ? 'selected' : '' }}>Brother</option>
+                                                <option value="Sister" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Sister' ? 'selected' : '' }}>Sister</option>
+                                                <option value="Cousin" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Cousin' ? 'selected' : '' }}>Cousin</option>
+                                                <option value="Grand Daughter" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Grand Daughter' ? 'selected' : '' }}>Grand Daughter</option>
+                                                <option value="Grand Son" {{ old('responsible_person_relation', @$section_info->responsible_person_relation) == 'Grand Son' ? 'selected' : '' }}>Grand Son</option>
+                                            </select>
+                                            @error('responsible_person_relation')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-3 ipd-registrationproaddd">
+                                            <label for="responsible_person_ph_no" class="form-label"> Phone No</label>
+                                            <input type="text" id="responsible_person_ph_no" class="text-capitalize"
+                                                name="responsible_person_ph_no" maxlength="10"
+                                                oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="{{ old('responsible_person_ph_no', @$section_info->responsible_person_ph_no) }}">
+                                            @error('responsible_person_ph_no')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-1 ipd-registrationproaddd">
+                                            <label for="responsible_person_age" class="form-label"> Age</label>
+                                            <input type="text" id="responsible_person_age" class="text-capitalize"
+                                                name="responsible_person_age" value="{{ old('responsible_person_age', @$section_info->responsible_person_age) }}">
+                                            @error('responsible_person_age')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                        <div class="col-md-3 ipd-registrationproaddd">
+                                            <label for="responsible_person_address" class="form-label"> Address</label>
+                                            <input type="text" id="responsible_person_address" class="text-capitalize"
+                                                name="responsible_person_address" value="{{ old('responsible_person_address', @$section_info->responsible_person_address) }}">
+                                            @error('responsible_person_ph_no')
+                                                <small class="text-danger">{{ $message }}</small>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            <button class="btn btn-primary" type="submit" name="save" value="save"><i class="fa fa-file text-success"></i> Save</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="loader-overlay">
+    <div class="spinner"></div>
+</div>
+
+@endsection
+@push('js')
+<script>
+
+    $(document).ready(function () {
+        let isFormSubmitting = false;
+        let lastClickedSubmitButton = null;
+        const $submitValueInput = $('#activeSubmitValue');
+        const defaultSubmitValue = $('.submitBtn').first().val() || '';
+        if (!$submitValueInput.val().trim()) {
+            $submitValueInput.val(defaultSubmitValue);
+        }
+
+        $('.submitBtn').on('click', function() {
+            lastClickedSubmitButton = $(this);
+            $submitValueInput.val($(this).val());
+        });
+
+        $('#yourFormId').on('submit', function (e) {
+            if (isFormSubmitting) {
+                e.preventDefault();
+                return false;
+            }
+
+            let admission_date = $('#admission_date').val()?.trim();
+            let insurance_type = $('#insurance_type').val()?.trim();
+            let name = $('#name').val()?.trim();
+            let phone = $('#phone').val()?.trim();
+            let gender = $('#gender').val()?.trim();
+            let guardian_name = $('#guardian_name').val()?.trim();
+            let relation = $('#relation').val()?.trim();
+            let address = $('#address').val()?.trim();
+            let state = $('#state').val()?.trim();
+            let under_doctor = $('#under_doctor').val()?.trim();
+            let bed_category = $('#bed_category').val()?.trim();
+            let bed = $('#bed').val()?.trim();
+
+            const allRequired = admission_date && insurance_type && name && phone && gender &&
+                guardian_name && relation && address && state && under_doctor &&
+                bed_category && bed;
+
+            if (!allRequired) {
+                e.preventDefault();
+                alert('Please select all required fields.');
+                const fields = [
+                    "admission_date", "insurance_type", "name", "phone", "gender",
+                    "guardian_name", "relation", "address", "state", "under_doctor",
+                    "bed_category", "bed", "referred_by"
+                ];
+
+                fields.forEach(field => {
+                    let value = $(`#${field}`).val()?.trim();
+                    if (value) {
+                        $(`#${field}`).removeClass('border border-danger');
+                        $("#select2-" + field + "-container").css("border-color", "#83a1a1e0");
+                    } else {
+                        $(`#${field}`).addClass('border border-danger');
+                        $("#select2-" + field + "-container").css("border-color", "red");
+                    }
+                });
+                return false;
+            }
+
+            if (!isValidPhoneNumber(phone)) {
+                e.preventDefault();
+                alert('Please enter a valid 10-digit Phone Number.');
+                return false;
+            }
+
+            isFormSubmitting = true;
+            const $activeSubmitBtn = lastClickedSubmitButton && lastClickedSubmitButton.length
+                ? lastClickedSubmitButton
+                : $('.submitBtn').first();
+            if ($activeSubmitBtn.length) {
+                const originalHtml = $activeSubmitBtn.data('original-html') || $activeSubmitBtn.html();
+                $activeSubmitBtn.data('original-html', originalHtml);
+                $activeSubmitBtn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...');
+            }
+            $('.submitBtn').prop('disabled', true);
+            return true;
+        });
+    });
+
+    // Function to validate phone number
+    function isValidPhoneNumber(phoneNumber) {
+        var cleanedPhoneNumber = phoneNumber.replace(/\D/g, '');  // Remove non-digit characters
+        return cleanedPhoneNumber.length === 10;  // Check if the cleaned phone number is exactly 10 digits
+    }
+
+    function getage() {
+        var year = $('#date_of_birth_year').val();
+        var month = $('#date_of_birth_month').val();
+        var days = $('#date_of_birth_day').val();
+        var currentDate = new Date();
+        var date = new Date(currentDate.getFullYear() - year,
+        currentDate.getMonth() - month,
+        currentDate.getDate() - days);
+        var yyyy = date.getFullYear().toString();
+        var mm = (date.getMonth() + 1).toString().padStart(2, '0');
+        var dd = date.getDate().toString().padStart(2, '0');
+        var formattedDate = dd + '-' + mm + '-' + yyyy;
+        $('#date_of_birth').val(formattedDate);
+    }
+
+    function getagefromdate(dob_date) {
+        const nw = new Date();
+        const dateArray = dob_date.split("-").map(Number);
+
+        let nw_year = nw.getFullYear();
+        let nw_month = nw.getMonth() + 1;
+        let nw_day = nw.getDate();
+
+        let dob_year = dateArray[2];
+        let dob_month = dateArray[1];
+        let dob_day = dateArray[0];
+
+        let dob_in_date = ((parseInt(dob_year) * parseInt(365)) + (parseInt(dob_month) * parseInt(30)) + parseInt(dob_day));
+        let now_in_date = ((parseInt(nw_year) * parseInt(365)) + (parseInt(nw_month) * parseInt(30)) + parseInt(nw_day));
+
+        if (now_in_date >= dob_in_date) {
+            let diffe_date = parseInt(parseInt(now_in_date) - parseInt(dob_in_date));
+
+            let year = parseInt(diffe_date / 365);
+            let remnder = diffe_date % 365;
+
+            let month = parseInt(remnder / 30);
+            let days = remnder % 30;
+
+            $('#date_of_birth_year').val(year);
+            $('#date_of_birth_month').val(month);
+            $('#date_of_birth_day').val(days);
+        } else {
+            alert('Enter a Valid Date');
+            $('#date_of_birth').reset();
+        }
+    }
+
+    function getDistrict(state_id, district_id = 0) {
+        if (state_id) {
+            $('#district').html('<option vaule="">Select District</option>');
+            $.ajax({
+                url: "{{ Route('get-district') }}",
+                type: "POST",
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    state_id: state_id,
+                },
+                success: function(response) {
+                    if (response.success && (response.districts.length > 0)) {
+                        $.each(response.districts, function(key, value) {
+                            if(district_id == value.id){
+                                $('#district').append(`<option value="${value.id}" selected>${value.name}</option>`);
+                            }else{
+                                $('#district').append(`<option value="${value.id}">${value.name}</option>`);
+                            }
+                        });
+                    }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+    }
+
+    function getWard(ward_id) {
+        if (ward_id) {
+            $('#bed').html('<option vaule="">Select Bed</option>');
+            $.ajax({
+                url: "{{ Route('get-beds') }}",
+                type: "POST",
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    ward_id: ward_id,
+                },
+                success: function(response) {
+                    if (response.success && (response.beds.length > 0)) {
+                        $.each(response.beds, function(key, value) {
+                            $('#bed').append(
+                                `<option value="${value.id}">${value.bed_name}</option>`);
+                        });
+                    }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+    }
+
+    document.addEventListener("click", function(event) {
+        const inputField = document.getElementById("uhid");
+        const table = document.getElementById("search_result");
+        if (event.target !== inputField && !table.contains(event.target)) {
+            table.style.display = "none";
+        }
+    });
+
+    getDistrict(35);
+
+    function getPatient(val, col) {
+        var div_data = '';
+        $('#search_result').attr('style', 'display:none', true);
+        $('#search_result_row').html('');
+        if (val && col) {
+            $.ajax({
+                url: "{{ route('opd.get-patients') }}",
+                type: "POST",
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    field: col,
+                    value: val,
+                },
+                success: function(response) {
+                    if (response.success && (response.patients.length > 0)) {
+                        $('#search_result').removeAttr('style', true);
+                        $.each(response.patients, function(key, value) {
+                            let patientData = JSON.stringify(value).replace(/"/g, '&quot;');
+                            div_data += `<tr class="color_hover_charnge" onclick="selectPatient('${patientData}')" style="cursor: pointer !important;">
+                            <td>${value.id}</td>
+                            <td>${value.name}</td>
+                            <td>${value.dob_year || 0}Y ${value.dob_month || 0}M ${value.dob_day || 0}D</td>
+                            <td>${value.phone}</td>
+                            <td>${value.address}</td>
+                        </tr>`;
+                        });
+                        $('#search_result_row').html(div_data);
+                    }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+    }
+
+    function selectPatient(data) {
+        let patient = JSON.parse(data);
+        $('#uhid').val(patient.id);
+        $('#name').val(patient.name);
+        $('#phone').val(patient.phone);
+        $('#guardian_name').val(patient.guardian_name);
+        $('#relation').val(patient.guardian_realation).trigger('change');
+        $('#marital_status').val(patient.marital_status).trigger('change');
+        $('#guardian_contact_no').val(patient.guardian_contact_no);
+        $('#gender').val(patient.gender).trigger('change');
+        if(patient.date_of_birth){
+            let dateObj = new Date(patient.date_of_birth);
+            let formattedDOB = dateObj.getDate().toString().padStart(2, '0') + '-' +
+                            (dateObj.getMonth() + 1).toString().padStart(2, '0') + '-' +
+                            dateObj.getFullYear();
+            $('#date_of_birth').val(formattedDOB).trigger('change');
+            getagefromdate(formattedDOB);
+        }else{
+            if(patient.dob_day || patient.dob_month || patient.dob_year){
+                $('#date_of_birth_day').val(patient.dob_day);
+                $('#date_of_birth_month').val(patient.dob_month);
+                $('#date_of_birth_year').val(patient.dob_year);
+                getage();
+            }
+        }
+        $('#address').val(patient.address);
+        getDistrict(patient.state,patient.district);
+        $('#pin_code').val(patient.pin_code);
+        $('#aadhar_card_no').val(patient.identification_number);
+        $('#search_result_row').html('');
+        $('#search_result').attr('style', 'display:none', true);
+    }
+
+    async function uploadAadhaar() {
+
+            const input = document.getElementById('aadhaarFile');
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('aadhaar_file', file); // key must match controller
+
+            // Show Loader
+            document.getElementById('loader-overlay').style.display = 'flex';
+
+            try {
+                const response = await fetch("{{ url('/opd/update-aadhaar-card') }}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+
+                    console.log(data);
+                    var f_data = data.data.data;
+
+                    $('#aadhaar_card').val(f_data.aadhaarNumber);
+                    $('#address').val(f_data.address ? f_data.address : '');
+                    $('#gender').val(f_data.gender ? f_data.gender : '');
+                    $('#name').val(f_data.name ? f_data.name : '');
+                    $('#pin_code').val(f_data.pincode ? f_data.pincode : '');
+
+                    if (f_data.dob) {
+                        let dob = f_data.dob.split('/');
+                        dob = new Date(dob[2], dob[1] - 1, dob[0]);
+                        let today = new Date();
+
+                        var years = today.getFullYear() - dob.getFullYear();
+                        var months = today.getMonth() - dob.getMonth();
+                        var days = today.getDate() - dob.getDate();
+
+                        if (days < 0) {
+                            months--;
+                            var prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                            days += prevMonth.getDate();
+                        }
+
+                        if (months < 0) {
+                            years--;
+                            months += 12;
+                        }
+
+                        $('#date_of_birth_year').val(years);
+                        $('#date_of_birth_month').val(months);
+                        $('#date_of_birth_day').val(days);
+
+                    } else {
+
+                        $('#date_of_birth_year').val('');
+                        $('#date_of_birth_month').val('');
+                        $('#date_of_birth_day').val('');
+
+                    }
+
+                    getPatient(f_data.aadhaarNumber, 'identification_number');
+
+                } else {
+                    alert("❌ Upload failed!");
+                }
+            } catch (error) {
+                // console.error(error);
+                alert("⚠️ Error uploading file.");
+            } finally {
+                // 👉 Hide Loader
+                document.getElementById('loader-overlay').style.display = 'none';
+            }
+        }
+</script>
+@endpush

@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Http\Controllers\IVF;
+
+use App\Http\Controllers\Controller;
+use App\Models\IvfCouple;
+use App\Models\Patient;
+use App\Models\State;
+use Illuminate\Http\Request;
+use Yajra\DataTables\Facades\DataTables;
+
+class IvfController extends Controller
+{
+    public function ivf_couple_list(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = IvfCouple::select(
+                'ivf_couples.*',
+                'm.name as male_name',
+                'f.name as female_name'
+            )
+                ->leftJoin('patients as m', 'm.id', '=', 'ivf_couples.uhid_male')
+                ->leftJoin('patients as f', 'f.id', '=', 'ivf_couples.uhid_female')
+                ->orderBy('ivf_couples.id', 'DESC');
+
+            return DataTables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '';
+
+                    if ($row->is_approved != 1) {
+                        $actionBtn .= '<a href="' . route('ivf.edit-couple-registration', ed($row->id, true)) . '" class="btn btn-sm btn-primary me-2">
+                            <i class="fa fa-edit"></i> Edit
+                        </a>';
+                    }
+
+                    return $actionBtn;
+                })
+
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+        return view('IVF.ivf_couple_list');
+    }
+
+    public function edit_couple_registration($id)
+    {
+        $title = 'Edit IVF Couple Registration';
+        $btn = 'Update';
+        $states = State::where('country_id', '1')->get();
+
+        // Fetch the couple record
+        $edit = IvfCouple::findOrFail(ed($id, false));
+
+        // Fetch related patient records
+        $male_patient = null;
+        $female_patient = null;
+
+        // Use your actual foreign key field names here (e.g., uhid_male, uhid_female)
+        if ($edit->uhid_male) {
+            $male_patient = \App\Models\Patient::find($edit->uhid_male);
+        }
+        if ($edit->uhid_female) {
+            $female_patient = \App\Models\Patient::find($edit->uhid_female);
+        }
+
+        // Hydrate $edit with male patient details
+        if ($male_patient) {
+            $edit->male_patient_id = $male_patient->id;
+            $edit->male_name = $male_patient->name;
+            $edit->male_gender = $male_patient->gender;
+            $edit->male_contact_number = $male_patient->phone;
+            $edit->male_dob = $male_patient->date_of_birth;
+            $edit->male_email = $male_patient->email;
+            $edit->male_address = $male_patient->address;
+            $edit->male_state = $male_patient->state;
+            $edit->male_district = $male_patient->district;
+            $edit->male_pin_code = $male_patient->pin_code;
+        }
+
+        // Hydrate $edit with female patient details
+        if ($female_patient) {
+            $edit->female_patient_id = $female_patient->id;
+            $edit->female_name = $female_patient->name;
+            $edit->female_gender = $female_patient->gender;
+            $edit->female_contact_number = $female_patient->phone;
+            $edit->female_dob = $female_patient->date_of_birth;
+            $edit->female_email = $female_patient->email;
+            $edit->female_address = $female_patient->address;
+            $edit->female_state = $female_patient->state;
+            $edit->female_district = $female_patient->district;
+            $edit->female_pin_code = $female_patient->pin_code;
+        }
+
+        // Pass everything to the view
+        return view('IVF.ivf_couple_registration', compact(
+            'title',
+            'btn',
+            'states',
+            'edit'
+        ));
+    }
+
+    public function ivf_couple_registration()
+    {
+        $title = 'IVF Couple Registration';
+        $btn = 'Save';
+        $states = State::where('country_id', '1')->get();
+        return view('IVF.ivf_couple_registration', compact('title', 'btn', 'states'));
+    }
+
+    public function ivf_male_doner(Request $request)
+    {
+        $data = Patient::where('name', 'like', '%' . $request['value'] . '%')
+            ->where('gender', 'Male')
+            ->limit(10)
+            ->get();
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
+        $data = Patient::select('name', 'blood_group', 'date_of_birth', 'phone')->get();
+    }
+
+    public function ivf_female_doner(Request $request)
+    {
+        $data = Patient::where('name', 'like', '%' . $request['value'] . '%')
+            ->where('gender', 'Female')
+            ->limit(10)
+            ->get();
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
+        $data = Patient::select('name', 'blood_group', 'date_of_birth', 'phone')->get();
+    }
+
+    public function ivf_couple_registration_save(Request $request)
+    {
+        dd($request->all());
+        $ivf_couple = new IvfCouple();
+        $ivf_couple->uhid_male = $request['male_patient_id'];
+        $ivf_couple->uhid_female = $request['female_patient_id'];
+        $ivf_couple->save();
+
+        return redirect()->route('ivf.ivf-couple-list')->with('success', 'IVF Couple Registration saved successfully.');
+    }
+}

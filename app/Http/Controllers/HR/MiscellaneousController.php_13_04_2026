@@ -1,0 +1,460 @@
+<?php
+
+namespace App\Http\Controllers\HR;
+
+use App\Http\Controllers\Controller;
+use App\Models\Miscellaneous;
+use App\Models\StVendor;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Barryvdh\DomPDF\Facade\Pdf;
+
+class MiscellaneousController extends Controller
+{
+    public function index()
+    {
+        $data = $this->prepareViewData('Miscellaneous Bills');
+        $data['redirectRoute'] = 'hr.miscellaneous';
+
+        return view('hr.miscellaneous', $data);
+    }
+
+    public function accountIndex()
+    {
+        $data = $this->prepareViewData('Account Miscellaneous Bills', true);
+        $data['redirectRoute'] = 'hr.account-miscellaneous';
+        return view('hr.account-miscellaneous', $data);
+    }
+
+    public function details(Request $request, Miscellaneous $miscellaneous)
+    {
+        $returnRoute = $request->query('ref') === 'account'
+            ? 'hr.account-miscellaneous'
+            : 'hr.miscellaneous';
+
+        $data = $this->prepareDetailViewData($miscellaneous);
+        $data['returnRoute'] = $returnRoute;
+
+        return view('hr.miscellaneous-details', $data);
+    }
+
+    public function detailsPdf(Miscellaneous $miscellaneous)
+    {
+        $data = $this->prepareDetailViewData($miscellaneous);
+
+        $pdf = Pdf::loadView('hr.miscellaneous-details-pdf', $data)
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->download(sprintf('miscellaneous-%s.pdf', $miscellaneous->id));
+    }
+
+    public function store(Request $request)
+    {
+        $isAccountForm = $request->input('form_context') === 'account';
+        $defaultRedirect = $isAccountForm
+            ? 'hr.account-miscellaneous'
+            : 'hr.miscellaneous';
+        $redirectRoute = $request->input('redirect_route', $defaultRedirect);
+
+        $request->validate([
+            'invoice_upload' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'bill_purpose' => 'required|string|max:255',
+            'service_provider' => 'required|string|max:255',
+            'bill_amount' => 'required|numeric|min:0',
+            'note' => 'nullable|string|max:1000',
+            'gst' => 'nullable|numeric|min:0|max:100',
+            'discount' => 'nullable|numeric|min:0',
+            'gst_amount' => 'nullable|numeric|min:0',
+            'tds_section' => 'nullable|string|max:50',
+            'tds_bill_amount' => 'nullable|numeric|min:0',
+            'tds_percentage' => 'nullable|numeric|min:0|max:100',
+            'tds_deduction_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        $data = $request->only([
+            'bill_purpose',
+            'service_provider',
+            'bill_amount',
+            'note',
+            'gst',
+            'discount',
+            'gst_amount',
+        ]);
+
+        $billAmountValue = $this->parseAmountInput($request->input('bill_amount'));
+        if ($billAmountValue !== null) {
+            $data['bill_amount'] = $billAmountValue;
+        }
+
+        $data['discount'] = $this->parseAmountInput($data['discount'] ?? null) ?? 0;
+        if ($isAccountForm) {
+            $this->applyAccountTdsData($request, $data, $billAmountValue);
+        } else {
+            $data['gst'] = $this->normalizeGst($data['gst'] ?? null);
+            $gstAmountInput = $this->parseAmountInput($request->input('gst_amount'));
+            if ($gstAmountInput === null) {
+                $baseAmount = $this->parseAmountInput($request->input('bill_amount'));
+                $gstPercent = $this->normalizeGst($request->input('gst'));
+                $gstAmountInput = $this->calculateTotalWithGst($baseAmount, $gstPercent);
+            }
+            if ($gstAmountInput !== null) {
+                $data['gst_amount'] = $gstAmountInput;
+            }
+            $totalBase = $gstAmountInput ?? $billAmountValue ?? $data['bill_amount'];
+            $totalAfterDiscount = max(($totalBase ?? 0) - ($data['discount'] ?? 0), 0);
+            $data['gst_amount'] = $totalAfterDiscount;
+            $data['total_amount'] = $totalAfterDiscount;
+        }
+
+        if (Schema::hasColumn('miscellanies', 'created_by')) {
+            $data['created_by'] = Auth::id();
+        }
+        if ($isAccountForm && Schema::hasColumn('miscellanies', 'verified_by')) {
+            $data['verified_by'] = Auth::id();
+            $data['verified_at'] = now();
+        }
+
+        if ($request->hasFile('invoice_upload')) {
+            $file = $request->file('invoice_upload');
+            $targetDir = public_path('miscellaneous/invoices');
+            if (!File::isDirectory($targetDir)) {
+                File::makeDirectory($targetDir, 0755, true);
+            }
+            $filename = time() . '_' . Str::random(6) . '.' . $file->getClientOriginalExtension();
+            $file->move($targetDir, $filename);
+            $data['invoice_upload'] = 'public/miscellaneous/invoices/' . $filename;
+        }
+
+        $miscellaneous = DB::transaction(function () use ($data) {
+            if (Schema::hasColumn('miscellanies', 'bill_no')) {
+                $data['bill_no'] = $this->generateMiscellaneousBillNumber();
+            }
+
+            $miscellaneous = Miscellaneous::create($this->sanitizeOptionalColumns($data));
+            $miscellaneous->updatePaymentStatus();
+
+            return $miscellaneous;
+        });
+
+        return redirect()->route($redirectRoute)->with('success', 'Miscellaneous bill added.');
+    }
+
+    public function update(Request $request, Miscellaneous $miscellaneous)
+    {
+        $isAccountForm = $request->input('form_context') === 'account';
+        $defaultRedirect = $isAccountForm
+            ? 'hr.account-miscellaneous'
+            : 'hr.miscellaneous';
+        $redirectRoute = $request->input('redirect_route', $defaultRedirect);
+        $request->validate([
+            'invoice_upload' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'bill_purpose' => 'required|string|max:255',
+            'service_provider' => 'required|string|max:255',
+            'bill_amount' => 'required|numeric|min:0',
+            'note' => 'nullable|string|max:1000',
+            'gst' => 'nullable|numeric|min:0|max:100',
+            'discount' => 'nullable|numeric|min:0',
+            'gst_amount' => 'nullable|numeric|min:0',
+            'tds_section' => 'nullable|string|max:50',
+            'tds_bill_amount' => 'nullable|numeric|min:0',
+            'tds_percentage' => 'nullable|numeric|min:0|max:100',
+            'tds_deduction_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        $data = $request->only([
+            'bill_purpose',
+            'service_provider',
+            'bill_amount',
+            'note',
+            'gst',
+            'discount',
+            'gst_amount',
+        ]);
+
+        $billAmountValue = $this->parseAmountInput($request->input('bill_amount'));
+        if ($billAmountValue !== null) {
+            $data['bill_amount'] = $billAmountValue;
+        }
+
+        $discountInput = $this->parseAmountInput($request->input('discount'));
+        if ($discountInput !== null) {
+            $data['discount'] = $discountInput;
+        } else {
+            $data['discount'] = 0;
+        }
+
+        if ($isAccountForm) {
+            $this->applyAccountTdsData($request, $data, $billAmountValue);
+        } else {
+            $gstValue = $this->normalizeGst($data['gst'] ?? null);
+            $data['gst'] = $gstValue;
+            $gstAmountInput = $this->parseAmountInput($request->input('gst_amount'));
+            if ($gstAmountInput === null) {
+                $baseAmount = $this->parseAmountInput($request->input('bill_amount'));
+                $gstPercent = $this->normalizeGst($request->input('gst'));
+                $gstAmountInput = $this->calculateTotalWithGst($baseAmount, $gstPercent);
+            }
+            $totalBase = $gstAmountInput ?? $billAmountValue ?? $data['bill_amount'];
+            $data['gst_amount'] = $totalBase;
+            $data['total_amount'] = $totalBase;
+        }
+
+        $shouldVerify = $request->boolean('mark_verified');
+        if ($shouldVerify && Schema::hasColumn('miscellanies', 'verified_by')) {
+            $data['verified_by'] = Auth::id();
+            $data['verified_at'] = now();
+        }
+
+        $shouldApprove = $request->boolean('mark_approved');
+        if ($shouldApprove && Schema::hasColumn('miscellanies', 'approved_by')) {
+            if (!$miscellaneous->verified_by) {
+                return redirect()->route($redirectRoute)->with('error', 'Bill must be verified before it can be approved.');
+            }
+            $data['approved_by'] = Auth::id();
+            $data['approved_at'] = now();
+        }
+
+        if ($request->hasFile('invoice_upload')) {
+            $file = $request->file('invoice_upload');
+            $targetDir = public_path('miscellaneous/invoices');
+            if (!File::isDirectory($targetDir)) {
+                File::makeDirectory($targetDir, 0755, true);
+            }
+            $filename = time() . '_' . Str::random(6) . '.' . $file->getClientOriginalExtension();
+            $file->move($targetDir, $filename);
+            $data['invoice_upload'] = 'public/miscellaneous/invoices/' . $filename;
+        }
+
+        $miscellaneous->update($this->sanitizeOptionalColumns($data));
+        $miscellaneous->updatePaymentStatus();
+
+        return redirect()->route($redirectRoute)->with('success', 'Miscellaneous bill updated.');
+    }
+
+    protected function sanitizeOptionalColumns(array $data): array
+    {
+        $optionalColumns = [
+            'bill_no',
+            'note',
+            'gst',
+            'tds_section_code',
+            'tds_percentage',
+            'tds_bill_amount',
+            'tds_deduction_amount',
+            'created_by',
+            'verified_by',
+            'verified_at',
+            'approved_by',
+            'approved_at',
+            'gst_amount',
+            'total_amount',
+        ];
+
+        foreach ($optionalColumns as $column) {
+            if (!Schema::hasColumn('miscellanies', $column)) {
+                unset($data[$column]);
+            }
+        }
+
+        return $data;
+    }
+
+    protected function normalizeGst(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return round((float) $value, 2);
+    }
+
+    protected function parseAmountInput(mixed $value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        return round((float) $value, 2);
+    }
+
+    protected function calculateTotalWithGst(?float $baseAmount, ?float $gstPercent): ?float
+    {
+        if ($baseAmount === null) {
+            return null;
+        }
+
+        $gstPercent = $gstPercent ?? 0;
+        return round($baseAmount + ($baseAmount * $gstPercent) / 100, 2);
+    }
+
+    protected function applyAccountTdsData(Request $request, array &$data, ?float $defaultBillAmount = null): void
+    {
+        $sectionCode = trim((string) $request->input('tds_section'));
+        $tdsBillAmount = $this->parseAmountInput($request->input('tds_bill_amount'));
+        $tdsPercentage = $this->resolveTdsPercentage($sectionCode);
+        $tdsDeductionAmount = $tdsBillAmount !== null && $tdsPercentage !== null
+            ? round(($tdsBillAmount * $tdsPercentage) / 100, 2)
+            : 0.0;
+        $netAmount = $tdsBillAmount !== null
+            ? max($tdsBillAmount - $tdsDeductionAmount, 0)
+            : ($defaultBillAmount ?? 0);
+
+        $data['gst'] = null;
+        $data['tds_section_code'] = $sectionCode !== '' ? $sectionCode : null;
+        $data['tds_percentage'] = $tdsPercentage;
+        $data['tds_bill_amount'] = $tdsBillAmount;
+        $data['tds_deduction_amount'] = $tdsDeductionAmount;
+        $data['gst_amount'] = $netAmount;
+        $data['total_amount'] = $netAmount;
+    }
+
+    protected function resolveTdsPercentage(?string $sectionCode): ?float
+    {
+        $map = [
+            '194C_1' => 1.0,
+            '194C_2' => 2.0,
+            '194J_2' => 2.0,
+            '194J_10' => 10.0,
+            '194I_2' => 2.0,
+            '194I_10' => 10.0,
+            '194A_10' => 10.0,
+            '194H_5' => 5.0,
+            '194Q_01' => 0.1,
+            '194N_2' => 2.0,
+            '194N_5' => 5.0,
+            '195_20' => 20.0,
+        ];
+
+        if (!$sectionCode) {
+            return null;
+        }
+
+        return $map[$sectionCode] ?? null;
+    }
+
+    protected function generateMiscellaneousBillNumber(?Carbon $date = null): string
+    {
+        $date ??= now();
+        [$startDate, $endDate, $prefix] = $this->getFinancialYearMeta($date);
+
+        $lastBillNo = Miscellaneous::query()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('bill_no')
+            ->where('bill_no', 'like', $prefix . '#%')
+            ->lockForUpdate()
+            ->orderByDesc('id')
+            ->value('bill_no');
+
+        $lastSequence = 0;
+        if ($lastBillNo && preg_match('/#(\d+)$/', $lastBillNo, $matches)) {
+            $lastSequence = (int) $matches[1];
+        }
+
+        return sprintf('%s#%04d', $prefix, $lastSequence + 1);
+    }
+
+    protected function getFinancialYearMeta(?Carbon $date = null): array
+    {
+        $date ??= now();
+        $date = $date->copy();
+
+        if ((int) $date->format('n') < 4) {
+            $startYear = (int) $date->format('Y') - 1;
+        } else {
+            $startYear = (int) $date->format('Y');
+        }
+
+        $endYear = $startYear + 1;
+        $startDate = Carbon::create($startYear, 4, 1)->startOfDay();
+        $endDate = Carbon::create($endYear, 3, 31)->endOfDay();
+        $prefix = sprintf('MB-%02d-%02d', $startYear % 100, $endYear % 100);
+
+        return [$startDate, $endDate, $prefix];
+    }
+
+    public function storePayment(Request $request, $id)
+    {
+        $miscellaneous = Miscellaneous::findOrFail($id);
+
+        $request->validate([
+            'amount_paid' => 'required|numeric|min:0.01',
+            'discount' => 'nullable|numeric|min:0',
+            'details' => 'nullable|string|max:500',
+        ]);
+
+        $due = $miscellaneous->net_due;
+        if ($due <= 0) {
+            return redirect()->back()->with('error', 'Bill already marked as paid.');
+        }
+
+        $discount = $request->discount ?? 0;
+        $totalPayment = $request->amount_paid + $discount;
+
+        if ($totalPayment > $due) {
+            return redirect()->back()->with('error', 'Payment exceeds remaining due amount.');
+        }
+
+        $miscellaneous->payments()->create([
+            'amount_paid' => $request->amount_paid,
+            'discount' => $request->discount ?? 0,
+            'details' => $request->details,
+        ]);
+
+        $miscellaneous->increment('pay_amount', $request->amount_paid);
+
+        $miscellaneous->updatePaymentStatus();
+
+        return redirect()->back()->with('success', 'Payment recorded.');
+    }
+
+    public function approve(Miscellaneous $miscellaneous)
+    {
+        if (!$miscellaneous->verified_by) {
+            return redirect()->back()->with('error', 'Bill must be verified before it can be approved.');
+        }
+
+        if ($miscellaneous->approved_by) {
+            return redirect()->back()->with('info', 'Bill is already approved.');
+        }
+
+        $miscellaneous->approved_by = Auth::id();
+        $miscellaneous->approved_at = now();
+        $miscellaneous->save();
+
+        return redirect()->back()->with('success', 'Miscellaneous bill approved.');
+    }
+
+    protected function prepareDetailViewData(Miscellaneous $miscellaneous): array
+    {
+        $miscellaneous->loadMissing(['payments', 'creator', 'verifier', 'approver']);
+        $payments = $miscellaneous->payments->sortByDesc('id')->values();
+
+        return compact('miscellaneous', 'payments');
+    }
+
+    /**
+     * Prepare data shared between the miscellaneous views.
+     */
+    protected function prepareViewData(string $title, bool $isAccountView = false): array
+    {
+        $miscellaneous = Miscellaneous::with(['payments', 'creator', 'verifier', 'approver'])->latest()->get();
+        // dd($miscellaneous);
+        $miscellaneous->each->updatePaymentStatus();
+
+        $serviceProviders = StVendor::where('is_active', 1)
+            ->orderBy('vendor_name')
+            ->get();
+
+        return array_merge(compact('title', 'miscellaneous', 'serviceProviders'), ['isAccountView' => $isAccountView]);
+    }
+}

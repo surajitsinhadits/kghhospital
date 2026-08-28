@@ -1,0 +1,863 @@
+<?php
+
+namespace App\Http\Controllers\Store;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Yajra\Datatables\DataTables;
+use App\Models\StProductIssue;
+use App\Models\StDepartment;
+use App\Models\StItem;
+use App\Models\StPurchase;
+use App\Models\StPurchaseDetail;
+use App\Models\StVendor;
+use App\Models\StPurchaseOrderItem;
+use App\Models\StProductIssueDetail;
+use App\Models\StStock;
+use App\Models\StIssue;
+use App\Models\StRequisition;
+use App\Models\StRequisitionItem;
+use App\Models\StReturnMaster;
+use App\Models\StReturn;
+use Illuminate\Http\Request;
+use Exception;
+// use DB;
+use Carbon\Carbon;
+use App\Models\Header;
+use App\Models\StStore;
+use App\Models\StExpense;
+use App\Models\StExpenseItem;
+use Illuminate\Support\Facades\DB;
+
+class IssueController extends Controller
+{
+    // Issue Management
+    public function listing_item_issue(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = StProductIssue::select(
+                'st_product_issue.*',
+                'd.department_name',
+                'u.name as created_by',
+                'ex.id as expense_id'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_product_issue.department_id')
+            ->leftjoin('st_expenses as ex', 'ex.issue_id', '=', 'st_product_issue.id')
+            ->leftjoin('users as u', 'u.id', '=', 'st_product_issue.generated_by')
+            ->where('st_product_issue.is_delete', 0)
+            ->orderBy('st_product_issue.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="' . route('store.issue-details', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    if($row->status == 0){
+                        $actionBtn .= '<a href="' . route('store.edit-item-issue', ed($row->id, true)) . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('store.delete-item-issue', ed($row->id, true)) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    } else {
+                        $actionBtn .= '<a target="_blank" href="' . route('store.issue-print', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-print"></i></a>';
+                    }
+
+                    return $actionBtn;
+                })
+                ->rawColumns(['action', 'status'])
+                ->make(true);
+        }
+        return view('store.issue-list');
+    }
+
+    public function add_item_issue()
+    {
+        $title = 'Add';
+        $department = StDepartment::where('status','0')->orderBy('id', 'desc')->get();
+        $item_list = StItem::where('is_active','1')->where('is_delete','0')->orderBy('id', 'desc')->get();
+        $req = StRequisition::where('is_delete','0')->where('is_given','0')->get();
+        $data = compact('department','item_list','title','req');
+        return view('store.add-item-issue')->with($data);
+    }
+    public function edit_item_issue($id)
+    {
+        $id = ed($id, false);
+        $title = 'Edit';
+        $department = StDepartment::where('status','0')->orderBy('id', 'desc')->get();
+        $item_list = StItem::where('is_active','1')->where('is_delete','0')->orderBy('id', 'desc')->get();
+        $req = StRequisition::where('is_delete','0')->where('is_given','0')->get();
+        $edit = StProductIssue::where('id', $id)->where('is_delete', 0)->first();
+        if($edit->status == 1){
+            return back()->with('error', "Item Issued can't Edit this!");
+        }
+        $edit_info = StProductIssueDetail::select('st_product_issue_details.*','st_items.item_name','st_items.sub_unit_no')
+            ->join('st_items','st_items.id','=','st_product_issue_details.item_id')
+            ->where('st_product_issue_details.issue_id', $id)
+            ->where('st_product_issue_details.is_delete', 0)
+            ->get();
+
+        $data = compact('department','item_list','title','edit','edit_info','req');
+        return view('store.add-item-issue')->with($data);
+    }
+    public function issue_details($id)
+    {
+        $id = ed($id, false);
+        $data = StProductIssue::select(
+                'st_product_issue.*',
+                'd.department_name',
+                'u.name as created_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_product_issue.department_id')
+            ->join('users as u', 'u.id', '=', 'st_product_issue.generated_by')
+            ->where('st_product_issue.id', $id)
+            ->first();
+        $item_list = StProductIssueDetail::select(
+                'st_product_issue_details.*',
+                'st_items.item_name'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_product_issue_details.item_id')
+            ->where('st_product_issue_details.issue_id', $id)
+            ->where('st_product_issue_details.is_delete', 0)
+            ->get();
+        $data = compact('data','item_list');
+        return view('store.issue-info')->with($data);
+    }
+    public function update_item_issue(Request $request, $id = 0)
+    {
+        // dd($request->all());
+
+        $request->validate([
+            'date' => 'required',
+            'department' => 'required',
+            'item_name.*' => 'required',
+            'part_no.*' => 'required',
+        ]);
+        try {
+            DB::beginTransaction();
+
+            $product_issue = $id ? StProductIssue::find($id) : new StProductIssue();
+            $product_issue->date = date('Y-m-d H:i:s',strtotime($request->date));
+            $product_issue->department_id = $request->department;
+            $product_issue->requisition_id = $request->requisition_id;
+            $product_issue->note = $request->note;
+            $product_issue->status = $request->status;
+            if($id){
+                $product_issue->edit_by = Auth::user()->id;
+                $product_issue->edit_at = date('Y-m-d h:i:s');
+            }else{
+                $product_issue->generated_by = Auth::user()->id;
+            }
+            $product_issue->status = $request->action_type;
+            $product_issue->save();
+            $product_issue_id = $product_issue->id;
+
+            // $item_issued = StRequisition::find($request->requisition_id);
+            // $item_issued->is_given = 4;
+            // $item_issued->save();
+
+            if (!empty($request->uppid) && is_array($request->uppid)) {
+                StProductIssueDetail::where('issue_id', $product_issue_id)
+                    ->whereNotIn('id', $request->uppid)
+                    ->update(['is_delete' => 1]);
+            }
+
+            foreach ($request->item_name as $key => $items) {
+                if(@$request->uppid[$key]){
+                    $issue_details = StProductIssueDetail::find($request->uppid[$key]);
+                }else{
+                    $issue_details = new StProductIssueDetail();
+                }
+                $issue_details->issue_id = $product_issue_id;
+                $issue_details->item_id = $request->item_name[$key];
+                $issue_details->part_no = $request->part_no[$key];
+                $issue_details->exp_date = $request->exp_date[$key];
+                $issue_details->unit_qty = $request->unit_qty[$key];
+                $issue_details->sub_unit_qty = $request->sub_unit_qty[$key];
+                $issue_details->sub_unit = $request->sub_unit[$key];
+                $issue_details->unit = $request->unit[$key];
+                $issue_details->save();
+            }
+
+            if((int)$request->action_type == 1){
+                if($request->status == 1){
+                    StRequisition::find($request->requisition_id)->update(['is_given' => 4]);
+                }
+
+                $full_stocks = [];
+                foreach ($request->item_name as $key => $items) {
+                    $stock_summary = DB::table('st_stocks')
+                        ->where('item_id', $request->item_name[$key])
+                        ->where('part_no', $request->part_no[$key])
+                        ->where(function($query) {
+                            $query->whereDate('exp_date', '>=', now())
+                                ->orWhereNull('exp_date');
+                        })
+                        ->selectRaw('
+                            unit_rate,
+                            unit_mrp,
+                            unit_sub_no,
+                            cgst,
+                            sgst,
+                            igst,
+                            SUM(present_qty) as present_qty,
+                            SUM(unit_qty) as unit_qty,
+                            SUM(sub_unit_qty) as sub_unit_qty
+                        ')
+                        ->groupBy('unit_rate','unit_mrp','unit_sub_no','igst','sgst','cgst')
+                        ->first();
+                    // $issue_summary = DB::table('st_issues')
+                    //     ->where('item_id', $request->item_name[$key])
+                    //     ->where('part_no', $request->part_no[$key])
+                    //     ->selectRaw('
+                    //         SUM(unit_qty) as unit_qty,
+                    //         SUM(sub_unit_qty) as sub_unit_qty
+                    //     ')
+                    //     ->first();
+                    // $total_stk_qty = ($stock_summary->unit_qty * $stock_summary->unit_sub_no) + $stock_summary->sub_unit_qty;
+                    // $total_iss_qty = ($issue_summary->unit_qty * $stock_summary->unit_sub_no) + $issue_summary->sub_unit_qty;
+                    // $total_avi_qty = $total_stk_qty - $total_iss_qty;
+                    $total_avi_qty = $stock_summary->present_qty;
+                    $total_obt_qty = ($request->unit_qty[$key] * $stock_summary->unit_sub_no) + $request->sub_unit_qty[$key];
+                    if($total_avi_qty >= $total_obt_qty){
+                        $sub_total = ($stock_summary->unit_rate / $stock_summary->unit_sub_no) * $total_obt_qty;
+                        $cgst = $sub_total * ($stock_summary->cgst / 100);
+                        $sgst = $sub_total * ($stock_summary->sgst / 100);
+                        $igst = $sub_total * ($stock_summary->igst / 100);
+                        $total = $sub_total + $cgst + $sgst + $igst;
+
+                        $full_stocks[] = [
+                            'issue_id' => $product_issue_id,
+                            'date' => now(),
+                            'item_id' => $request->item_name[$key],
+                            'exp_date' => $request->exp_date[$key] ? date('Y-m-d',strtotime($request->exp_date[$key])) : null,
+                            'part_no' => $request->part_no[$key],
+                            'unit_qty' => $request->unit_qty[$key]  ?? 0,
+                            'unit' => $request->unit[$key],
+                            'sub_unit_qty' => $request->sub_unit_qty[$key] ?? 0,
+                            'sub_unit' => $request->sub_unit[$key],
+                            'total' => $total,
+                            'sub_total' => $sub_total,
+                            'cgst' => $stock_summary->cgst,
+                            'cgst_value' => $cgst,
+                            'sgst' => $stock_summary->sgst,
+                            'sgst_value' => $sgst,
+                            'igst' => $stock_summary->igst,
+                            'igst_value' => $igst,
+                            'unit_mrp' => $stock_summary->unit_mrp,
+                            'unit_rate' => $stock_summary->unit_rate,
+                            'total_qty' => $total_obt_qty,
+                            'generated_by' => Auth::user()->id,
+                        ];
+                    }else{
+                        $product_issue_up = StProductIssue::find($product_issue_id);
+                        $product_issue_up->status = 0;
+                        $product_issue_up->save();
+                        return redirect()->route('store.listing-item-issue')->with('error', 'Stock not available! Check & try again');
+                    }
+                }
+                DB::table('st_issues')->insert($full_stocks);
+
+                foreach ($full_stocks as $fs) {
+                    $pre_stock = StStock::where('item_id', $fs['item_id'])->where('part_no', $fs['part_no'])->first();
+                    $pre_stock->present_qty = $pre_stock->present_qty - $fs['total_qty'];
+                    $pre_stock->update();
+
+                    $req = StRequisitionItem::where('requisition_id', $request->requisition_id)->where('item_id', $fs['item_id'])->first();
+                    $req->iunit_qty = $req->iunit_qty + $fs['unit_qty'];
+                    $req->isubunit_qty = $req->isubunit_qty + $fs['sub_unit_qty'];
+                    $req->update();
+                }
+            }
+            DB::commit();
+            return redirect()->route('store.listing-item-issue')->with('success', 'Issue Saved Successfully!');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->with('error', 'Something went wrong. Try again!');
+        }
+    }
+    public function delete_item_issue($id)
+    {
+        $id = ed($id, false);
+        $data = StProductIssue::where('id',$id)->first();
+
+        if ($data) {
+            if($data->status == 1){
+                return back()->with('error', "Item Issued can't Delete this!");
+            }else{
+                $data->update([
+                    'is_delete' => 1
+                ]);
+                return redirect()->route('store.listing-item-issue')->with('success', 'The Purchase Deleted Successfully');
+            }
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+    public function get_req_details(Request $request)
+    {
+        $requisition_id = $request->requisition_id;
+        $req = StRequisition::find($requisition_id);
+        if ($req) {
+            $items = StRequisitionItem::select('st_requisition_items.*', 'st_items.item_name','st_items.sub_unit_no')
+                ->join('st_items', 'st_items.id', '=', 'st_requisition_items.item_id')
+                ->where('st_requisition_items.requisition_id', $requisition_id)
+                ->where('st_requisition_items.is_delete', 0)
+                ->get()
+                ->map(function($item) {
+                    $item->batch_info = StStock::where('item_id', $item->item_id)
+                        ->where(function($query) {
+                            $query->whereDate('exp_date', '>=', Carbon::now())
+                                ->orWhereNull('exp_date');
+                        })
+                        ->get()
+                        ->toArray();
+                    return $item;
+                });
+
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'req_date' => date('Y-m-d', strtotime($req->requisition_date)),
+                    'department_id' => $req->department_id,
+                    'note' => $req->note,
+                    'items' => $items,
+                ]
+            ]);
+        } else {
+            return response()->json(['status' => false, 'message' => 'Requisition not found']);
+        }
+    }
+
+    // Return Management
+    public function return_list(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = StReturnMaster::select(
+                'st_return_masters.*',
+                'd.department_name',
+                'v.vendor_name',
+                'u.name as created_by'
+            )
+            ->leftjoin('st_departments  as d', 'd.id', '=', 'st_return_masters.dept_id')
+            ->leftjoin('st_vendors  as v', 'v.id', '=', 'st_return_masters.vendor_id')
+            ->leftjoin('users as u', 'u.id', '=', 'st_return_masters.return_by')
+            ->where('st_return_masters.is_delete', 0)
+            ->orderBy('st_return_masters.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="' . route('store.return-details', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    if($row->status == 0){
+                        $actionBtn .= '<a href="' . route('store.edit-return', ed($row->id, true)) . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('store.delete-return', ed($row->id, true)) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    }
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+        return view('store.return-list');
+    }
+    public function repair_list(Request $request)
+    {
+        $damage_list = StReturn::select('st_returns.*', 'st_items.item_name','st_issues.sub_unit', 'st_issues.unit','st_departments.department_name', 'st_return_masters.return_date')
+            ->join('st_items', 'st_items.id', '=', 'st_returns.item_id')
+            ->join('st_issues', 'st_issues.id', '=', 'st_returns.issue_id')
+            ->join('st_return_masters', 'st_return_masters.id', '=', 'st_returns.mas_id')
+            ->join('st_departments', 'st_departments.id', '=', 'st_return_masters.dept_id')
+            ->where('st_returns.type', 'repair')
+            ->where('st_return_masters.status', 1)
+            ->whereIn('st_returns.status', [0, 1])
+            ->get();
+        $data = compact('damage_list');
+        return view('store.damage-list')->with($data);
+    }
+    public function add_return($type)
+    {
+        $department = StDepartment::where('status','0')->orderBy('id', 'desc')->get();
+        $vendors = StVendor::where('is_delete','0')->orderBy('id', 'desc')->get();
+        if(@$_GET['dept']){
+            $item_list = StIssue::select('st_issues.id as issue_id', 'st_issues.item_id', 'i.item_name', 'st_issues.part_no', 'st_issues.unit_qty', 'st_issues.sub_unit_qty', 'st_issues.sub_unit', 'st_issues.unit')
+                ->join('st_items as i', 'i.id', '=', 'st_issues.item_id')
+                ->join('st_product_issue as pi', 'pi.id', '=', 'st_issues.issue_id')
+                ->whereIn('i.type_id', [6, 8])
+                ->where('pi.department_id', $_GET['dept'])
+                ->get();
+        }elseif(@$_GET['vendor']){
+            $item_list = StStock::select('st_stocks.id as issue_id', 'st_stocks.item_id', 'i.item_name', 'st_stocks.part_no', 'st_stocks.unit_qty', 'st_stocks.sub_unit_qty', 'st_stocks.sub_unit', 'st_stocks.unit')
+                ->join('st_items as i', 'i.id', '=', 'st_stocks.item_id')
+                ->join('st_purchases as po', 'po.id', '=', 'st_stocks.po_id')
+                ->where('po.vendor_id', $_GET['vendor'])
+                ->get();
+        }else{
+            $item_list = [];
+        }
+        $data = compact('department','item_list','type','vendors');
+        // dd($data);
+        return view('store.return-form')->with($data);
+    }
+    public function edit_return($id)
+    {
+        $id = ed($id, false);
+        $type = 'store';
+        $department = StDepartment::where('status','0')->orderBy('id', 'desc')->get();
+        $vendors = StVendor::where('is_delete','0')->orderBy('id', 'desc')->get();
+        $edit = StReturnMaster::where('id', $id)->where('is_delete', 0)->first();
+        $item_list = StIssue::select('st_issues.id as issue_id', 'st_issues.item_id', 'i.item_name', 'st_issues.part_no', 'st_issues.unit_qty', 'st_issues.sub_unit_qty', 'st_issues.sub_unit', 'st_issues.unit')
+            ->join('st_items as i', 'i.id', '=', 'st_issues.item_id')
+            ->join('st_product_issue as pi', 'pi.id', '=', 'st_issues.issue_id')
+            ->whereIn('i.type_id', [6, 8])
+            ->where('pi.department_id', $edit->dept_id)
+            ->get();
+        if($edit->status == 1){
+            return back()->with('error', "Request Approved can't Edit this!");
+        }
+        $edit_info = StReturn::select('st_returns.*','st_items.item_name', 'st_issues.sub_unit', 'st_issues.unit', 'st_items.sub_unit_no')
+            ->join('st_items','st_items.id','=','st_returns.item_id')
+            ->join('st_issues','st_issues.id','=','st_returns.issue_id')
+            ->where('st_returns.mas_id', $id)
+            ->whereIn('st_returns.status', [0, 1])
+            ->get();
+
+        $data = compact('department','item_list','edit','edit_info','type','vendors');
+        return view('store.return-form')->with($data);
+    }
+    public function return_details($id)
+    {
+        $id = ed($id, false);
+        $data = StReturnMaster::select(
+                'st_return_masters.*',
+                'd.department_name',
+                'v.vendor_name',
+                'u.name as created_by'
+            )
+            ->leftJoin('st_departments  as d', 'd.id', '=', 'st_return_masters.dept_id')
+            ->leftJoin('st_vendors  as v', 'v.id', '=', 'st_return_masters.vendor_id')
+            ->join('users as u', 'u.id', '=', 'st_return_masters.return_by')
+            ->where('st_return_masters.id', $id)
+            ->first();
+        $item_list = StReturn::select(
+                'st_returns.*',
+                'st_items.item_name',
+                'st_issues.unit',
+                'st_issues.sub_unit'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_returns.item_id')
+            ->join('st_issues', 'st_issues.id', '=', 'st_returns.issue_id')
+            ->where('st_returns.mas_id', $id)
+            ->whereIn('st_returns.status', [0, 1])
+            ->get();
+        $data = compact('data','item_list');
+        return view('store.return-info')->with($data);
+    }
+    public function update_return(Request $request, $id = 0)
+    {
+        $request->validate([
+            'date' => 'required',
+            'issue_id' => 'required',
+            'issue_id.*' => 'required',
+            'part_no.*' => 'required',
+        ]);
+        try {
+            DB::beginTransaction();
+
+            $return = $id ? StReturnMaster::find($id) : new StReturnMaster();
+            $return->return_type = $request->return_type;
+            $return->return_date = date('Y-m-d H:i:s',strtotime($request->date));
+            $return->remarks = $request->remarks;
+            if($id){
+                $return->edit_by = Auth::user()->id;
+                $return->edit_at = date('Y-m-d h:i:s');
+            }else{
+                $return->return_by = Auth::user()->id;
+            }
+            if($request->return_type == 'vendor'){
+                $return->vendor_id = $request->vendor_id;
+                $return->status = 1;
+            }else{
+                $return->dept_id = $request->dept_id;
+                $return->status = $request->save == 'Save' ? 0 : ($request->save == 'Reject' ? 2 : 1);
+            }
+            $return->save();
+            $return_id = $return->id;
+
+            if (!empty($request->uppid) && is_array($request->uppid)) {
+                StReturn::where('mas_id', $return_id)
+                    ->whereNotIn('id', $request->uppid)
+                    ->update(['status' => 2]);
+            }
+
+            foreach ($request->issue_id as $key => $items) {
+                if($request->return_type == 'store'){
+                    $get_issue = StIssue::where('id', $request->issue_id[$key])->first();
+                }else{
+                    $get_issue = StStock::where('id', $request->issue_id[$key])->first();
+                }
+                $unit_sub_no = optional(StStock::where('item_id', $get_issue->item_id)->where('part_no', $request->part_no[$key])->first())->unit_sub_no;
+                $return_qty = ($request->unit_qty[$key] * $unit_sub_no) + $request->sub_unit_qty[$key];
+
+                $sub_total = ($get_issue->unit_rate / $unit_sub_no) * $return_qty;
+                $cgst = $sub_total * ($get_issue->cgst / 100);
+                $sgst = $sub_total * ($get_issue->sgst / 100);
+                $igst = $sub_total * ($get_issue->igst / 100);
+                $total = $sub_total + $cgst + $sgst + $igst;
+
+                if(@$request->uppid[$key]){
+                    $return_details = StReturn::find($request->uppid[$key]);
+                }else{
+                    $return_details = new StReturn();
+                    $return_details->mas_id = $return_id;
+                }
+                $return_details->issue_id = $request->issue_id[$key];
+                $return_details->item_id = $get_issue->item_id;
+                $return_details->type = @$request->type[$key] ?? 'return';
+                $return_details->part_no = $request->part_no[$key];
+                $return_details->unit_qty = $request->unit_qty[$key];
+                $return_details->sub_unit_qty = $request->sub_unit_qty[$key];
+                $return_details->total = $total;
+                $return_details->sub_total = $sub_total;
+                $return_details->cgst = $get_issue->cgst;
+                $return_details->cgst_value = $cgst;
+                $return_details->sgst = $get_issue->sgst;
+                $return_details->sgst_value = $sgst;
+                $return_details->igst = $get_issue->igst;
+                $return_details->igst_value = $igst;
+                $return_details->note = $request->note[$key];
+                if($request->save == 'Save & Approved'){
+                    if($request->return_type == 'store'){
+                        $return_details->type == 'repair' ? $return_details->status = 0 : $return_details->status = 1; // return
+                        $return_details->approved_by = Auth::user()->id;
+                        $get_issue->return_qty = $get_issue->return_qty + $return_qty;
+                        $get_issue->update();
+                        if($return_details->type == 'return'){
+                            $stock = StStock::where('item_id', $get_issue->item_id)->where('part_no', $request->part_no[$key])->first();
+                            if($stock){
+                                $stock->present_qty = $stock->present_qty + $return_qty;
+                                $stock->update();
+                            }
+                        }
+                    }else{
+                        $return_details->status = 1; // return to vendor
+                        $return_details->approved_by = Auth::user()->id;
+                        $get_issue->return_qty = $get_issue->return_qty + $return_qty;
+                        $get_issue->present_qty = $get_issue->present_qty - $return_qty;
+                        $get_issue->update();
+                    }
+                }
+                $return_details->save();
+            }
+
+            DB::commit();
+            return redirect()->route('store.return-list')->with('success', 'Return Request Saved Successfully!');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->with('error', 'Something went wrong. Try again!');
+        }
+    }
+    public function delete_return($id)
+    {
+        $id = ed($id, false);
+        $data = StReturnMaster::where('id',$id)->first();
+
+        if ($data) {
+            if($data->status == 1){
+                return back()->with('error', "Request Approved can't Delete this!");
+            }else{
+                $data->update([
+                    'is_delete' => 1
+                ]);
+                return redirect()->route('store.return-list')->with('success', 'Request Deleted Successfully');
+            }
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+    public function repair_items_return(Request $request)
+    {
+        $request->validate([
+            'return_id' => 'required',
+            'repair_from' => 'required',
+            'repair_time' => 'required',
+            'repair_amount' => 'required',
+        ]);
+        $data = StReturn::where('id', $request->return_id)->first();
+        if ($data) {
+            $unit_sub_no = optional(StStock::where('item_id', $data->item_id)->where('part_no', $data->part_no)->first())->unit_sub_no;
+            $return_qty = ($data->unit_qty * $unit_sub_no) + $data->sub_unit_qty;
+            $issue = StIssue::find($data->issue_id);
+            $issue->return_qty = $issue->return_qty - $return_qty;
+            $issue->update();
+
+            if ($request->hasfile('repair_bill')) {
+                $file = $request->file('repair_bill');
+                $repair_bill = uniqid() . '.' . $file->getClientOriginalExtension();
+                $fileSave =  $file->move("public/assets/images/billdocument/", $repair_bill);
+            }else{
+                $repair_bill = null;
+            }
+
+            $data->status = 1;
+            $data->repair_completed_at = date('Y-m-d H:i:s');
+            $data->repair_completed_by = Auth::user()->id;
+            $data->repair_from = $request->repair_from;
+            $data->repair_time = $request->repair_time;
+            $data->repair_amount = $request->repair_amount;
+            $data->repair_bill = $repair_bill;
+            $data->update();
+            return redirect()->route('store.repair-list')->with('success', 'Item successfully Re-Issue!');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+
+    public function issue_print($id)
+    {
+        $id = ed($id, false);
+        $data = StProductIssue::select(
+                'st_product_issue.*',
+                'd.department_name',
+                'u.name as created_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_product_issue.department_id')
+            ->join('users as u', 'u.id', '=', 'st_product_issue.generated_by')
+            ->where('st_product_issue.id', $id)
+            ->first();
+
+        $item_list = StProductIssueDetail::select(
+                'st_product_issue_details.*',
+                'st_items.item_name'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_product_issue_details.item_id')
+            ->where('st_product_issue_details.issue_id', $id)
+            ->where('st_product_issue_details.is_delete', 0)
+            ->get();
+
+        $header_image = Header::where('header_name', 'opd_prescription')->first();
+        $back = route('store.listing-item-issue');
+
+        $data = compact('data','item_list', 'header_image', 'back');
+        return view('store.print.print-issue-item')->with($data);
+    }
+
+    public function expense_list(Request $request){
+
+        if ($request->ajax()) {
+            $data = StExpense::select(
+                'st_expenses.*',
+                'd.department_name',
+                'u.name as created_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_expenses.dept_id')
+            ->leftjoin('users as u', 'u.id', '=', 'st_expenses.generated_by')
+            ->where('st_expenses.is_delete', 0)
+            ->orderBy('st_expenses.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="' . route('store.expense-details', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    if($row->status == 0){
+                        // $actionBtn .= '<a href="' . route('store.edit-expense', ed($row->id, true)) . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('store.delete-item-expense', ed($row->id, true)) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                        $actionBtn .= '<a target="_blank" href="' . route('store.expense-print', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-print"></i></a>';
+                    }
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+        return view('store.expense-list');
+
+    }
+
+    public function expense_add(){
+
+        $department = DB::table('st_departments as d')
+            ->join('st_product_issue as pi', 'd.id', '=', 'pi.department_id')
+            ->where('pi.status', 1)
+            ->where('pi.is_delete', 0)
+            ->select([
+                'pi.department_id',
+                'd.department_name as department_name',
+            ])
+            ->distinct()
+            ->get();
+
+        $productIssues = DB::table('st_product_issue')
+            ->where('status', 1)
+            ->where('is_delete', 0)
+            ->select(['id', 'requisition_id'])
+            ->orderByDesc('id')
+            ->get();
+
+        $doctors = DB::table('users')->where('user_type', 'doctor')->where('is_active', 1)
+                    ->where('is_delete', 0)->get(['id', 'salutation', 'name']);
+        $patients = DB::table('patients')->where('is_active', 1)->where('is_delete', 0)->get(['id', 'name']);
+        $staffs = DB::table('users')->where('user_type', 'user')->where('is_active', 1)
+                    ->where('is_delete', 0)->get(['id', 'salutation', 'name']);
+
+        $data = compact('department', 'productIssues', 'doctors', 'patients', 'staffs');
+        return view('store.add-expense')->with($data);
+    }
+
+    public function get_issue_items(Request $request){
+
+        $issue_id = $request->issue_id;
+        DB::statement("SET SESSION sql_mode = (SELECT REPLACE(@@SESSION.sql_mode,'ONLY_FULL_GROUP_BY',''))");
+
+        $item_list = DB::table('st_issues as iss')
+            ->join('st_items as i', 'iss.item_id', '=', 'i.id')
+            ->leftJoin('st_units as u', 'i.unit_id', '=', 'u.id')
+            ->leftJoin('st_units as u2', 'i.sub_unit_id', '=', 'u2.id')
+            ->where('iss.issue_id', $issue_id)
+            ->selectRaw('iss.item_id, i.item_name, i.unit_id, u.unit AS unit_name, i.sub_unit_id,
+            u2.unit as sub_unit_name, SUM(iss.total_qty) AS t_qty, SUM(iss.return_qty) AS r_qty,
+            SUM(iss.total_qty) - SUM(iss.return_qty) AS avail_qty, i.sub_unit_no')
+            ->groupBy('iss.item_id')
+            ->get();
+
+        return response()->json(['status' => true, 'data' => $item_list]);
+    }
+
+    public function update_expense(Request $request, $id = 0)
+    {
+
+        // dd($request->all());
+
+        $request->validate([
+            'expense_date'  => 'required',
+            'department_id' => 'required',
+            'issue_id'      => 'required'
+        ]);
+
+        try {
+
+            DB::beginTransaction();
+
+            // use App\Models\StExpense;
+            // use App\Models\StExpenseItem;
+
+            $expense = $id ? StExpense::find($id) : new StExpense();
+            $expense->expense_date = date('Y-m-d H:i:s', strtotime($request->expense_date));
+            $expense->dept_id = $request->department_id;
+            $expense->issue_id = explode('#', $request->issue_id)[0];
+
+            $expense->requisition_id = explode('#', $request->issue_id)[1];
+            $expense->user_type = $request->user_type;
+            $expense->doctor_id = ($request->user_type == 'doctor') ? $request->doctor_id : 0;
+            $expense->patient_id = ($request->user_type == 'patient') ? $request->patient_id : 0;
+            $expense->staff_id = ($request->user_type == 'staff') ? $request->staff_id : 0;
+
+            if($id){
+                $expense->edit_by = Auth::user()->id;
+                $expense->edit_at = date('Y-m-d h:i:s');
+            }else{
+                $expense->generated_by = Auth::user()->id;
+            }
+
+            $expense->save();
+            $expense_id = $expense->id;
+
+            $existingItemIds = StExpenseItem::where('expense_id', $expense_id)->pluck('id')->toArray();
+            $submittedItemIds = $request->item_detail_id ?? [];
+            $toDelete = array_diff($existingItemIds, $submittedItemIds);
+
+            if (!empty($toDelete)) {
+                StExpenseItem::whereIn('id', $toDelete)->update(['is_delete' => 1]);
+            }
+
+            foreach ($request->item_name as $key => $item_id) {
+
+                $item = new StExpenseItem();
+
+                $item->expense_id      = $expense_id;
+                $item->item_id         = $item_id;
+                $item->unit_qty        = $request->unit_qty[$key];
+                $item->unit_id         = $request->unit_id[$key];
+                $item->unit_name       = $request->unit_name[$key];
+                $item->sub_unit_qty    = $request->sub_unit_qty[$key];
+                $item->sub_unit_id     = $request->sub_unit_id[$key];
+                $item->sub_unit_name   = $request->sub_unit_name[$key];
+                $item->save();
+
+            }
+
+            DB::commit();
+
+            return redirect()->route('store.expense-list')->with('success', 'Expense Saved Successfully!');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->with('error', 'Something went wrong. Try again!');
+        }
+    }
+
+    public function expense_details($id)
+    {
+        $id = ed($id, false);
+
+        $data = StExpense::select(
+                'st_expenses.*',
+                'd.department_name',
+                'u.name as created_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_expenses.dept_id')
+            ->join('users as u', 'u.id', '=', 'st_expenses.generated_by')
+            ->where('st_expenses.id', $id)
+            ->first();
+
+        $item_list = StExpenseItem::select(
+                'st_expense_items.*',
+                'st_items.item_name'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_expense_items.item_id')
+            ->where('st_expense_items.expense_id', $id)
+            ->where('st_expense_items.is_delete', 0)
+            ->get();
+
+        $data = compact('data','item_list');
+        return view('store.expense-info')->with($data);
+    }
+
+    public function delete_item_expense($id){
+
+        $id = ed($id, false);
+        $data = StExpense::where('id',$id)->first();
+
+        if ($data) {
+            $data->update([
+                'is_delete' => 1
+            ]);
+            return redirect()->route('store.expense-list')->with('success', 'The Expense Deleted Successfully');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+
+    }
+
+    public function expense_print($id)
+    {
+        $id = ed($id, false);
+        $data = StExpense::select(
+                'st_expenses.*',
+                'd.department_name',
+                'u.name as created_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_expenses.dept_id')
+            ->join('users as u', 'u.id', '=', 'st_expenses.generated_by')
+            ->where('st_expenses.id', $id)
+            ->first();
+
+        $item_list = StExpenseItem::select(
+                'st_expense_items.*',
+                'st_items.item_name'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_expense_items.item_id')
+            ->where('st_expense_items.expense_id', $id)
+            ->where('st_expense_items.is_delete', 0)
+            ->get();
+
+        $header_image = Header::where('header_name', 'opd_prescription')->first();
+        $back = route('store.expense-list');
+
+        $data = compact('data','item_list', 'header_image', 'back');
+        return view('store.print.print-expense-item')->with($data);
+    }
+
+}

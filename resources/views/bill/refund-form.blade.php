@@ -1,0 +1,121 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Refund Amount</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 leftside_fixarea">
+                        <x-billbar section="{{ $section }}" id="{{$bill_id}}" type="bill" />
+                    </div>
+
+                    <div class="col-md-9 rightside_fixarea" style="border:2px solid black">
+                        <div class="bill_details_header">
+                            <p class="bill_details_header1">*BILL NO : {{$bill->uid}} <span class="mx-2">||</span> *BILL DATE : {{dateFor($bill->bill_date)}} <span class="mx-2">||</span> *BILL SECTION : {{$bill->section}}</p>
+                            <p class="bill_details_header2">Bill Created By - {{$bill->created_name}} <span class="mx-2">||</span> Last Bill Updated By - {{$bill->edit_name}}</p>
+                        </div>
+
+                        <form action="{{route('bill.update-refund',$section)}}" method="POST" id="refund-form">
+                            @csrf
+                            <input type="hidden" name="bill_id" value="{{$bill->id}}">
+                            <div class="row mt-7">
+                                <div class="form-group col-md-3">
+                                    <label for="refund_date" class="form-label">Date <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="refund_date" name="refund_date" value="{{date('d-m-Y h:i A')}}" readonly>
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label for="amount" class="form-label">Credit Amount <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="cradit_amount" name="cradit_amount" value="{{$bill->cradit_amount}}" readonly>
+                                    @error('cradit_amount')
+                                    <span class="text-danger">{{$message}}</span>
+                                    @enderror
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label for="amount" class="form-label">Refund Amount <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="refund_amount" name="refund_amount" max="{{ $bill->cradit_amount }}" value="{{ $bill->cradit_amount }}" oninput="validateMax(this)" required>
+                                    @error('refund_amount')
+                                    <span class="text-danger">{{$message}}</span>
+                                    @enderror
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <button type="submit" class="btn btn-primary mt-4" name="submit_action" value="refund_amount">Refund Amount</button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12 text-right text-blue mt-5">
+                                    {{Auth::user()->name}} || Date : {{date('d-m-Y h:i A')}}
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+<script>
+    function validateMax(input) {
+        let max = parseFloat(input.max);
+        let value = parseFloat(input.value);
+        if (value > max) {
+            input.value = max;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('refund-form');
+
+        if (!form) {
+            return;
+        }
+
+        let activeSubmitButton = null;
+
+        form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                activeSubmitButton = button;
+            });
+        });
+
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.submitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+
+            if (!form.checkValidity()) {
+                return;
+            }
+
+            const submitButton = event.submitter || activeSubmitButton;
+
+            if (submitButton && submitButton.name) {
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = submitButton.name;
+                hiddenInput.value = submitButton.value;
+                form.appendChild(hiddenInput);
+            }
+
+            form.dataset.submitting = 'true';
+
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (button) {
+                if (button.tagName === 'BUTTON') {
+                    button.dataset.originalText = button.innerHTML;
+                    button.innerHTML = 'Processing...';
+                } else {
+                    button.dataset.originalText = button.value;
+                    button.value = 'Processing...';
+                }
+
+                button.disabled = true;
+            });
+        });
+    });
+</script>
+@endpush

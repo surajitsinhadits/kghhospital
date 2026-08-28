@@ -1,0 +1,124 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{ $type }} Receipt</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 leftside_fixarea">
+                        <x-billbar section="{{ $section }}" id="{{ $bill_id }}" type="bill" />
+                    </div>
+                    <div class="col-md-9 rightside_fixarea" style="border:2px solid black">
+                        <div class="bill_details_header">
+                            <p class="bill_details_header1">*BILL NO : {{$bill->uid}} <span class="mx-2">||</span> *BILL DATE : {{dateFor($bill->bill_date)}} <span class="mx-2">||</span> *BILL SECTION : {{$bill->section}}</p>
+                            <p class="bill_details_header2">Bill Created By - {{$bill->created_name}}
+                        </div>
+
+                        @if ($type == 'Create')
+                        <form action="{{ route('bill.insert-receipt', $section) }}" method="POST" id="your-form-id">
+                            @csrf
+                            <div class="row mt-7">
+                                <input type="hidden" name="bill_id" value="{{ $bill_id }}">
+                                <div class="form-group col-md-3">
+                                    <label for="payment_date" class="form-label">Date <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="payment_date" name="payment_date" value="{{ date('d-m-Y h:i A') }}" readonly required>
+                                </div>
+
+                                <div class="form-group col-md-3">
+                                    <label for="amount" class="form-label">Amount <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="amount" name="amount" value="{{ $bill->due_amount }}">
+                                </div>
+
+                                <div class="form-group col-md-3">
+                                    <label for="payment_mode" class="form-label">Payment Mode </label>
+                                    <select id="payment_mode" class="form-control select2-show-search" name="payment_mode">
+                                        <option value="Cash">Cash </option>
+                                        <option value="UPI"> UPI</option>
+                                        <option value="Transfer to Bank Account"> Transfer to Bank Account</option>
+                                        <option value="Cheque"> Cheque</option>
+                                        <option value="Card">Card</option>
+                                        <option value="Online">Online</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Bank </label>
+                                    <select class="form-control select2-show-search" name="bank_name">
+                                        <option value="">Select</option>
+                                        <option value="Axis Bank">Axis Bank</option>
+                                        <option value="Canara Bank">Canara Bank</option>
+                                        <option value="State Bank">State Bank</option>
+                                        <option value="RBL Bank">RBL Bank</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="text-center m-auto">
+                                @if($bill->due_amount > 0)
+                                <button type="submit" class="btn btn-primary">Save Receipt Amount</button>
+                                @endif
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 text-left text-blue"></div>
+                                <div class="col-md-6 text-right text-blue">
+                                    {{ Auth::user()->name }} || Date : {{ date('d-m-Y h:i A') }}
+                                </div>
+                            </div>
+                        </form>
+                        @else
+                        <form action="{{ route('bill.update-receipt', $section) }}" method="POST" id="your-form-id">
+                            @csrf
+                            <div class="row mt-7">
+                                <input type="hidden" name="bill_id" value="{{ $bill_id }}">
+                                <input type="hidden" name="pay_id" value="{{ $payments->id }}">
+                                <div class="form-group col-md-3">
+                                    <label for="payment_date" class="form-label">Date <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control dateTimePickr" id="payment_date" name="payment_date" value="{{ dateFor($payments->payment_date, true) }}" required>
+                                </div>
+
+                                <div class="form-group col-md-3">
+                                    <label for="amount" class="form-label">Amount <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="amount" name="amount" value="{{ $payments->payment_amount }}">
+                                </div>
+
+                                <div class="form-group col-md-3">
+                                    <label for="payment_mode" class="form-label">Payment Mode </label>
+                                    <select id="payment_mode" class="form-control select2-show-search" name="payment_mode">
+                                        <option value="Cash" {{ $payments->payment_mode == 'Cash' ? 'selected' : '' }}>Cash </option>
+                                        <option value="UPI" {{ $payments->payment_mode == 'UPI' ? 'selected' : '' }}> UPI</option>
+                                        <option value="Transfer to Bank Account" {{ $payments->payment_mode == 'Transfer to Bank Account' ? 'selected' : '' }}> Transfer to Bank Account</option>
+                                        <option value="Cheque" {{ $payments->payment_mode == 'Cheque' ? 'selected' : '' }}> Cheque</option>
+                                        <option value="Card" {{ $payments->payment_mode == 'Card' ? 'selected' : '' }}> Card</option>
+                                        <option value="Online" {{ $payments->payment_mode == 'Online' ? 'selected' : '' }}> Online</option>
+                                        <option value="Other" {{ $payments->payment_mode == 'Other' ? 'selected' : '' }}> Other</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Bank </label>
+                                    <select class="form-control select2-show-search" name="bank_name">
+                                        <option value="">Select</option>
+                                        <option value="Axis Bank" {{ $payments->payment_bank == 'Axis Bank' ? 'selected' : '' }}> Axis Bank</option>
+                                        <option value="Canara Bank" {{ $payments->payment_bank == 'Canara Bank' ? 'selected' : '' }}> Canara Bank</option>
+                                        <option value="State Bank" {{ $payments->payment_bank == 'State Bank' ? 'selected' : '' }}> State Bank</option>
+                                        <option value="RBL Bank" {{ $payments->payment_bank == 'RBL Bank' ? 'selected' : '' }}> RBL Bank</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="text-center mb-3">
+                                <button type="submit" class="btn btn-primary">Update Receipt</button>
+                            </div>
+                        </form>
+                        @endif
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+
+@endpush

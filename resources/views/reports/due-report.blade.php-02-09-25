@@ -1,0 +1,154 @@
+@extends('layouts.structure')
+@push('title')
+    <title>{{ $title }}</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+            <div class="card">
+                <div class="card-header card_hearder_mimi">
+                    <h4 class="card-title card_hearder_mimi_text">DUE REPORTS</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered table-striped" id="myTable">
+                        <thead>
+                            <tr>
+                                <th>SL</th>
+                                <th>Bill ID</th>
+                                <th>Bill Date</th>
+                                <th>Patient Name</th>
+                                <th>Net Amount</th>
+                                <th>Paid Amount</th>
+                                <th>Due Amount</th>
+                                <th>Created By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($result as $key => $item)
+                                <tr>
+                                    <td>{{ $key + 1 }}</td>
+                                    <td>
+                                        <a href="{{ route('bill.billing-details', [$item->section == 'DAYCARE' ? 'ipd' : strtolower($item->section), ed($item->id, true)]) }}">
+                                            {{ $item->uid }}
+                                            <span class="badge badge-gradient-primary mx-2">{{ $item->section }}</span>
+                                        </a>
+                                    </td>
+                                    <td>{{ dateFor($item->bill_date, true) }}</td>
+                                    <td>{{ strtoupper($item->patient_name) }} ({{ $item->patient_id }})</td>
+                                    <td>₹{{ number_format($item->grand_total, 2) }}</td>
+                                    <td>₹{{ number_format($item->total_payment, 2) }}</td>
+                                    <td>₹{{ number_format($item->due_amount, 2) }}</td>
+                                    <td>{{ $item->name }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('js')
+    <script>
+        $(function() {
+            // Helper: timestamp for filenames
+            function ts() {
+                const d = new Date();
+                return d.toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            }
+
+            // Values to use in exported headers
+            const reportTitle = @json($title ?? 'Due Reports');
+            const orgName = @json(config('app.name', 'Application'));
+            const generatedAt = new Date().toLocaleString();
+
+            $('#myTable').DataTable({
+                pageLength: 50,
+                dom: "<'row mb-2'<'col-sm-6'B><'col-sm-6'f>>" +
+                    "tr" +
+                    "<'row mt-2'<'col-sm-5'i><'col-sm-7'p>>",
+                buttons: [
+                    {
+                        extend: 'excelHtml5',
+                        text: 'Download Excel',
+                        title: 'Due Reports',
+                        filename: 'due-reports_' + ts(),
+                        exportOptions: { columns: ':visible:not(.no-export)' },
+                        customizeData: function(data) {
+                            // Strip currency symbols/commas so Excel treats as numbers
+                            for (let i = 0; i < data.body.length; i++) {
+                                [4, 5, 6].forEach(idx => {
+                                    if (data.body[i][idx] != null) {
+                                        data.body[i][idx] = String(data.body[i][idx]).replace(/[₹,]/g, '');
+                                    }
+                                });
+                            }
+                        }
+                    },
+                    {
+                        extend: 'pdfHtml5',
+                        text: 'Download PDF',
+                        title: 'Due Reports',
+                        filename: 'due-reports_' + ts(),
+                        orientation: 'landscape',
+                        pageSize: 'A4',
+                        exportOptions: { columns: ':visible:not(.no-export)' },
+                        customize: function(doc) {
+                            // Basic styles
+                            doc.defaultStyle.fontSize = 10;
+                            doc.styles.tableHeader.fontSize = 12;
+
+                            // Optional footer with generated timestamp
+                            doc.footer = function(currentPage, pageCount) {
+                                return {
+                                    margin: [40, 0, 40, 20],
+                                    columns: [
+                                        { text: 'Generated: ' + generatedAt, alignment: 'left', fontSize: 9, color: '#666' },
+                                        { text: '', alignment: 'center' },
+                                        { text: '', alignment: 'right' }
+                                    ]
+                                };
+                            };
+
+                            // Make all columns auto width
+                            if (doc.content && doc.content[1] && doc.content[1].table) {
+                                doc.content[1].table.widths =
+                                    Array(doc.content[1].table.body[0].length).fill('*');
+                            }
+                        }
+                    },
+                    {
+                        extend: 'print',
+                        text: 'Print',
+                        exportOptions: { columns: ':visible:not(.no-export)' },
+                        customize: function(win) {
+                            // Ensure base font-size is readable
+                            $(win.document.body).css('font-size', '10pt');
+
+                            // Build a header row for the print view
+                            const headerHtml = `
+                                <div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #ccc;">
+                                    <img src="{{ asset('public/assets/images/header/kgh.png') }}" alt="logo" style="width: 850px;">
+                                </div>
+                            `;
+                            $(win.document.body).prepend(headerHtml);
+
+                            // Optional: tighten table styling for print
+                            $(win.document.body).find('table')
+                                .addClass('compact')
+                                .css('font-size', '10pt');
+                        }
+                    },
+                    {
+                        extend: 'colvis',
+                        text: 'Columns'
+                    }
+                ]
+            });
+        });
+    </script>
+@endpush

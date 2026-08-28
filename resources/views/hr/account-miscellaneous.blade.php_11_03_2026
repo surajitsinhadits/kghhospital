@@ -1,0 +1,618 @@
+@extends('layouts.structure')
+
+@push('title')
+    <title>{{ $title }}</title>
+@endpush
+
+@php
+    $redirectRouteProvided = isset($redirectRoute) ? $redirectRoute : 'hr.account-miscellaneous';
+@endphp
+
+@section('main-content')
+    <style>
+        .account-miscellaneous-table th,
+        .account-miscellaneous-table td {
+            text-align: center;
+            vertical-align: middle;
+        }
+    </style>
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                    <div class="card-header card_hearder_mimi justify-content-between align-items-center">
+                        <h4 class="card-title card_hearder_mimi_text">Miscellaneous Bills List</h4>
+                    </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover mb-0 account-miscellaneous-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Bill No</th>
+                                    <th>Invoice</th>
+                                    <th>Bill Purpose</th>
+                                    <th>Service Provider</th>
+                                    <th>Bill Amount</th>
+                                    <th>Total Amount</th>
+                                    <th>Pay Amount</th>
+                                    <th>Due</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Verified</th>
+                                    <th>Approved</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @forelse ($miscellaneous as $misc)
+                                    @php
+                                        $paidValue = $misc->total_paid_amount;
+                                        $dueValue = $misc->net_due;
+
+                                        $paymentsPayload = $misc->payments
+                                            ->map(function ($payment) {
+                                                return [
+                                                    'amount_paid' => number_format((float) $payment->amount_paid, 2, '.', ''),
+                                                    'discount' => number_format((float) $payment->discount, 2, '.', ''),
+                                                    'details' => (string) ($payment->details ?? ''),
+                                                    'paid_at' => optional($payment->paid_at)->format('d-m-Y h:i A'),
+                                                ];
+                                            })
+                                            ->values();
+                                    @endphp
+
+                                    <tr>
+                                        <td>{{ $loop->iteration }}</td>
+                                        <td>{{ $misc->display_bill_no }}</td>
+                                        <td>
+                                            @if ($misc->invoice_url)
+                                                <a
+                                                    target="_blank"
+                                                    href="{{ $misc->invoice_url }}"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    title="View Invoice"
+                                                    aria-label="View Invoice"
+                                                >
+                                                    <i class="fa fa-eye"></i>
+                                                </a>
+                                            @else
+                                                <span class="text-muted">No invoice</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $misc->bill_purpose }}</td>
+                                        <td>{{ $misc->service_provider }}</td>
+                                        <td>₹{{ number_format($misc->bill_amount, 2) }}</td>
+                                        <td>₹{{ number_format($misc->total_amount ?? 0, 2) }}</td>
+                                        <td>₹{{ number_format($misc->pay_amount ?? 0, 2) }}</td>
+                                        <td>₹{{ number_format($dueValue, 2) }}</td>
+                                        <td>
+                                            @if ($misc->payment_status === 'paid')
+                                                <span class="badge badge-success">Paid</span>
+                                            @else
+                                                <span class="badge badge-warning">Unpaid</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($misc->created_by)
+                                                <strong class="d-block">
+                                                    {{ $misc->creator->name ?? 'User #' . $misc->created_by }}
+                                                </strong>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($misc->verified_by)
+                                                <strong class="d-block">
+                                                    {{ $misc->verifier->name ?? 'User #' . $misc->verified_by }}
+                                                </strong>
+                                            @else
+                                                <span class="text-muted">Pending</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($misc->approved_by)
+                                                <strong class="d-block">
+                                                    {{ $misc->approver->name ?? 'User #' . $misc->approved_by }}
+                                                </strong>
+                                            @else
+                                                <span class="text-muted">Pending</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                                @if (!$misc->approved_by)
+                                                    <button
+                                                        type="button"
+                                                    class="btn btn-sm btn-outline-primary edit-misc-btn"
+                                                    data-action="{{ route('hr.miscellaneous.update', $misc) }}"
+                                                    data-bill-no="{{ $misc->display_bill_no }}"
+                                                        data-bill-purpose="{{ $misc->bill_purpose }}"
+                                                        data-service-provider="{{ $misc->service_provider }}"
+                                                        data-bill-amount="{{ $misc->bill_amount }}"
+                                                        data-tds-section="{{ $misc->tds_section_code }}"
+                                                        data-tds-percentage="{{ $misc->tds_percentage }}"
+                                                        data-tds-bill-amount="{{ $misc->tds_bill_amount }}"
+                                                        data-tds-deduction-amount="{{ $misc->tds_deduction_amount }}"
+                                                        data-total-amount="{{ $misc->total_amount ?? $misc->gst_amount ?? $misc->bill_amount }}"
+                                                        data-verified="{{ $misc->verified_by ? '1' : '0' }}"
+                                                        data-approved="{{ $misc->approved_by ? '1' : '0' }}"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                @else
+                                                    @if ($dueValue > 0)
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-success pay-trigger"
+                                                            data-id="{{ $misc->id }}"
+                                                            data-due="{{ $dueValue }}"
+                                                            data-total-amount="{{ $misc->total_amount ?? $misc->gst_amount ?? $misc->bill_amount }}"
+                                                            data-payments='@json($paymentsPayload)'
+                                                        >
+                                                            Partial Payment
+                                                        </button>
+                                                    @else
+                                                        <a
+                                                            href="{{ route('hr.miscellaneous.details', ['miscellaneous' => $misc, 'ref' => 'account']) }}"
+                                                            class="btn btn-sm btn-outline-info"
+                                                        >
+                                                            View
+                                                        </a>
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="14" class="text-center">No miscellaneous bills recorded yet.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="miscFormModal" tabindex="-1" aria-labelledby="miscFormModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <form
+                action="{{ route('hr.miscellaneous.store') }}"
+                method="POST"
+                enctype="multipart/form-data"
+                id="misc-form"
+                data-default-action="{{ route('hr.miscellaneous.store') }}"
+            >
+                @csrf
+                <input type="hidden" name="form_context" value="account">
+                <input type="hidden" name="_method" value="POST" id="formMethod">
+                <input type="hidden" name="mark_verified" id="mark_verified" value="0">
+                <input type="hidden" name="mark_approved" id="mark_approved" value="0">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitle">Add Account Miscellaneous Bill</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="bill_no_display">Bill No</label>
+                            <input type="text" class="form-control" id="bill_no_display" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="bill_purpos e">Bill Purpose <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="bill_purpose" name="bill_purpose" required>
+                            @error('bill_purpose')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="service_provider">Service Provider <span class="text-danger">*</span></label>
+                            <select class="form-control" id="service_provider" name="service_provider" required>
+                                <option value="">Select a service provider</option>
+                                @foreach ($serviceProviders as $provider)
+                                    <option value="{{ $provider->vendor_name }}">{{ $provider->vendor_name }}</option>
+                                @endforeach
+                            </select>
+                            @error('service_provider')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="bill_amount">Bill Amount <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" id="bill_amount" name="bill_amount" readonly>
+                            @error('bill_amount')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="tds_bill_amount">TDS Bill Amount</label>
+                            <input type="number" step="0.01" class="form-control" id="tds_bill_amount" name="tds_bill_amount">
+                            @error('tds_bill_amount')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="tds_section">TDS Section</label>
+                            <select name="tds_section" id="tds_section" class="form-control">
+                                <option value="">Select TDS Section</option>
+                                <option value="194C_1">194C - Contractors (Individual/HUF) - 1%</option>
+                                <option value="194C_2">194C - Contractors (Others) - 2%</option>
+                                <option value="194J_2">194J - Technical / Call Centre Fees - 2%</option>
+                                <option value="194J_10">194J - Professional Fees / Royalty - 10%</option>
+                                <option value="194I_2">194I - Rent (Plant &amp; Machinery) - 2%</option>
+                                <option value="194I_10">194I - Rent (Land / Building / Furniture) - 10%</option>
+                                <option value="194A_10">194A - Interest (Other than Securities) - 10%</option>
+                                <option value="194H_5">194H - Commission / Brokerage - 5%</option>
+                                <option value="194Q_01">194Q - Purchase of Goods - 0.1%</option>
+                                <option value="194N_2">194N - Cash Withdrawal (Above ₹1 Crore) - 2%</option>
+                                <option value="194N_5">194N - Cash Withdrawal (No ITR Filed) - 5%</option>
+                                <option value="195_20">195 - Non-Resident Payments (DTAA Based 20%)</option>
+                            </select>
+                            @error('tds_section')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="tds_percentage">TDS Percentage</label>
+                            <input type="number" step="0.01" class="form-control" id="tds_percentage" name="tds_percentage" readonly>
+                            @error('tds_percentage')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="tds_deduction_amount">TDS Deduction Amount</label>
+                            <input type="number" step="0.01" class="form-control" id="tds_deduction_amount" name="tds_deduction_amount" readonly>
+                            @error('tds_deduction_amount')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label for="total_amount_input">Payable Amount</label>
+                            <input type="number" step="0.01" class="form-control" id="total_amount_input" name="gst_amount" readonly>
+                            @error('gst_amount')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        {{-- Camera/file upload removed as requested --}}
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary" id="formSubmitButton">Save Bill</button>
+                        <button type="button" class="btn btn-success d-none" id="formVerifyButton">Update &amp; Verified</button>
+                        <button type="button" class="btn btn-success d-none" id="formApproveButton">Update &amp; Approve</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {{-- Payment Modal --}}
+    <style>
+    /* center modal vertically + keep it small */
+    #paymentModal .modal-dialog {
+        width: 380px;              /* small width */
+        margin: 0 auto;            /* center horizontally */
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    /* mobile friendly */
+    @media (max-width: 480px) {
+        #paymentModal .modal-dialog {
+            width: 95%;
+        }
+    }
+
+    /* reduce padding a bit to look compact */
+    #paymentModal .modal-body {
+        padding: 12px 15px;
+    }
+    #paymentModal .modal-header,
+    #paymentModal .modal-footer {
+        padding: 10px 15px;
+    }
+</style>
+
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" id="paymentForm">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="paymentModalLabel">Record Payment</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Remaining Due</label>
+                        <p class="form-control-static font-weight-bold" id="modalRemainingDue">₹0.00</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount_paid">Pay Amount</label>
+                        <input type="number" step="0.01" name="amount_paid" class="form-control" required>
+                    </div>
+                    {{-- <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="amount_paid">Pay Amount</label>
+                            <input type="number" step="0.01" name="amount_paid" class="form-control" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="payment_discount">Discount</label>
+                            <input type="number" step="0.01" name="discount" class="form-control" value="0">
+                        </div>
+                    </div> --}}
+
+                    <div class="form-group">
+                        <label for="details">Details</label>
+                        <textarea name="details" rows="3" class="form-control"></textarea>
+                    </div>
+
+                    <div>
+                        <strong>Past Payments</strong>
+                        <ul class="list-group mt-2" id="paymentHistory"></ul>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Payment</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection
+
+@push('js')
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const payButtons = document.querySelectorAll('.pay-trigger');
+            const paymentForm = document.getElementById('paymentForm');
+            if (!paymentForm) return;
+            const remainingDueEl = document.getElementById('modalRemainingDue');
+            const historyList = document.getElementById('paymentHistory');
+            const paymentModal = document.getElementById('paymentModal');
+            const payAmountInput = paymentForm.querySelector('input[name="amount_paid"]');
+            const routeTemplate = "{{ route('hr.miscellaneous.pay', ['id' => '__id__']) }}";
+
+            const parseAmount = (value) => {
+                const parsed = parseFloat(value);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+
+            payButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const id = button.getAttribute('data-id');
+                    const dueValue = parseAmount(button.getAttribute('data-due'));
+                    const totalAmount = parseAmount(button.getAttribute('data-total-amount'));
+                    const displayAmount = dueValue ?? totalAmount ?? 0;
+                    let payments = [];
+                    try {
+                        payments = JSON.parse(button.getAttribute('data-payments') || '[]');
+                    } catch (e) {
+                        payments = [];
+                    }
+                    paymentForm.setAttribute('action', routeTemplate.replace('__id__', id));
+                    const formattedAmount = displayAmount.toFixed(2);
+                    remainingDueEl.textContent = `₹${formattedAmount}`;
+                    if (payAmountInput) {
+                        payAmountInput.value = formattedAmount;
+                    }
+                    historyList.innerHTML = '';
+                    historyList.innerHTML = '';
+                    if (payments.length) {
+                        payments.forEach(payment => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item small';
+                            const details = (payment.details && payment.details.trim()) ? payment.details : 'No details';
+                            const paidAt = payment.paid_at ? ` <small>${payment.paid_at}</small>` : '';
+                            li.innerHTML =
+                                `<strong>₹${payment.amount_paid}</strong>${paidAt}<br>${details}`;
+                            historyList.appendChild(li);
+                        });
+                    } else {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item small text-muted';
+                        li.textContent = 'No payments recorded yet.';
+                        historyList.appendChild(li);
+                    }
+                    $(paymentModal).modal('show');
+                });
+            });
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = $('#miscFormModal');
+            const form = document.getElementById('misc-form');
+            const submitBtn = document.getElementById('formSubmitButton');
+            const verifyBtn = document.getElementById('formVerifyButton');
+            const approveBtn = document.getElementById('formApproveButton');
+            const editButtons = document.querySelectorAll('.edit-misc-btn');
+            const methodInput = document.getElementById('formMethod');
+            const modalTitle = document.getElementById('modalTitle');
+            const defaultAction = form.dataset.defaultAction;
+            const billPurpose = document.getElementById('bill_purpose');
+            const billNoDisplay = document.getElementById('bill_no_display');
+            const serviceProvider = document.getElementById('service_provider');
+            const billAmount = document.getElementById('bill_amount');
+            const tdsBillAmountInput = document.getElementById('tds_bill_amount');
+            const tdsSectionField = document.getElementById('tds_section');
+            const tdsPercentageInput = document.getElementById('tds_percentage');
+            const tdsDeductionAmountInput = document.getElementById('tds_deduction_amount');
+            const totalAmountInput = document.getElementById('total_amount_input');
+            const markVerifiedInput = document.getElementById('mark_verified');
+            const markApprovedInput = document.getElementById('mark_approved');
+            const tdsPercentageMap = {
+                '194C_1': 1,
+                '194C_2': 2,
+                '194J_2': 2,
+                '194J_10': 10,
+                '194I_2': 2,
+                '194I_10': 10,
+                '194A_10': 10,
+                '194H_5': 5,
+                '194Q_01': 0.1,
+                '194N_2': 2,
+                '194N_5': 5,
+                '195_20': 20,
+            };
+
+            const parseNumericInput = (value) => {
+                const parsed = parseFloat(value);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+
+            const setTotalAmountValue = (value) => {
+                if (!totalAmountInput) {
+                    return;
+                }
+                const formatted = Number.isFinite(value) ? value.toFixed(2) : '';
+                totalAmountInput.value = formatted;
+            };
+
+            const setNumericValue = (input, value) => {
+                if (!input) {
+                    return;
+                }
+                input.value = Number.isFinite(value) ? value.toFixed(2) : '';
+            };
+
+            const calculateTotal = () => {
+                const baseAmount = parseNumericInput(tdsBillAmountInput.value);
+                if (baseAmount === null) {
+                    setNumericValue(tdsPercentageInput, null);
+                    setNumericValue(tdsDeductionAmountInput, null);
+                    setTotalAmountValue(null);
+                    return;
+                }
+                const tdsPercentage = tdsPercentageMap[tdsSectionField.value] ?? null;
+                const deduction = Number.isFinite(tdsPercentage) ? (baseAmount * tdsPercentage) / 100 : 0;
+                const netAfterTds = Math.max(baseAmount - deduction, 0);
+
+                setNumericValue(tdsPercentageInput, tdsPercentage);
+                setNumericValue(tdsDeductionAmountInput, deduction);
+                setTotalAmountValue(netAfterTds);
+            };
+
+            tdsSectionField.addEventListener('change', calculateTotal);
+            tdsBillAmountInput.addEventListener('input', calculateTotal);
+            function resetModalFields() {
+                form.reset();
+                if (billNoDisplay) {
+                    billNoDisplay.value = '';
+                }
+                tdsSectionField.value = '';
+                tdsBillAmountInput.value = '';
+                tdsPercentageInput.value = '';
+                tdsDeductionAmountInput.value = '';
+                if (totalAmountInput) {
+                    totalAmountInput.value = '';
+                }
+                verifyBtn.classList.add('d-none');
+                if (approveBtn) {
+                    approveBtn.classList.add('d-none');
+                }
+                markVerifiedInput.value = '0';
+                markApprovedInput.value = '0';
+            }
+
+            function populateModal(button) {
+                methodInput.value = 'PATCH';
+                form.setAttribute('action', button.dataset.action);
+                submitBtn.textContent = 'Update Bill';
+                submitBtn.dataset.submitted = 'false';
+                submitBtn.disabled = false;
+                modalTitle.textContent = 'Edit Account Miscellaneous Bill';
+                markVerifiedInput.value = '0';
+                markApprovedInput.value = '0';
+                if (billNoDisplay) {
+                    billNoDisplay.value = button.dataset.billNo || '';
+                }
+                const isVerified = button.dataset.verified === '1';
+                if (!isVerified) {
+                    verifyBtn.classList.remove('d-none');
+                } else {
+                    verifyBtn.classList.add('d-none');
+                }
+                const isApproved = button.dataset.approved === '1';
+                if (isVerified && !isApproved) {
+                    approveBtn.classList.remove('d-none');
+                } else {
+                    approveBtn.classList.add('d-none');
+                }
+
+                billPurpose.value = button.dataset.billPurpose || '';
+                const svcValue = (button.dataset.serviceProvider || '').trim();
+                if (svcValue) {
+                    const match = Array.from(serviceProvider.options).find(opt => {
+                        const optValue = (opt.value || '').trim();
+                        const optText = (opt.textContent || '').trim();
+                        return optValue.toLowerCase() === svcValue.toLowerCase()
+                            || optText.toLowerCase() === svcValue.toLowerCase();
+                    });
+                    serviceProvider.value = match ? match.value : '';
+                } else {
+                    serviceProvider.value = '';
+                }
+
+                billAmount.value = button.dataset.billAmount || '';
+                tdsBillAmountInput.value = button.dataset.tdsBillAmount || '';
+                tdsSectionField.value = button.dataset.tdsSection || '';
+                tdsPercentageInput.value = button.dataset.tdsPercentage || '';
+                tdsDeductionAmountInput.value = button.dataset.tdsDeductionAmount || '';
+                const dataTotalValue = button.dataset.totalAmount || '';
+                if (totalAmountInput) {
+                    totalAmountInput.value = dataTotalValue || '';
+                }
+                calculateTotal();
+                modal.modal('show');
+            }
+
+            editButtons.forEach(button => {
+                button.addEventListener('click', () => populateModal(button));
+            });
+
+            verifyBtn.addEventListener('click', () => {
+                markVerifiedInput.value = '1';
+                markApprovedInput.value = '0';
+                submitBtn.textContent = 'Update & Verified';
+                submitBtn.dataset.submitted = 'false';
+                submitBtn.disabled = false;
+                verifyBtn.classList.add('d-none');
+                submitBtn.click();
+            });
+            approveBtn.addEventListener('click', () => {
+                markApprovedInput.value = '1';
+                markVerifiedInput.value = '0';
+                submitBtn.textContent = 'Update & Approve';
+                submitBtn.dataset.submitted = 'false';
+                submitBtn.disabled = false;
+                approveBtn.classList.add('d-none');
+                submitBtn.click();
+            });
+
+            modal.on('hidden.bs.modal', function () {
+                resetModalFields();
+                methodInput.value = 'POST';
+                form.setAttribute('action', defaultAction);
+                submitBtn.textContent = 'Save Bill';
+                submitBtn.dataset.submitted = 'false';
+                submitBtn.disabled = false;
+            });
+        });
+    </script>
+@endpush

@@ -1,0 +1,516 @@
+<?php
+
+namespace App\Http\Controllers\HR;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Yajra\Datatables\DataTables;
+use Illuminate\Http\Request;
+use App\Models\Department;
+use App\Models\ChargesCatagory;
+use App\Models\Charge;
+use App\Models\ChargesHasSection;
+use App\Models\Designation;
+use App\Models\GeneratedSalary;
+use App\Models\User;
+use App\Models\Role;
+use App\Models\Billing;
+use App\Models\SalaryMaster;
+use App\Models\SalaryRule;
+use App\Models\SalaryStructure;
+use App\Models\SalaryType;
+use Illuminate\Validation\Rule;
+
+class HRController extends Controller
+{
+    public function users(Request $request)
+    {
+        $title = 'Users';
+        if ($request->ajax()) {
+            $data = User::select('users.*', 'roles.role')
+                ->join('roles', 'roles.id', '=', 'users.role_id')
+                ->where('roles.id', '>', 2)
+                ->where('users.id', '!=', Auth::user()->id)
+                ->where('users.user_type', 'user')
+                ->orderBy('users.id', 'DESC');
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('hr.users-info', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    $actionBtn .= '<a href="' . route('hr.edit-user', ed($row->id, true)) . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+        return view('hr.users', compact('title'));
+    }
+    public function user_info($id)
+    {
+        $id = ed($id, false);
+        $title = "User Info";
+        $user = User::select('users.*', 'roles.role')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->where('users.id', $id)
+            ->first();
+        // dd($user);
+        return view('hr.users-info', compact('title', 'user'));
+    }
+    public function add_user()
+    {
+        $title = "Add New User";
+        $roles = Role::whereNotIn('id', [1, 2, 6])->orderBy('role', 'ASC')->get();
+        $edit = null;
+        $btn = 'Create User';
+        $type = 'main';
+        $action = route('hr.update-user');
+        return view('hr.users-form', compact('title', 'roles', 'edit', 'btn','action','type'));
+    }
+    public function edit_user($id)
+    {
+        $id = ed($id, false);
+        $title = "Edit User";
+        $roles = Role::whereNotIn('id', [1, 2, 6])->orderBy('role', 'ASC')->get();
+        $edit = User::find($id);
+        $type = 'main';
+        $action = route('hr.update-user', $id);
+        $btn = 'Update User';
+        return view('hr.users-form', compact('title', 'roles', 'edit', 'btn','type','action'));
+    }
+    public function update_user(Request $request, $id = 0)
+    {
+        $request->validate([
+            "role" => 'required',
+            "employee_id" => 'required|unique:users,empId,' . $id,
+            "name" => 'required|max:100',
+            "father_name" => 'nullable|max:100',
+            "mother_name" => 'nullable|max:100',
+            "gender" => 'required',
+            "phone_no" => 'required|digits:10',
+            "whatsapp_no" => 'nullable|digits:10',
+            "emg_phone_no" => 'nullable|digits:10',
+            "email" => 'required|max:100|unique:users,email,' . $id,
+            "current_address" => 'nullable|max:255',
+            "permanent_address" => 'nullable|max:255',
+            "qualification" => 'nullable|max:255',
+            "experience" => 'nullable|max:255',
+            "specialization" => 'nullable|max:255',
+            "note" => 'nullable|max:255',
+            "pan_number" => 'nullable|max:10',
+            "identification_name" => 'nullable|max:255',
+            "identification_number" => 'nullable|max:255',
+        ]);
+
+        $path = public_path('assets/images/users');
+        if ($request->file('profile_image')) {
+            $profile_img = "profile-image-" . time() . "." . $request->file('profile_image')->getClientOriginalExtension();
+            $request->file('profile_image')->move($path, $profile_img);
+        } else {
+            $profile_img = $request->input('old_profile_image') ?? null;
+        }
+        $id ? $data = User::find($id) : $data = new User();
+        $data->role_id = $request->input('role');
+        $data->empId = $request->input('employee_id');
+        $data->salutation = $request->input('salutation');
+        $data->name = $request->input('name');
+        $data->father_name = $request->input('father_name');
+        $data->mother_name = $request->input('mother_name');
+        $data->gender = $request->input('gender');
+        $data->marital_status = $request->input('marital_status');
+        $data->blood_group = $request->input('blood_group');
+        $data->dob = $request->input('date_of_birth') ? date('Y-m-d', strtotime($request->input('date_of_birth'))) : null;
+        $data->joining_date = $request->input('date_of_joining') ? date('Y-m-d', strtotime($request->input('date_of_joining'))) : null;
+        $data->phone_no = $request->input('phone_no');
+        $data->whatsapp_no = $request->input('whatsapp_no');
+        $data->emg_no = $request->input('emg_phone_no');
+        $data->email = $request->input('email');
+        $data->current_address = $request->input('current_address');
+        $data->permanent_address = $request->input('permanent_address');
+        $data->qualification = $request->input('qualification');
+        $data->experience = $request->input('experience');
+        $data->specialization = $request->input('specialization');
+        $data->note = $request->input('note');
+        $data->pan_number = $request->input('pan_number');
+        $data->identification_name = $request->input('identification_name');
+        $data->identification_number = $request->input('identification_number');
+        $data->password = Hash::make('12345678');
+        $data->profile_img = $profile_img;
+        if ($data->save()) {
+            return redirect()->route('hr.users')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.users')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function edit_profile($id)
+    {
+        $id = ed($id, false);
+        $title = "Edit Profile";
+        $roles = Role::orderBy('role', 'ASC')->get();
+        $edit = User::find($id);
+        $type = 'profile';
+        $action = route('hr.update-profile', $id);
+        $btn = 'Update Profile';
+        return view('hr.users-form', compact('title', 'roles', 'edit', 'btn','type','action'));
+    }
+    public function update_profile(Request $request, $id = 0)
+    {
+        $request->validate([
+            "employee_id" => 'required|unique:users,empId,' . $id,
+            "name" => 'required|max:100',
+            "father_name" => 'nullable|max:100',
+            "mother_name" => 'nullable|max:100',
+            "gender" => 'required',
+            "phone_no" => 'required|digits:10',
+            "whatsapp_no" => 'nullable|digits:10',
+            "emg_phone_no" => 'nullable|digits:10',
+            "email" => 'required|max:100|unique:users,email,' . $id,
+            "current_address" => 'nullable|max:255',
+            "permanent_address" => 'nullable|max:255',
+            "qualification" => 'nullable|max:255',
+            "experience" => 'nullable|max:255',
+            "specialization" => 'nullable|max:255',
+            "note" => 'nullable|max:255',
+            "pan_number" => 'nullable|max:10',
+            "identification_name" => 'nullable|max:255',
+            "identification_number" => 'nullable|max:255',
+        ]);
+
+        $path = public_path('assets/images/users');
+        if ($request->file('profile_image')) {
+            $profile_img = "profile-image-" . time() . "." . $request->file('profile_image')->getClientOriginalExtension();
+            $request->file('profile_image')->move($path, $profile_img);
+        } else {
+            $profile_img = $request->input('old_profile_image') ?? null;
+        }
+        $data = User::find($id);
+        $data->salutation = $request->input('salutation');
+        $data->name = $request->input('name');
+        $data->father_name = $request->input('father_name');
+        $data->mother_name = $request->input('mother_name');
+        $data->gender = $request->input('gender');
+        $data->marital_status = $request->input('marital_status');
+        $data->blood_group = $request->input('blood_group');
+        $data->dob = $request->input('date_of_birth') ? date('Y-m-d', strtotime($request->input('date_of_birth'))) : null;
+        $data->joining_date = $request->input('date_of_joining') ? date('Y-m-d', strtotime($request->input('date_of_joining'))) : null;
+        $data->phone_no = $request->input('phone_no');
+        $data->whatsapp_no = $request->input('whatsapp_no');
+        $data->emg_no = $request->input('emg_phone_no');
+        $data->email = $request->input('email');
+        $data->current_address = $request->input('current_address');
+        $data->permanent_address = $request->input('permanent_address');
+        $data->qualification = $request->input('qualification');
+        $data->experience = $request->input('experience');
+        $data->specialization = $request->input('specialization');
+        $data->note = $request->input('note');
+        $data->pan_number = $request->input('pan_number');
+        $data->identification_name = $request->input('identification_name');
+        $data->identification_number = $request->input('identification_number');
+        // $data->password = Hash::make('12345678');
+        $data->profile_img = $profile_img;
+        if ($data->save()) {
+            return redirect()->route('hr.users-info', ed(Auth::id(), true))->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.users-info', ed(Auth::id(), true))->with('error', 'Something wrong try again!');
+        }
+    }
+    public function doctors(Request $request)
+    {
+        $title = 'Doctors';
+        if ($request->ajax()) {
+            $data = User::select('users.*', 'd.department_name')
+                ->join('departments as d', 'd.id', '=', 'users.department_id')
+                ->where('users.user_type', 'doctor')
+                ->orderBy('users.id', 'DESC');
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    $actionBtn = '<a href="' . route('hr.doctors-info', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    $actionBtn .= '<a href="' . route('hr.edit-doctor', ed($row->id, true)) . '" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+        return view('hr.doctor', compact('title'));
+    }
+    public function doctor_info($id)
+    {
+        $id = ed($id, false);
+        $title = "Doctor Info";
+        $user = User::select('users.*', 'roles.role', 'd.department_name', 'cc1.charges_catagories_name as category', 'cc2.charges_catagories_name as sub_category')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->join('departments as d', 'd.id', '=', 'users.department_id')
+            ->leftjoin('charges_catagories as cc1', 'cc1.id', '=', 'users.category_id')
+            ->leftjoin('charges_catagories as cc2', 'cc2.id', '=', 'users.sub_category_id')
+            ->where('users.id', $id)
+            ->first();
+        // dd($user);
+        return view('hr.doctor-info', compact('title', 'user'));
+    }
+    public function add_doctor()
+    {
+        $title = "Add New Doctor";
+        $departments = Department::where('status', '0')->orderBy('department_name', 'ASC')->get();
+        $categories = ChargesCatagory::where('parent_id', '0')->where('status', '0')->orderBy('charges_catagories_name', 'ASC')->get();
+        $subCategories = ChargesCatagory::where('parent_id', '!=', '0')->where('status', '0')->orderBy('charges_catagories_name', 'ASC')->get();
+        $edit = null;
+        $btn = 'Create Doctor';
+        return view('hr.doctor-form', compact('title', 'edit', 'btn', 'departments', 'categories', 'subCategories'));
+    }
+    public function edit_doctor($id)
+    {
+        $id = ed($id, false);
+        $title = "Edit Doctor";
+        $departments = Department::where('status', '0')->orderBy('department_name', 'ASC')->get();
+        $categories = ChargesCatagory::where('parent_id', '0')->where('status', '0')->orderBy('charges_catagories_name', 'ASC')->get();
+        $subCategories = ChargesCatagory::where('parent_id', '!=', '0')->where('status', '0')->orderBy('charges_catagories_name', 'ASC')->get();
+        $edit = User::find($id);
+        $btn = 'Update Doctor';
+        // dd($edit);
+        return view('hr.doctor-form', compact('title', 'edit', 'btn', 'departments', 'categories', 'subCategories'));
+    }
+    public function update_doctor(Request $request, $id = 0)
+    {
+        $request->validate([
+            "registation_id" => 'required|unique:users,empId,' . $id,
+            "department" => 'required',
+            "name" => 'required|max:100',
+            "gender" => 'required',
+            "phone_no" => 'required|digits:10',
+            "address" => 'nullable|max:255',
+            "qualification" => 'nullable|max:255',
+            "experience" => 'nullable|max:255',
+            "specialization" => 'nullable|max:255',
+            "doctor_type" => 'required',
+            "charges_catagory" => 'required',
+            "charges_sub_catagory" => 'required',
+        ]);
+        $path = public_path('assets/images/users');
+        if ($request->file('signature')) {
+            $signature = "signature-" . time() . "." . $request->file('signature')->getClientOriginalExtension();
+            $request->file('signature')->move($path, $signature);
+        } else {
+            $signature = $request->input('old_signature') ?? null;
+        }
+        if ($request->input('doctor_fees')) {
+
+            $id ? $charge_id = User::find($id)->charge_id : $charge_id = 0;
+            if ($charge_id) {
+                $charge = Charge::find($charge_id);
+                if (!$charge) {
+                    $charge = new Charge();  // important fix
+                }
+            } else {
+                $charge = new Charge();
+            }
+            $charge->charge_type = 'other-services';
+            $charge->charge_section = 'Profile';
+            $charge->category_id = $request->charges_catagory;
+            $charge->sub_category_id = $request->charges_sub_catagory;
+            $charge->charge_name = 'Dr. '.$request->name;
+
+            if ($charge->save()) {
+
+                $charge_id = $charge->id;
+
+                $chargeSection = ChargesHasSection::where('charge_id', $charge_id)->first();
+
+                if ($chargeSection) {
+                    $chargeSection->update([
+                        'charge_section_id' => '1',
+                        'charge_amount' => $request->doctor_fees,
+                    ]);
+                } else {
+                    ChargesHasSection::create([
+                        'charge_id' => $charge_id,
+                        'charge_section_id' => '1',
+                        'charge_amount' => $request->doctor_fees,
+                    ]);
+                }
+            }
+        } else {
+            $charge_id = 0;
+        }
+        $id ? $data = User::find($id) : $data = new User();
+        $data->role_id = Role::where('role', 'DOCTOR')->first()->id;
+        $data->empId = $request->input('registation_id');
+        $data->department_id = $request->input('department');
+        $data->salutation = $request->input('salutation');
+        $data->name = $request->input('name');
+        $data->gender = $request->input('gender');
+        $data->phone_no = $request->input('phone_no');
+        $data->current_address = $request->input('address');
+        $data->qualification = $request->input('qualification');
+        $data->experience = $request->input('experience');
+        $data->specialization = $request->input('specialization');
+        $data->doctor_type = $request->input('doctor_type');
+        $data->doctor_fees = ($request->input('doctor_fees')) ? $request->input('doctor_fees') : 0.00;
+        $data->signature = $signature;
+        $data->category_id = $request->input('charges_catagory');
+        $data->sub_category_id = $request->input('charges_sub_catagory');
+        $data->charge_id = $charge_id;
+        $data->commission_type = $request->input('commission_type');
+        $data->commission_amount = $request->input('commission_amount');
+        $data->user_type = 'doctor';
+        if ($data->save()) {
+            return redirect()->route('hr.doctors')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.doctors')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function sub_categories($id)
+    {
+        $response = ChargesCatagory::where('parent_id', $id)->where('status',0)->orderBy('id', 'desc')->get();
+        return response()->json($response);
+    }
+    public function departments()
+    {
+        $title = 'Departments';
+        $t1 = 'Departments List';
+        $t2 = 'Add Department';
+        $form = ['department_name', 'department_code'];
+        $head = ['Sl. No.', 'Department Name', 'Department Code', 'Action'];
+        $btn['name'] = 'Add Department';
+        $btn['action'] = Route('hr.update-departments');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-departments');
+        $response = Department::latest()->get();
+        $table = 'departments';
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_departments($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.departments');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Department';
+        $t1 = 'Departments List';
+        $t2 = 'Edit Department';
+        $form = ['department_name', 'department_code'];
+        $head = ['Sl. No.', 'Department Name', 'Department Code', 'Action'];
+        $btn['name'] = 'Update Department';
+        $btn['action'] = Route('hr.update-departments', $id);
+        $edit['data'] =  Department::find($id);
+        $edit['reset'] = Route('hr.departments');
+        $edit['url'] = Route('hr.edit-departments');
+        $table = 'departments';
+        $response = Department::latest()->get();
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response','table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_departments(Request $request, $id = 0)
+    {
+        $departmentCodeRule = Rule::unique('departments', 'department_code');
+        if ($id) {
+            $departmentCodeRule->ignore($id);
+        }
+        $request->validate([
+            'department_name' => 'required|max:100',
+            'department_code' => ['required', 'max:45', $departmentCodeRule],
+        ]);
+
+        $id ? $data = Department::find($id) : $data = new Department();
+        $data->department_code = $request->department_code;
+        $data->department_name = ucwords(str_replace("_", " ", $request->department_name));
+        if ($data->save()) {
+            return redirect()->route('hr.departments')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.departments')->with('error', 'Something wrong try again!');
+        }
+    }
+    public function designation()
+    {
+        $title = 'Designation';
+        $t1 = 'Designation List';
+        $t2 = 'Add Designation';
+        $form = ['designation_name'];
+        $head = ['Sl. No.', 'Designation Name', 'Action'];
+        $btn['name'] = 'Add Designation';
+        $btn['action'] = Route('hr.update-designation');
+        $edit['data'] = null;
+        $edit['url'] = Route('hr.edit-designation');
+        $response = Designation::latest()->get();
+        $table = 'designations';
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function edit_designation($id = 0)
+    {
+        if (!$id) {
+            return redirect()->route('hr.designation');
+        }
+        $id = ed($id, false);
+        $title = 'Edit Designation';
+        $t1 = 'Designation List';
+        $t2 = 'Edit Designation';
+        $form = ['designation_name'];
+        $head = ['Sl. No.', 'Designation Name', 'Action'];
+        $btn['name'] = 'Update Department';
+        $btn['action'] = Route('hr.update-designation', $id);
+        $edit['data'] =  Department::find($id);
+        $edit['reset'] = Route('hr.designation');
+        $edit['url'] = Route('hr.edit-designation');
+        $response = Department::latest()->get();
+        $table = 'designations';
+        $data = compact('title', 't1', 't2', 'form', 'head', 'btn', 'edit', 'response', 'table');
+        return view('hr.master-from')->with($data);
+    }
+    public function update_designation(Request $request, $id = 0)
+    {
+        $request->validate([
+            'designation_name' => 'required|max:60',
+        ]);
+        $id ? $data = Designation::find($id) : $data = new Designation();
+        $data->designation_name = ucwords(str_replace("_", " ", $request->designation_name));
+        if ($data->save()) {
+            return redirect()->route('hr.designation')->with('success', 'Successfully Updated!');
+        } else {
+            return redirect()->route('hr.designation')->with('error', 'Something wrong try again!');
+        }
+    }
+
+    public function approval_system($section = null)
+    {
+        $title = 'Approval System';
+        if($section){
+            $section == 'ipd' ? $newSection = ['IPD','DAYCARE'] : $newSection = [strtoupper($section)];
+        }else{
+            $selected_array = array_intersect(['APPROVAL BILL OPD','APPROVAL BILL IPD','APPROVAL BILL INVESTIGATION','APPROVAL BILL EMG','APPROVAL BILL DIALYSIS'], session('permissions'));
+            $newSection = array_map(function($val) {
+                return str_replace('APPROVAL BILL ', '', $val);
+            }, $selected_array);
+            if (in_array('IPD', $newSection)) {
+                $newSection[] = 'DAYCARE';
+            }
+        }
+        $billing = Billing::select('billings.*','patients.name as patient_name','users.name as created_by_name')
+            ->leftJoin('patients', 'patients.id', '=', 'billings.patient_id')
+            ->leftJoin('users', 'users.id', '=', 'billings.created_by')
+            ->where('billings.bill_status', 1)
+            ->whereIn('billings.section', $newSection)
+            ->where('billings.is_delete', 0)
+            ->orderBy('billings.id', 'DESC')
+            ->limit(100)
+            ->get();
+        return view('hr.approval-system', compact('title','section','billing'));
+    }
+    public function approve($id)
+    {
+        $id = ed($id, false);
+        $bill = Billing::find($id);
+        if(!$bill){
+            return redirect()->back()->with('error', 'Bill not found!');
+        }
+        $bill->edit_status = 1;
+        $bill->bill_status = 2;
+        $bill->approved_by = Auth::user()->id;
+        if ($bill->save()) {
+            return redirect()->back()->with('success', 'Bill approved successfully!');
+        } else {
+            return redirect()->back()->with('error', 'Something wrong try again!');
+        }
+    }
+}

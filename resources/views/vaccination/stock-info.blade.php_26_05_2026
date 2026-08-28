@@ -1,0 +1,321 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Vaccine Stock Details</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="card">
+            <div class="card-header d-block card_hearder_mimi">
+                <div class="row">
+                    <div class="col-md-6 card-title card_hearder_mimi_text">
+                        Vaccine Stock Details
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="card-body" style="border-bottom: none">
+                    <div class="card-body p-0">
+                        <div class="row no-gutters">
+                            <div class="col-lg-4 col-xl-4 border-right">
+                                <div class="options px-5 pt-2 pb-1">
+                                    <table class="table table_border_none">
+                                        <tbody>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i></td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Vaccine Name :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    {{ @$vaccine_details->vaccine_name}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i></td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Brand :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    {{ @$vaccine_details->brand_name ?? 'N/A'}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i></td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">No. of Doses :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                  {{ @$vaccine_details->no_of_doses }}
+                                                </td>
+                                            </tr>
+                                             <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i></td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Injection Site :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                  {{ @$vaccine_details->injection_site}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i></td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Disease Prevented :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                     {{ @$vaccine_details->disease_prevented }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i></td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Drawbacks :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                     {{ @$vaccine_details->drawbacks ?? 'N/A'}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i></td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Units :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    1 {{ @$vaccine_details->unit }} = {{ @$vaccine_details->unit_subunit_relation }} {{ @$vaccine_details->sub_unit }}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {{-- ================== patient information ====================== --}}
+                            </div>
+                            <div class="col-lg-4 col-xl-4 border-right">
+                                <div class="options px-5 pt-2 pb-1">
+                                    <table class="table table_border_none">
+                                        <tbody>
+                                             <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Age/Group :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                   {{ @$vaccine_details->age_group }}
+                                                </td>
+                                            </tr>
+                                             <tr>
+                                                <td class="py-2 px-0">
+                                                    <i class="fas fa-yin-yang text-danger"></i>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Manufacturer Name :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    {{ @$vaccine_details->manufacturer ?? 'N/A'}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0">
+                                                    <i class="fas fa-yin-yang text-danger"></i>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Interval Days :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    {{ @$vaccine_details->interval_days ?? 'N/A' }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Route :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    {{ @$vaccine_details->route }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Storage Temperature :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    {{ @$vaccine_details->storage_temp ?? 'N/A' }}
+                                                </td>
+                                            </tr>
+                                             <tr>
+                                                <td class="py-2 px-0"><i class="fas fa-yin-yang text-danger"></i>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    <span class="font-weight-semibold w-50">Remarks :- </span>
+                                                </td>
+                                                <td class="py-2 px-0">
+                                                    {{ @$vaccine_details->remarks ?? 'N/A' }}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-lg-4 col-xl-4">
+                                <div class="options px-5 pt-2 pb-1">
+                                    <table
+                                        class="table table-bordered text-nowrap key-buttons border-left border-right border-bottom">
+                                        <thead class="bg-success text-white">
+                                            <tr class="border-left">
+                                                <th class="text-white">Batch No </th>
+                                                <th class="text-white"> Available QTY </th>
+                                                {{-- <th class="text-white">Rate/Unit </th> --}}
+                                                <th class="text-white">Exp Date </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (@$stocks as $value)
+                                                <tr>
+                                                    <td>{{ @$value['batch_number'] }}</td>
+                                                    <td>{{ @$value['available_qty']}}</td>
+                                                    {{-- <td>{{ $value->unit_price }}</td> --}}
+                                                    <td>{{ @$value['exp_date'] ? dateFor($value['exp_date']) : 'N/A' }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h4 class="text-green">VACCINE STOCK DETAILS</h4>
+                    <div class="table-responsive">
+                        <table class="table table-bordered text-nowrap key-buttons">
+                            <thead class="bg-primary text-white">
+                                <tr>
+                                    <th class="text-white">#</th>
+                                    <th class="text-white">Batch No</th>
+                                    <th class="text-white">Exp. Date</th>
+                                    <th class="text-white">Unit QTY</th>
+                                    <th class="text-white">Sub-Unit QTY</th>
+                                    <th class="text-white">Selling Rate</th>
+                                    <th class="text-white">Purchase Rate</th>
+                                    <th class="text-white">Net Amount</th>
+                                    <th class="text-white">Discount</th>
+                                    <th class="text-white">CGST</th>
+                                    <th class="text-white">SGST</th>
+                                    <th class="text-white">IGST</th>
+                                    <th class="text-white">Total Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $total = $total_unit = $total_sub = 0; @endphp
+                                @foreach (@$stocks as $value)
+                                    @php
+                                        $total = $total + @$value->amount;
+                                        $total_unit = $total_unit + @$value->unit_qty;
+                                        $total_sub = $total_sub + @$value->sub_unit_qty;
+                                    @endphp
+                                    <tr>
+                                        <th scope="row">{{ $loop->iteration }}</th>
+                                        <td>{{ $value->batch_number ? $value->batch_number : 'N/A' }}</td>
+                                        <td>{{ $value->exp_date ? dateFor($value->exp_date) : 'N/A' }}</td>
+                                        <td>{{ @$value->unit_qty ?? 0 }} {{ @$value->unit }}</td>
+                                        <td>{{ @$value->sub_unit_qty ?? 0 }} {{ @$value->sub_unit }}</td>
+                                        <td>{{ @$value->s_rate }}</td>
+                                        <td>{{ @$value->p_rate }}</td>
+                                        <td>{{ @$value->net_amount }}</td>
+                                        <td>
+                                            @if (!empty($value->discount_percentage))
+                                                {{ number_format($value->discount_amount, 2) }} ({{ $value->discount_percentage }}%)
+                                            @else
+                                                {{ number_format($value->discount_amount, 2) }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if (!empty($value->cgst))
+                                                {{ number_format($value->cgst_amount, 2) }} ({{ $value->cgst }}%)
+                                            @else
+                                                {{ number_format($value->cgst_amount, 2) }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                           @if (!empty($value->sgst))
+                                                {{ number_format($value->sgst_amount, 2) }} ({{ $value->sgst }}%)
+                                            @else
+                                                {{ number_format($value->sgst_amount, 2) }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if (!empty($value->igst))
+                                                {{ number_format($value->igst_amount, 2) }} ({{ $value->igst }}%)
+                                            @else
+                                                {{ number_format($value->igst_amount, 2) }}
+                                            @endif
+                                        </td>
+                                        <td>{{ @$value->amount }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-center">Total QTY</td>
+                                    <td>{{ $total_unit }} {{ @$stocks[0]->unit }}</td>
+                                    <td>{{ $total_sub }} {{ @$stocks[0]->sub_unit }}</td>
+                                    <td colspan="7" class="text-center">Total Amount</td>
+                                    <td>{{ $total }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    @if($issues->isNotEmpty())
+                    <hr>
+                    <h4 class="text-green">VACCINE ISSUE DETAILS</h4>
+                    <div class="table-responsive">
+                        <table class="table table-bordered text-nowrap key-buttons">
+                            <thead class="bg-primary text-white">
+                                <tr>
+                                    <th class="text-white">#</th>
+                                    <th class="text-white">Issue No</th>
+                                    <th class="text-white">Vaccine Name</th>
+                                    <th class="text-white">Patient Name (UHID)</th>
+                                    <th class="text-white">Issue By?</th>
+                                    <th class="text-white">Issue Date</th>
+                                    <th class="text-white">Batch No</th>
+                                    <th class="text-white">Total Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $itotal = $itotal_qty = 0; @endphp
+                                @foreach ($issues as $value)
+                                    @php
+                                        $itotal = $itotal + @$value->amount;
+                                        $itotal_qty++;
+                                    @endphp
+                                    <tr>
+                                        <th scope="row">{{ $loop->iteration }}</th>
+                                        <td>{{ $value->id }}</td>
+                                        <td>{{ $value->vaccine_name }}</td>
+                                        <td>{{ $value->patient_name }} ({{ $value->patient_id }})</td>
+                                        <td>{{ $value->user_name }}</td>
+                                        <td>{{ dateFor($value->created_at, true) }}</td>
+                                        <td>{{ $value->batch_no ?? 'N/A' }}</td>
+                                        <td>{{ $value->amount }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="7" class="text-center">Total ({{ $itotal_qty }})</td>
+                                    <td>{{ $itotal }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                @endif
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+@endpush

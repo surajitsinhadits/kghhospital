@@ -1,0 +1,66 @@
+<?php
+
+/**
+ * Created by Reliese Model.
+ */
+
+namespace App\Models;
+
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Class ChargeCommissionMaster
+ *
+ * @property int $id
+ * @property int $bill_id
+ * @property int $patient_id
+ * @property int $referred_by
+ * @property int $market_by
+ * @property int $provider
+ * @property int $approved_by
+ * @property Carbon|null $approved_at
+ * @property int $created_by
+ * @property int $status
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ *
+ * @package App\Models
+ */
+class ChargeCommissionMaster extends Model
+{
+	protected $table = 'charge_commission_masters';
+	public $incrementing = false;
+
+	protected $casts = [
+		'id' => 'int',
+		'bill_id' => 'int',
+		'patient_id' => 'int',
+		'referred_by' => 'int',
+		'market_by' => 'int',
+		'provider' => 'int',
+		'approved_by' => 'int',
+		'approved_at' => 'datetime',
+		'created_by' => 'int',
+		'status' => 'int',
+        'commission_total_amount' => 'decimal:2',
+        'adjusted_commission_total_amount' => 'decimal:2'
+	];
+
+	protected $fillable = [
+		'id',
+		'bill_id',
+		'patient_id',
+		'referred_by',
+		'market_by',
+		'provider',
+		'approved_by',
+		'approved_at',
+		'created_by',
+		'status',
+        'commission_total_amount',
+        'adjusted_commission_total_amount',
+        'paid_by',
+        'paid_at'
+	];
+}

@@ -1,0 +1,873 @@
+<!--=========================================== Start Navbar =================================== -->
+@if (Auth::check())
+    <div class="new-page">
+        <nav class="navbar navbar-expand-lg navbar-light ">
+            <a class="navbar-brand" href="{{ Route('dashboard') }}">
+                <img src="{{ asset('public/' . hospital('logo')) }}">
+            </a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav mr-auto">
+                    <div class="row">
+                        @isok('HR')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/hr.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-user-plus mr-1"></i> HR <span
+                                            class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        @isok('USERS')
+                                            <li><a href="{{ Route('hr.users') }}"> Users</a></li>
+                                        @endisok
+                                        @isok('DOCTORS')
+                                            <li><a href="{{ Route('hr.doctors') }}"> Doctors</a></li>
+                                        @endisok
+                                        @isok('DEPARTMENTS')
+                                            <li><a href="{{ Route('hr.departments') }}"> Departments</a></li>
+                                        @endisok
+                                        @isok('NOTICES')
+                                            <li><a href="{{ Route('hr.create-notice') }}"> Notices</a></li>
+                                        @endisok
+                                        @isok('REFFERAL')
+                                            <li><a href="{{ Route('hr.referral') }}"> Referral / Provider / Market By</a>
+                                            </li>
+                                        @endisok
+                                        @isok('ROLE,PERMISSION')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#">Permission <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    @isok('ROLE')
+                                                        <li><a href="{{ Route('hr.role') }}">Role</a></li>
+                                                    @endisok
+                                                    @isok('PERMISSION')
+                                                        <li><a href="{{ Route('hr.permission') }}">Permission</a></li>
+                                                    @endisok
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('PAYROL')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#">Payroll <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li>
+                                                        <a href="{{ Route('payroll.salary-master') }}">Salary Master</a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="{{ Route('payroll.salary-type') }}">Salary Type</a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="#">Payroll Generation</a>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('PATIENTS')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('hr.patient-list') }}">
+                                    <i class="fas fa-procedures iconnav mr-1"></i> PATIENTS
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('NURSERY')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ Route('hr.child-list') }}">
+                                    <i class="fas fa-child iconnav mr-1"></i> NURSERY
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('OPD')
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    {{-- <div class="icon-new">
+                                <img src="{{ url('public/icons') }}/opd.png">
+                            </div> --}}
+                                    <i class="fas fa-first-aid iconnav mr-1"></i> OPD
+                                </a>
+                                <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                    @isok('OPD')
+                                        <a class="dropdown-item" href="{{ Route('opd.opd') }}">OPD</a>
+                                    @endisok
+                                    @isok('APPOINTMENT')
+                                        <a class="dropdown-item" href="{{ Route('opd.appointments') }}">Appointment</a>
+                                    @endisok
+                                    @isok('TIME SCHEDULE')
+                                        <a class="dropdown-item" href="{{ Route('opd.view-time-schedule') }}">Time Schedule
+                                            Setup</a>
+                                    @endisok
+                                    @isok('DOCTORS SCHEDULE')
+                                        <a class="dropdown-item" href="{{ Route('opd.doctors-schedule') }}">Doctor's
+                                            Schedule</a>
+                                    @endisok
+                                </div>
+                            </li>
+                        @endisok
+                        @isok('EMG')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ Route('emg.patient-list') }}">
+                                    {{-- <div class="icon-new">
+                                <img src="{{ url('public/icons') }}/hospital-bed.png">
+                            </div> --}}
+                                    <i class="fas fa-ambulance iconnav mr-1"></i> EMG
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('IPD')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ Route('ipd.ipd') }}">
+                                    {{-- <div class="icon-new">
+                                <img src="{{ url('public/icons') }}/patient.png">
+                            </div> --}}
+                                    <i class="fas fa-hospital-user iconnav mr-1"></i> IPD / DAYCARE
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('DIALYSIS')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ Route('ipd.dialysis') }}">
+                                    {{-- <div class="icon-new">
+                                <img src="{{ url('public/icons') }}/dialysis.png">
+                            </div> --}}
+                                    <i class="fas fa-vial iconnav mr-1"></i> DIALYSIS
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('INVESTIGATION')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/lab.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-file-invoice iconnav mr-1"></i>
+                                        INVESTIGATION
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        @isok('INVESTIGATION BILL')
+                                            <li><a href="{{ route('investigation.investigation') }}"> Investigation
+                                                    Bill</a>
+                                            </li>
+                                        @endisok
+                                        @isok('PATHOLOGY')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#">Pathology <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a
+                                                            href="{{ route('investigation.investigation-report', ['pathology', 'collection']) }}">Collection</a>
+                                                    </li>
+                                                    <li><a
+                                                            href="{{ route('investigation.investigation-report', ['pathology', 'lab-recived']) }}">Lab
+                                                            Received</a></li>
+                                                    <li><a
+                                                            href="{{ route('investigation.investigation-report', ['pathology']) }}">Report
+                                                            Generation</a></li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('NON-PATHOLOGY')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#">Non-Pathology <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a
+                                                            href="{{ route('investigation.investigation-report', ['non-pathology']) }}">Report
+                                                            Generation</a></li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('RADIOLOGY')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#">Radiology <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a
+                                                            href="{{ route('investigation.investigation-report', ['radiology']) }}">Report
+                                                            Generation</a></li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('RATE QUERY')
+                                            <li><a href="{{ route('investigation.rate-query') }}"> Rate Query <i
+                                                        class="fa fa-question"></i></a></li>
+                                        @endisok
+                                        @isok('READY REPORT')
+                                            <li><a href="{{ route('investigation.ready-report') }}"> Ready Report <i
+                                                        class="fa fa-file"></i></a></li>
+                                        @endisok
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('APPROVAL BILL')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('hr.approval-system') }}">
+                                    <i class="fas fa-file-invoice-dollar iconnav mr-1"></i> BILL APPROVAL
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('OT')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/pharma.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-notes-medical iconnav mr-1"></i> OT
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ route('ot.all-ot-listing') }}">OT Listing</a></li>
+                                        <li><a href="{{ route('ot.add-operation') }}">OT Booking</a></li>
+                                        <li><a href="{{ route('ot.ot-schedule') }}">Schedule</a></li>
+                                        <li><a href="{{ route('ot.create-ot-package') }}">OT Package</a></li>
+                                        <li><a href="{{ route('hr.add-ot-rooms') }}">OT Rooms</a></li>
+                                        <li class="dropdown-submenu">
+                                            <a tabindex="-1" href="#">Procedure <i
+                                                    class="fa fa-chevron-right"></i></a>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="{{ route('hr.create-ot-procedures') }}">OT Procedures</a>
+                                                </li>
+                                                <li><a href="{{ route('hr.procedure-details') }}">OT Procedures
+                                                        Details</a></li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('BED STATUS')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('bed-status') }}">
+                                    {{-- <div class="icon-new">
+                                <img src="{{ url('public/icons') }}/hospital-bed2.png">
+                            </div> --}}
+                                    <i class="fas fa-bed iconnav mr-1"></i> BED
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('CSSD')
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown"
+                                    role="button" data-toggle="dropdown" aria-haspopup="true"
+                                    aria-expanded="false">
+                                    {{-- <div class="icon-new">
+                                <img src="{{ url('public/icons') }}/opd.png">
+                            </div> --}}
+                                    <i class="fas fa-cut iconnav mr-1"></i> CSSD
+                                </a>
+                                <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                    <a class="dropdown-item" href="{{ Route('cssd.category') }}">Category</a>
+                                    <a class="dropdown-item" href="{{ Route('cssd.medical_instruments') }}">Medical
+                                        Instruments</a>
+                                    <a class="dropdown-item" href="{{ Route('cssd.kit-box') }}">Kit Box</a>
+                                    <a class="dropdown-item"
+                                        href="{{ Route('cssd.sterilization') }}">Sterilization</a>
+                                </div>
+                            </li>
+                        @endisok
+                        @isok('STORE HEADER')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/store.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"><i class="fas fa-store-alt iconnav mr-1"></i> STORE
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ route('store.dashboard') }}"> Dashboard</a></li>
+                                        @isok('STORE REQUISITION')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#"> Requisition <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a href="{{ route('store.listing-requisition') }}">Requisition</a></li>
+                                                    <li><a href="{{ route('store.listing-requisition-verify') }}">Verify</a></li>
+                                                    <li><a href="{{ route('store.listing-requisition-approved') }}">Approved</a></li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        <li><a href="{{ route('store.expense-list') }}">Expenses</a></li>
+                                        @isok('STORE PO')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#"> Purchase Order <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a href="{{ route('store.listing-purchase-order') }}">Purchase Order</a></li>
+                                                    <li><a href="{{ route('store.listing-purchase-order-verify') }}">Verify</a></li>
+                                                    <li><a href="{{ route('store.listing-purchase-order-approved') }}">Approved</a></li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('STORE PURCHASE')
+                                            <li><a href="{{ Route('store.listing-purchase') }}"> Purchase</a> </li>
+                                        @endisok
+                                        @isok('STORE ISSUE')
+                                            <li><a href="{{ route('store.listing-item-issue') }}"> Item Issue</a></li>
+                                        @endisok
+
+                                        <li class="dropdown-submenu">
+                                            <a tabindex="-1" href="#"> Miscellanceous <i
+                                                    class="fa fa-chevron-right"></i></a>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="{{ route('hr.miscellaneous') }}">Create Bill</a></li>
+                                                <li><a href="{{ route('hr.account-miscellaneous') }}">Verify Bill</a></li>
+                                                <li><a href="{{ route('expense-ledger-master.index') }}">Expense Ledger Master</a></li>
+                                                <li><a href="{{ route('tds-duties-taxes-ledger-master.index') }}">TDS Duties & Taxes Master</a></li>
+                                            </ul>
+                                        </li>
+
+                                        @isok('STORE RETURN')
+                                            <li><a href="{{ route('store.return-list') }}"> Return Processing</a></li>
+                                        @endisok
+                                        @isok('STORE REPAIR')
+                                            <li><a href="{{ route('store.repair-list') }}"> Repair / Damage Items</a></li>
+                                        @endisok
+                                        @isok('STORE MASTER')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#"> Items <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    @isok('STORE ITEMS')
+                                                        <li><a href="{{ route('store.listing-item') }}"> Items</a></li>
+                                                    @endisok
+                                                    @isok('STORE CATEGORY')
+                                                        <li><a href="{{ route('store.item-catagory') }}"> Item Category</a>
+                                                        </li>
+                                                    @endisok
+                                                    @isok('STORE UNIT')
+                                                        <li><a href="{{ route('store.item-unit') }}">Item Unit</a></li>
+                                                    @endisok
+                                                    @isok('STORE TYPE')
+                                                        <li><a href="{{ route('store.item-type') }}">Item Type</a></li>
+                                                    @endisok
+                                                    @isok('STORE COMPANY')
+                                                        <li><a href="{{ route('store.item-brand') }}">Item Company</a></li>
+                                                    @endisok
+                                                    @isok('STORE SUBSTORE')
+                                                        <li><a href="{{ route('store.item-store') }}">Item Store</a></li>
+                                                    @endisok
+                                                    @isok('STORE DEPARTMENT')
+                                                        <li><a href="{{ route('store.store-department') }}">Store
+                                                                Department</a>
+                                                        </li>
+                                                    @endisok
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('STORE VENDOR')
+                                            <li><a href="{{ route('store.listing-vendor') }}"> Vendor</a></li>
+                                        @endisok
+                                        @isok('STORE REPORTS')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#"> Reports <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a href="{{ route('store.present-stock-reports') }}"> General
+                                                            Stock
+                                                            Reports</a></li>
+                                                    <li><a href="{{ route('store.department-stock-reports') }}">
+                                                            Department
+                                                            Stock Reports</a></li>
+                                                    <li><a href="{{ route('store.requisition-reports') }}"> Requisition
+                                                            Report</a></li>
+                                                    <li><a href="{{ route('store.po-reports') }}"> Purchase Order
+                                                            Report</a>
+                                                    </li>
+                                                    <li><a href="{{ route('store.purchase-reports') }}"> Purchase
+                                                            Report</a>
+                                                    </li>
+                                                    <li><a href="{{ route('store.issue-reports') }}"> Item Issue
+                                                            Reports</a>
+                                                    </li>
+                                                    <li><a href="{{ route('store.stock-reports') }}"> Item Stock
+                                                            Report</a>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('PHARMACY')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/pharma.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-capsules iconnav mr-1"></i> PHARMACY
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ route('pharmacy.index') }}">Dashboard</a></li>
+
+                                        @isok('PHARMACY BILLING')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#">Medicine Billing<i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a href="{{ route('pharmacy.add-medicene-billing') }}">Create
+                                                            Bill</a>
+                                                    </li>
+                                                    <li><a href="{{ route('pharmacy.medicine-billing-lists') }}">Bill
+                                                            List</a>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('PHARMACY PURCHASE')
+                                            <li><a href="{{ route('pharmacy.purchase-lists') }}">Medicine Purchase
+                                                    List</a>
+                                            </li>
+                                        @endisok
+                                        @isok('PHARMACY REQUISITION')
+                                            <li><a href="{{ route('pharmacy.requisition-lists') }}">Medicine Requisition
+                                                    List</a>
+                                            </li>
+                                        @endisok
+                                        @isok('PHARMACY ISSUE')
+                                            <li><a href="{{ route('pharmacy.issue-lists') }}">Medicine Issue List</a>
+                                            </li>
+                                        @endisok
+
+                                        @isok('PHARMACY ISSUE REPORT')
+                                            <li><a href="{{ route('pharmacy.issue-report') }}">Medicine Issue Report</a>
+                                            </li>
+                                        @endisok
+                                        @isok('PHARMACY MEDICINE LIST')
+                                            <li><a href="{{ route('pharmacy.medicine-lists') }}">Medicine List</a></li>
+                                        @endisok
+
+                                        @isok('PHARMACY SETUP')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#"> Pharmacy Setup <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    <li><a href="{{ route('pharmacy.medicine-vendor') }}">Pharmacy
+                                                            Vendor</a>
+                                                    </li>
+                                                    <li><a href="{{ route('hr.medicine-unit') }}">Medicine Unit</a></li>
+                                                    <li><a href="{{ route('hr.medicine-catagory') }}">Medicine
+                                                            Category</a>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('KITCHEN')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/store.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-utensils iconnav mr-1"></i> KITCHEN
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="#"> Dashboard</a></li>
+                                        <li><a href="{{ route('kt.requisitions') }}"> Requisition</a></li>
+                                        <li><a href="{{ route('kt.purchase-orders') }}"> Purchase Order</a></li>
+                                        <li><a href="{{ route('kt.purchase') }}"> Purchase</a></li>
+                                        <li><a href="{{ route('kt.daily-expenses') }}"> Daily Expenses</a></li>
+                                        <li><a href="{{ route('kt.present-stock') }}"> Present Stock</a></li>
+                                        <li><a href="{{ route('kt.manage-orders') }}"> Manage Orders</a></li>
+                                        <li><a href="{{ route('kt.food-delivery') }}"> Food Delivery</a></li>
+                                        <li><a href="{{ route('kt.orders-report') }}"> Orders Report</a></li>
+                                        <li class="dropdown-submenu">
+                                            <a tabindex="-1" href="#"> Kitchen Setup <i
+                                                    class="fa fa-chevron-right"></i></a>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="{{ route('kt.meal-items') }}"> Meal Charts</a></li>
+                                                <li><a href="{{ route('kt.items') }}"> Items</a></li>
+                                                <li><a href="{{ route('kt.categories') }}"> Categories</a></li>
+                                                <li><a href="{{ route('kt.units') }}"> Units</a></li>
+                                                <li><a href="{{ route('kt.suppliers') }}"> Suppliers</a></li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('DIET CHARTS')
+                            <div class="menu-item">
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fab fa-codiepie iconnav mr-1"></i> DIET
+                                        CHARTS
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ route('kt.diet-patients') }}"> Diet Charts Assign</a></li>
+                                        <li><a href="{{ route('kt.diet-meal') }}"> Diet Meal</a></li>
+                                        <li><a href="{{ route('kt.diet-types') }}"> Diet Types</a></li>
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('REPORTS')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/investigation.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-file iconnav mr-1"></i> REPORTS <span
+                                            class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        {{-- <li><a href="#"> Dashboard</a></li> --}}
+                                        @isok('COLLECTION REPORTS,MY COLLECTION REPORTS,USERS WISE COLLECTION REPORTS')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#"> Collection <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    @isok('COLLECTION REPORTS')
+                                                        <li><a href="{{ route('reports.collection') }}"> Collection</a></li>
+                                                    @endisok
+                                                    @isok('MY COLLECTION REPORTS')
+                                                        <li><a href="{{ route('reports.my-collection') }}"> My Collection</a>
+                                                        </li>
+                                                    @endisok
+                                                    @isok('USERS WISE COLLECTION REPORTS')
+                                                        <li><a href="{{ route('reports.users-collection') }}"> Users wise
+                                                                Collection</a></li>
+                                                    @endisok
+                                                    @isok('DUE REPORTS')<li><a href="{{ route('reports.due-reports') }}"> Due Reports</a></li>@endisok
+                                                    <li><a href="{{ route('reports.revenue-report') }}"> Revenue Reports</a></li>
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        <li><a href="{{ route('reports.hospital.stay') }}"> Hospital Stay</a></li>
+                                        @isok('DOCTOR PAYOUT')
+                                            <li><a href="{{ route('reports.doctor-payout') }}"> Doctor Payout</a></li>
+                                        @endisok
+                                        <li><a href="{{ route('reports.admission') }}"> Admission Report</a></li>
+                                        <li><a href="{{ route('reports.commission-report') }}">Commission Report</a></li>
+                                        @isok('BILL REPORTS,RECEIPT REPORTS,REFUND REPORTS')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#"> Billing Details <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    @isok('BILL REPORTS')
+                                                        <li><a href="{{ route('reports.bill') }}"> All Bill</a></li>
+                                                    @endisok
+                                                    @isok('RECEIPT REPORTS')
+                                                        <li><a href="{{ route('reports.receipt') }}"> All Receipt</a></li>
+                                                    @endisok
+                                                    @isok('REFUND REPORTS')
+                                                        <li><a href="{{ route('reports.refund') }}"> All Refund</a></li>
+                                                    @endisok
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('OPD PATIENT REPORT')
+                                            <li><a href="{{ route('reports.opd') }}"> OPD Patient Report</a></li>
+                                        @endisok
+                                        @isok('EMG PATIENT REPORT')
+                                            <li><a href="{{ route('reports.emg') }}"> EMG Patient Report</a></li>
+                                        @endisok
+                                        @isok('IPD/DAYCARE PATIENT REPORT')
+                                            <li><a href="{{ route('reports.ipd') }}"> IPD/DAYCARE Patient Report</a></li>
+                                        @endisok
+                                        @isok('DIALYSIS PATIENT REPORT')
+                                            <li><a href="{{ route('reports.dialysis') }}"> DIALYSIS Patient Report</a>
+                                            </li>
+                                        @endisok
+                                        @isok('BILLING REPORT')
+                                            <li><a href="{{ route('reports.billing') }}"> Billing Report</a></li>
+                                        @endisok
+                                        @isok('BIRTH REPORT')
+                                            <li><a href="{{ route('reports.birth') }}"> Birth Report</a></li>
+                                        @endisok
+                                        @isok('DEATH REPORT')
+                                            <li><a href="{{ route('reports.death') }}"> Death Report</a></li>
+                                        @endisok
+                                        @isok('DISCHARGE REPORT')
+                                            <li><a href="{{ route('reports.discharge') }}"> Discharge Report</a></li>
+                                        @endisok
+                                        @isok('EDITED BILL REPORT')
+                                            <li><a href="{{ route('reports.edit-bill') }}"> Edited Bill Report</a></li>
+                                        @endisok
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('BLOOD BANK')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/store.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-university iconnav mr-1"></i> BLOOD
+                                        BANK
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ route('bl.dashboard1') }}">Dashboard</a></li>
+                                        <!-- <li><a href="{{ route('bl.dashboard') }}"> Dashboard</a></li> -->
+                                        <li><a href="{{ route('bl.get-blood-collection') }}"> Blood Collect</a></li>
+                                        <li><a href="{{ route('bl.get-blood-testing') }}"> Blood Testing</a></li>
+                                        <li><a href="{{ route('bl.get-approval-stock') }}"> Approval & Stock</a></li>
+                                        <li><a href="{{ Route('bl.get-blood-issue') }}">Blood Issue</a> </li>
+                                        <li><a href="{{ route('bl.doners') }}">Donors</a></li>
+                                        <li><a href="{{ Route('bl.donation-camps') }}">Donation Camps</a> </li>
+                                        <li><a href="{{ Route('bl.blood_report') }}">Blood Bank Report</a> </li>
+                                        {{-- <li><a href="{{ Route('bl.get-blood-stock') }}">Blood Inventory</a> </li> --}}
+                                        {{-- <li><a href="{{Route('bl.get-receptant')}}">Get Receptant</a> </li> --}}
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('VACCINATION')
+                            <div class="menu-item">
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-crutch iconnav mr-1"></i> VACCINATION
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ route('vc.dashboard1') }}"> Dashboard</a></li>
+                                        <!-- <li><a href="{{ route('vc.dashboard') }}"> Dashboard</a></li> -->
+                                        <li><a href="{{ route('vc.listing-purchase') }}"> Purchase</a></li>
+                                        <li><a href="{{ route('vc.stock-details') }}"> Vaccine Stocks</a></li>
+                                        <li class="dropdown-submenu">
+                                            <a tabindex="-1" href="#">Vaccination <i
+                                                    class="fa fa-chevron-right"></i></a>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="{{ route('vc.vaccination') }}">Vaccination Lists</a>
+                                                </li>
+                                                <li><a href="{{ route('vc.vaccination-register') }}">New
+                                                        Registration</a>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                        <li><a href="{{ route('vc.vaccine') }}"> Vaccines</a></li>
+                                        <li><a href="{{ route('vc.listing-aefi-reports') }}"> AEFI Reports</a></li>
+                                        <li><a href="{{ route('vc.listing-vendor') }}">Vendors</a></li>
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('OPTICAL')
+                            <div class="menu-item">
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-glasses mr-1"></i> OPTICAL <span
+                                            class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ route('optical.dashboard') }}"> Dashboard</a></li>
+                                        <li><a href="{{ route('optical.listing-requisition') }}"> Requisition</a>
+                                        </li>
+                                        <li><a href="{{ route('optical.listing-purchase-order') }}"> Purchase
+                                                Order</a>
+                                        </li>
+                                        <li><a href="{{ route('optical.listing-purchase') }}"> Purchase</a> </li>
+                                        <li><a href="{{ route('optical.optical-billing') }}"> Optical Billing</a>
+                                        </li>
+                                        <li><a href="{{ route('optical.eye-examination') }}"> Vision Care</a>
+                                        </li>
+                                        <li><a href="{{ route('optical.surgery-planning') }}"> Eye Surgery</a></li>
+                                        <li><a href="{{ route('optical.listing-item') }}"> Optical Items</a></li>
+                                        <li class="dropdown-submenu">
+                                            <a tabindex="-1" href="#">Optical Masters <i
+                                                    class="fa fa-chevron-right"></i></a>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="{{ route('optical.item-catagory') }}"> Category</a></li>
+                                                <li><a href="{{ route('optical.item-unit') }}"> Unit</a></li>
+                                                <li><a href="{{ route('optical.item-type') }}"> Type</a></li>
+                                                <li><a href="{{ route('optical.item-brand') }}"> Company</a></li>
+                                                <!-- <li><a href="{{ route('optical.optical-department') }}">
+                                                        Department</a>
+                                                </li> -->
+                                                <li><a href="{{ route('optical.listing-vendor') }}"> Vendor</a></li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                        @isok('CALL CENTER')
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('callcenter.appointment-list') }}">
+
+                                    <i class="fas fa-phone-square-alt iconnav mr-1"></i>
+
+                                    CALL CENTER
+                                </a>
+                            </li>
+                        @endisok
+                        @isok('SETTINGS')
+                            <div class="menu-item">
+                                {{-- <div class="icon-new1">
+                                    <img src="{{ url('public/icons') }}/settings.png">
+                                </div> --}}
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
+                                        aria-expanded="false"> <i class="fas fa-user-cog iconnav mr-1"></i> SETTINGS
+                                        <span class="caret"></span></a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a href="{{ Route('hr.general-setting-details') }}">General Settings</a></li>
+                                        <li><a href="{{ Route('hr.tds-management') }}">TDS Management</a></li>
+                                        @isok('CHARGES')
+                                        <li class="dropdown-submenu">
+                                            <a tabindex="-1" href="#">Charges <i
+                                                    class="fa fa-chevron-right"></i></a>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="{{ Route('hr.charges') }}">Charges</a></li>
+                                                @isok('CHARGES CATEGORY')
+                                                    <li><a href="{{ Route('hr.charges-catagory') }}">Charges Category</a>
+                                                    </li>
+                                                @endisok
+                                                @isok('CHARGES SECTION')
+                                                    <li><a href="{{ Route('hr.charges-section') }}">Charges Section</a>
+                                                    </li>
+                                                @endisok
+                                                @isok('REQUISITION SECTION')
+                                                    <li><a href="{{ Route('hr.requisition-section') }}">Requisition
+                                                            Section</a>
+                                                    </li>
+                                                @endisok
+                                            </ul>
+                                        </li>
+                                        @endisok
+                                        @isok('SAMPLE FOR A TEST')
+                                            <li><a href="{{ Route('hr.sample-test') }}">Sample for a Test</a></li>
+                                        @endisok
+                                        @isok('TPA MANAGEMENT')
+                                            <li><a href="{{ Route('hr.tpa-management') }}">TPA Management</a></li>
+                                        @endisok
+                                        @isok('VIAL')
+                                            <li><a href="{{ Route('hr.vials') }}">Vial</a> </li>
+                                        @endisok
+                                        @isok('BED,WARD')
+                                            <li class="dropdown-submenu">
+                                                <a tabindex="-1" href="#">Bed <i
+                                                        class="fa fa-chevron-right"></i></a>
+                                                <ul class="dropdown-menu">
+                                                    @isok('WARD')
+                                                        <li><a href="{{ Route('hr.ward-details') }}">Ward</a></li>
+                                                    @endisok
+                                                    @isok('BED')
+                                                        <li><a href="{{ Route('hr.bed-details') }}">Bed</a></li>
+                                                    @endisok
+                                                </ul>
+                                            </li>
+                                        @endisok
+                                        @isok('DIAGONASES')
+                                            <li><a href="{{ Route('hr.diagonases') }}">Diagnoses</a></li>
+                                        @endisok
+                                        @isok('PACKAGE')
+                                            <li><a href="{{ Route('hr.create-package') }}">Package</a></li>
+                                        @endisok
+                                        @isok('LETTER HEAD')
+                                            <li><a href="{{ Route('hr.all-header-listing') }}">All Header</a></li>
+                                        @endisok
+                                    </ul>
+                                </li>
+                            </div>
+                        @endisok
+                    </div>
+                </ul>
+            </div>
+
+            <div class="popup-link">
+                <a href="#popup1">
+                    <div class="dashprofileimg" style="width: 30px;">
+                        <img
+                            src="{{ Auth::user()->profile_img ? url('public/assets/images/users/' . Auth::user()->profile_img) : url('public/assets/images/users/doc.png') }}">
+                    </div>
+                </a>
+            </div>
+
+            <div id="popup1" class="popup-container">
+                <div class="popup-content1">
+                    <a href="#" class="close">&times;</a>
+                    <img src="{{ Auth::user()->profile_img ? url('public/assets/images/users/' . Auth::user()->profile_img) : url('public/assets/images/users/doc.png') }}"
+                        style="width: 50px;height: 50px;cursor: default;margin: 0px 0px 0px 109px;">
+                    <h3 style="margin: 5px 0px 0px 65px;">{{ Auth::user()->name }}</h3>
+                    <span class="badge badge-light badge-pill"
+                        style="margin:5px 0px 10px 54px;">{{ roleName(Auth::user()->role_id) }}</span>
+                    <a class="btn btn-success btn-sm"
+                        href="{{ route('hr.users-info', ['id' => ed(Auth::id(), true)]) }}"><i
+                            class='fas fa-address-card'></i> Profile</a>
+                    {{-- <a class="btn btn-success btn-sm" href="{{ route('profile') }}"><i class='fas fa-address-card'></i> Profile</a> --}}
+                    <form action="{{ route('logout') }}" method="POST">
+                        @csrf
+                        <button class="btn btn-primary btn-sm text-center" style="margin: 0px 0px 0px 99px"
+                            type="submit">
+                            <i class="fa fa-sign-out-alt"></i> Log Out
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {{-- <a href="{{ url()->previous() }}" data-placement="bottom" data-toggle="tooltip" title="Back"
+                data-original-title="Back" class="btn btn-primary btn-sm">
+                <i style="color:#4689b1;font-size: 19px;margin-right: 10px;" class="fa fa-arrow-circle-left fa-2x"></i>
+            </a> --}}
+        </nav>
+    </div>
+@else
+    <div class="new-page">
+        <nav class="navbar navbar-expand-lg navbar-light ">
+            <a class="navbar-brand" href="{{ Route('vendor-dashboard') }}">
+                <img src="{{ asset('public/' . hospital('logo')) }}">
+            </a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse"
+                data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav mr-auto">
+                    <div class="row"></div>
+                </ul>
+            </div>
+
+            <div class="popup-link">
+                <a href="#popup1">
+                    <div class="dashprofileimg">
+                        <img src="{{ url('public/assets/images/users/doc.png') }}">
+                    </div>
+                </a>
+            </div>
+
+            <div id="popup1" class="popup-container">
+                <div class="popup-content1">
+                    <a href="#" class="close">&times;</a>
+                    <img src="{{ url('public/assets/images/users/doc.png') }}"
+                        style="width: 50px;height: 50px;cursor: default;margin: 0px 0px 0px 109px;">
+                    <h3 style="margin: 5px 0px 0px 65px;">{{ session('vendor_name')}}</h3>
+                    <span class="badge badge-light badge-pill"
+                        style="margin:5px 0px 10px 54px;">VENDOR</span>
+                    <form action="{{ Route('vendor.logout') }}" method="POST">
+                        @csrf
+                        <button class="btn btn-primary btn-sm text-center" style="margin: 0px 0px 0px 99px"
+                            type="submit">
+                            <i class="fa fa-sign-out-alt"></i> Log Out
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {{-- <a href="{{ url()->previous() }}" data-placement="bottom" data-toggle="tooltip" title="Back"
+                data-original-title="Back" class="btn btn-primary btn-sm">
+                <i style="color:#4689b1;font-size: 19px;margin-right: 10px;" class="fa fa-arrow-circle-left fa-2x"></i>
+            </a> --}}
+        </nav>
+    </div>
+@endif
+<!--=========================================== End Navbar =================================== -->

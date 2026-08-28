@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<title>INVESTIGATION REPORT</title>
+<meta charset="utf-8">
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+<body>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0;
+            padding: 0;
+        }
+
+        @media print {
+            html,
+            body {
+                margin: 0 !important;
+                padding: 0px 30px 0px 27px !important;
+                overflow: hidden;
+                font-family: 'verdana';
+            }
+        }
+
+        body{
+            font-family: 'verdana';
+        }
+
+        table {
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        tr {
+            width: 100%;
+            height: auto;
+        }
+
+        .signature-container {
+            padding: 0px 30px 0px 27px !important;
+            bottom: 90px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+        }
+
+        @media print {
+            #printButton {
+                display: none;
+            }
+        }
+    </style>
+
+    <div style="width:100%;">
+        <div id="printButton">
+            <div class="row">
+                <input type="checkbox" onclick="checkCheckboxresult()" id="result_hide" /> Result
+                <input type="checkbox" onclick="checkCheckboxinstrument()" id="instrument_used_hide" /> Instrument Used
+                <input type="checkbox" onclick="checkCheckboxreferance()" id="referenge_range_hide" /> Referrence Range
+                <input type="checkbox" onclick="checkCheckboxunit()" id="test-unit-section_id" /> Test Unit
+                <input type="checkbox" onclick="checkCheckboxmethode()" id="method_hide" /> Method
+                <input type="checkbox" onclick="checkCheckboxsample()" id="sample_type_hide" /> Sample Type
+                <input type="checkbox" onclick="checkCheckboxnote()" id="note_hide" /> N.B
+                <input type="checkbox" onclick="checkCheckboxextranote()" id="extra_note_hide" /> Extra Note
+                <input type="checkbox" onclick="checkCheckboxemployee()" id="employee_id_hide_button" /> Doctor Registration No
+                || Add Space <input onkeyup="checkCheckboxspace()" id="space_value" value="0" style="width: 50px" type="text">
+            </div>
+            <div style="text-align: center">
+                <button style="color:blue;" onclick="printpage()" [disabled]="isPrintDisabled" id="printBtn"><b>Print</b></button>
+                <a href="{{ url()->previous() }}" style="color:red;"><b>Close</b></a>
+            </div>
+
+
+        </div>
+        <!-- =============================logo section================= -->
+        <table style="width:100%;">
+            <tr>
+                <td style="height:180px;"></td>
+            </tr>
+        </table>
+        <!-- =============================logo section================= -->
+
+        <!-- =======================first header section============== -->
+        <table style="border-collapse: collapse; width:100%; padding: 10px;">
+            <tbody>
+                <tr style="border:2px solid #000; ">
+                    <td style="font-size: 12px; padding:5px;width:30%">
+                        <span style="">
+                            <b style="font-weight:800;font-size:12px;">{{ @$report[0]->patient_name }}</b>
+                        </span>
+                        {{-- <br>
+                        <span style="">
+                            <b style="font-weight:800;">UHID :</b> {{ @$report[0]->patient_uhid ?? @$report[0]->patient_id }}
+                        </span> --}}
+                        <br>
+                        <span style="">
+                            <b style="font-weight:800;">Gender :</b> {{ @$report[0]->gender }}
+                        </span>
+                        <br>
+                        <span style="">
+                            <b style="font-weight:800;">Age :</b> {{ @$report[0]->dob_year ? $report[0]->dob_year : 0 }}Y {{ @$report[0]->dob_month ? $report[0]->dob_month : 0 }}M {{ @$report[0]->dob_day ? $report[0]->dob_day : 0 }}D
+                        </span>
+                        <br>
+                        {!! @$report[0]->doctor_name ? '<span style=""><b style="font-weight:800;">Under Doctor : </b> Dr. '.$report[0]->doctor_name.'</span><br>' : ''; !!}
+                        {!! @$report[0]->referral_name ? '<span style=""><b style="font-weight:800;">Referred By : </b> '.$report[0]->referral_name.'</span><br>' : ''; !!}
+                    </td>
+                    <td style="font-size: 10px;margin-top:2px;width:32%">
+                        <span style="padding:0px 5px 5px 0px; "><b style="font-weight:800;">Bill Date : </b> {{ dateFor($report[0]->bill_created_date, true) }}</span><br>
+                        <span style="padding:0px 5px 5px 0px;"><b style="font-weight:800;"> Report Date : </b> {{ date('d-m-Y h:i A') }}</span>
+                    </td>
+
+                    <td style="font-size: 10px;width:38%">
+                        <span style="">
+                            @php
+                                $generatorPNG = new Picqer\Barcode\BarcodeGeneratorPNG();
+                            @endphp
+                            <img src="data:image/png;base64,{{ base64_encode($generatorPNG->getBarcode((string) ($report[0]->patient_uhid ?? $report[0]->patient_id), $generatorPNG::TYPE_CODE_128)) }}" style="width: 200px;height:30px;margin-top: 5px;">
+                        </span><br>
+                        @if (@$report[0]->sample_collected_at)
+                            <span style=""><b style="font-weight:800;">Collection Date : {{ dateFor($report[0]->sample_collected_at, true) }}</b></span><br>
+                        @endif
+                        @if (@$report[0]->lab_receive_at)
+                            <span style=""><b style="font-weight:800;">Lab Received Date : {{ dateFor($report[0]->lab_receive_at, true) }}</b></span><br>
+                        @endif
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table style="width:100%;margin-top:15px;margin-bottom: 15px;">
+            <tr>
+                @if (@$report[0]->type == 'radiology')
+                <th style="font-size: 13px; font-weight: 700;text-decoration: underline;">DEPARTMENT OF RADIOLOGY</th>
+                @else
+                <th style="font-size: 13px; font-weight: 700;text-decoration: underline;">LABORATORY REPORT</th>
+                @endif
+                {{-- <th style="font-size: 14px; font-weight: 700;text-decoration: underline;">DEPARTMENT OF {{ @$report[0]->department_name }}</th> --}}
+            </tr>
+        </table>
+
+        @if (@$report[0]->report_template_result)
+            <div style="padding: 2px 18px 8px 31px;margin-left:-40px;width: 100%;">
+                {!! $report[0]->report_template_result !!}
+            </div>
+        @else
+            {{-- <table style="width:100%;border:1px solid black">
+                <tr>
+                    <th style="font-size: 14px; font-weight: 700;">DEPARTMENT OF {{ @$rep->department_name }}</th>
+                </tr>
+            </table> --}}
+            <table style="width:100%;margin-bottom: 10px;">
+                <tr>
+                    <td style="text-align: left;font-size: 13px; font-weight: 600;text-decoration: underline; width: 200px;">
+                        Test Name
+                    </td>
+                    <td style="text-align: left;font-size: 13px;font-weight: 600;text-decoration: underline; width: 200px;" class="result_colom">
+                        Result
+                    </td>
+                    <td style="text-align: left;font-size: 13px;font-weight: 600;text-decoration: underline; width: 200px;" class="test-unit-section_class">
+                        Unit
+                    </td>
+                    <td style="text-align: left;font-size: 13px;font-weight: 600;text-decoration: underline; width: 200px;" class="referenge_range">
+                        Reference Range
+                    </td>
+                </tr>
+            </table>
+            @foreach ($report as $rep)
+                <table style="border-collapse: collapse;width:100%">
+                    @foreach ($rep->details as $value)
+                        @if ($value->test_result_value)
+                            <tr>
+                                <td style="text-align: left;font-size: 13px;font-weight: 500; width: 200px;">
+                                    @if (@$value->lebel == 'Group')
+                                        <b>{{$value->test_parameter}}</b>
+                                    @else
+                                        {{$value->test_parameter}}
+                                    @endif
+                                    <br>
+                                    <span style="font-size: 12px;" class="methode_h">
+                                        @if (@$value->method)
+                                            Method : {{ @$value->method }}
+                                        @endif
+                                    </span>
+                                </td>
+                                <td style="text-align: left;font-size: 14px;font-weight: 500; width: 200px;" class="result_colom">
+                                    @if (is_numeric(@$value->test_result_value))
+                                        @if ($report[0]->dob_year <= 12)
+                                            @if ($value->test_result_value >= $value->c_ll && $value->c_ul >= $value->test_result_value)
+                                                {{ $value->test_result_value }}
+                                            @else
+                                                <b>{{ $value->test_result_value }}</b>
+                                            @endif
+                                        @else
+                                            @if ($report[0]->gender == 'Male')
+                                                @if ($value->m_ll && $value->m_ul >= $value->test_result_value)
+                                                    {{ $value->test_result_value }}
+                                                @else
+                                                    <b>{{ $value->test_result_value }}</b>
+                                                @endif
+                                            @else
+                                                @if ($value->f_ll <= $value->test_result_value && $value->f_ul >= $value->test_result_value)
+                                                    {{ $value->test_result_value }}
+                                                @else
+                                                    <b>{{ $value->test_result_value }}</b>
+                                                @endif
+                                            @endif
+                                        @endif
+                                    @else
+                                        {{ @$value->test_result_value }}
+                                    @endif
+                                </td>
+                                <td style="text-align: left;font-size: 14px;font-weight: 500; width: 200px;" class="test-unit-section_class">{{ @$value->unit }}</td>
+                                <td style="text-align: left;font-size: 14px;font-weight: 500; width: 200px;" class="referenge_range">
+                                    @if($value->m_ll == $value->f_ll && $value->m_ll == $value->c_ll && $value->f_ll == $value->c_ll && $value->m_ul == $value->f_ul && $value->m_ul == $value->c_ul && $value->f_ul == $value->c_ul)
+                                        {{ $value->m_ll }} - {{ $value->m_ul }}
+                                    @else
+
+                                        @if( @$report[0]->dob_year <= 12)
+                                            @if($value->c_ll && $value->c_ul)
+                                                <br>Child: {{ $value->c_ll }} - {{ $value->c_ul }}
+                                            @endif
+                                        @else
+                                            @if( @$report[0]->gender == 'Male')
+                                                @if($value->m_ll != null && $value->m_ul != null)
+                                                    Male: {{ $value->m_ll }} - {{ $value->m_ul }}
+                                                @endif
+                                            @else
+                                                @if($value->f_ll != null && $value->f_ul != null)
+                                                    <br>Female: {{ $value->f_ll }} - {{ $value->f_ul }}
+                                                @endif
+                                            @endif
+                                        @endif
+
+                                    @endif
+                                </td>
+                            </tr>
+                        @endif
+                    @endforeach
+                </table>
+                <br><br>
+            @endforeach
+        @endif
+        @foreach ($report as $rep)
+            @if (@$rep->note)
+                <div style="padding: 2px 18px 8px 40px;" class="note">
+                    <b>N.B. : </b> {!! (@$rep->note) !!}
+                </div>
+            @endif
+        @endforeach
+        @if (@$report[0]->extra_note)
+            <div style="padding: 2px 18px 8px 40px;" class="extranote">
+                <b>Extra Note: </b> {!! @$rep->extra_note !!}
+            </div>
+        @endif
+        @if (@$report[0]->instrument_used)
+            <p style="font-size:13px;" class="instrument_used"><span style="font-weight: 800;">Instrument Used :</span>
+                {!! $rep->instrument_used !!}
+            </p>
+        @endif
+        @if (@$report[0]->$sample_name)
+            <p style="font-size:13px" class="sample_type"><span style="font-weight: 800;">Sample Type :</span>
+                {!! $rep->$sample_name !!}
+            </p>
+        @endif
+
+        <p style="text-align: center; font-size:13px;">***** End Of Report *****</p>
+        <!-- ======================third============================== -->
+    </div>
+    <div class="signature-container">
+        {{-- <p>Authorized Signature</p> --}}
+        <div class="blank-space"></div>
+        <table style="width:100%;">
+            @if (@$report[0]->approved_doctor_by)
+                <tr>
+                    <td style="width:70%"></td>
+                    <td style="width:30%;text-align:left; font-size:13px;">
+                        @if (@$report[0]->signature)
+                        <img src="{{ asset('public/assets/images/users/' . $report[0]->signature) }}" style="height: 42px;width: 127px" />
+                        <br>
+                        @endif
+                        <b>Dr. {{ @$report[0]->approve_name }}</b><br>
+                        {{ @$report[0]->department_name }}<br>
+                        {{ @$report[0]->qualification }} <br>
+                        {{ @$report[0]->specialization }} <br>
+                        <span class="employee_id_hide">Reg No: {{ @$report[0]->empId }}</span><br>
+                    </td>
+                </tr>
+            @endif
+        </table>
+        <table style="width:100%;">
+            <tr>
+                <td style="width:25%">
+                    <p style="margin-top: -2px; font-size:13px;"><b>Print By : {{ Auth::user()->name }} </b></p>
+                </td>
+                <td style="width:35%">
+
+                    <p style="margin-top: -2px; font-size:13px;">Comments : Please Correlate with Clinical Conditions
+                    </p>
+                </td>
+                <td style="width:40%;border-top:1px">
+                    <p style="margin-top: -2px; font-size:13px;"><b>Checked By</b></p>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    </div>
+</body>
+<script>
+    function printpage() {
+        window.print();
+    }
+</script>
+<script>
+    function checkCheckboxunit() {
+        var checkbox = document.getElementById("test-unit-section_id");
+        if (checkbox.checked) {
+            $('.test-unit-section_class').hide();
+        } else {
+            $('.test-unit-section_class').show();
+        }
+    }
+
+    function checkCheckboxresult() {
+        var checkbox = document.getElementById("result_hide");
+        if (checkbox.checked) {
+            $('.result_colom').hide();
+        } else {
+            $('.result_colom').show();
+        }
+    }
+
+    function checkCheckboxinstrument() {
+        var checkbox = document.getElementById("instrument_used_hide");
+        if (checkbox.checked) {
+            $('.instrument_used').hide();
+        } else {
+            $('.instrument_used').show();
+        }
+    }
+
+    function checkCheckboxemployee() {
+        var checkbox = document.getElementById("employee_id_hide_button");
+        if (checkbox.checked) {
+            $('.employee_id_hide').hide();
+        } else {
+            $('.employee_id_hide').show();
+        }
+    }
+
+    function checkCheckboxreferance() {
+        var checkbox = document.getElementById("referenge_range_hide");
+        if (checkbox.checked) {
+            $('.referenge_range').hide();
+        } else {
+            $('.referenge_range').show();
+        }
+    }
+
+    function checkCheckboxreferance() {
+        var checkbox = document.getElementById("referenge_range_hide");
+        if (checkbox.checked) {
+            $('.referenge_range').hide();
+        } else {
+            $('.referenge_range').show();
+        }
+    }
+
+    function checkCheckboxmethode() {
+        var checkbox = document.getElementById("method_hide");
+        if (checkbox.checked) {
+            $('.methode_h').hide();
+        } else {
+            $('.methode_h').show();
+        }
+    }
+
+    function checkCheckboxsample() {
+        var checkbox = document.getElementById("sample_type_hide");
+        if (checkbox.checked) {
+            $('.sample_type').hide();
+        } else {
+            $('.sample_type').show();
+        }
+    }
+
+    function checkCheckboxnote() {
+        var checkbox = document.getElementById("note_hide");
+        if (checkbox.checked) {
+            $('.note').hide();
+        } else {
+            $('.note').show();
+        }
+    }
+
+    function checkCheckboxextranote() {
+        var checkbox = document.getElementById("extra_note_hide");
+        if (checkbox.checked) {
+            $('.extranote').hide();
+        } else {
+            $('.extranote').show();
+        }
+    }
+
+    function checkCheckboxspace() {
+        var spaceValue = document.getElementById("space_value").value;
+        $('.blank-space').css('height', spaceValue + 'px');
+    }
+</script>
+
+</html>

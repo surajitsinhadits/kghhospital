@@ -1,0 +1,166 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Store\RequisitionController;
+use App\Http\Controllers\Store\PurchaseController;
+use App\Http\Controllers\Store\POController;
+use App\Http\Controllers\Store\StoreController;
+use App\Http\Controllers\Store\IssueController;
+use App\Http\Controllers\Store\StoreReportController;
+
+
+Route::middleware(['auth'])->prefix('store')->group(function () {
+
+    Route::controller(StoreController::class)->group(function () {
+        Route::get('/dashboard', 'index')->name('store.dashboard');
+
+        //Item
+        Route::get('/item-info/{id?}', 'item_info')->name('store.item-info');
+        Route::get('/listing-item', 'listing_item')->name('store.listing-item');
+        Route::get('/add-item', 'add_item')->name('store.add-item');
+        Route::get('/edit-item/{id?}', 'edit_item')->name('store.edit-item');
+        Route::post('/update-item/{id?}', 'update_item')->name('store.update-item');
+        Route::get('/delete-item/{id?}', 'delete_item')->name('store.delete-item');
+
+        //Item Type
+        Route::get('/item-type', 'item_type')->name('store.item-type');
+        Route::get('/edit-item-type/{id?}', 'edit_item_type')->name('store.edit-item-type');
+        Route::post('/update-item-type/{id?}', 'update_item_type')->name('store.update-item-type');
+
+        //Company
+        Route::get('/item-brand', 'item_brand')->name('store.item-brand');
+        Route::get('/edit-item-brand/{id?}', 'edit_item_brand')->name('store.edit-item-brand');
+        Route::post('/update-item-brand/{id?}', 'update_item_brand')->name('store.update-item-brand');
+
+        //Unit
+        Route::get('/item-unit', 'item_unit')->name('store.item-unit');
+        Route::get('/edit-item-unit/{id?}', 'edit_item_unit')->name('store.edit-item-unit');
+        Route::post('/update-item-unit/{id?}', 'update_item_unit')->name('store.update-item-unit');
+
+        //Store Department
+        Route::get('/store-department', 'store_department')->name('store.store-department');
+        Route::get('/edit-store-department/{id?}', 'edit_store_department')->name('store.edit-store-department');
+        Route::post('/update-store-department/{id?}', 'update_store_department')->name('store.update-store-department');
+
+        //Item Store Room
+        Route::get('/item-store-room', 'item_store')->name('store.item-store');
+        Route::get('/edit-item-store-room/{id?}', 'edit_item_store')->name('store.edit-item-store');
+        Route::post('/update-item-store-room/{id?}', 'update_item_store')->name('store.update-item-store');
+
+        //Item Category
+        Route::get('/item-catagory', 'item_catagory')->name('store.item-catagory');
+        Route::get('/edit-item-catagory/{id?}', 'edit_item_catagory')->name('store.edit-item-catagory');
+        Route::post('/update-item-catagory/{id?}', 'update_item_catagory')->name('store.update-item-catagory');
+        Route::get('/get-categories', 'parent_categories')->name('store.categories');
+        Route::get('/get-sub-categories/{id?}', 'sub_categories')->name('store.sub-categories');
+
+        //Vendor
+        Route::get('/listing-vendor', 'listing_vendor')->name('store.listing-vendor');
+        Route::get('/add-vendor', 'add_vendor')->name('store.add-vendor');
+        Route::get('/edit-vendor/{id?}', 'edit_vendor')->name('store.edit-vendor');
+        Route::post('/update-vendor/{id?}', 'update_vendor')->name('store.update-vendor');
+
+        Route::post('/get-item-unit-and-sub-unit', 'getUnitDetails')->name('store.get-item-unit-and-sub-unit');
+        Route::post('/get-batch-details', 'getBatchDetails')->name('store.get-batch-details');
+        Route::post('/get-product-details', 'getProductDetails')->name('store.get-product-details');
+        Route::post('/get-vendor-price-item-wise', 'getVendorPriceItemWise')->name('store.get-vendor-price-item-wise');
+
+        Route::post('/get-item-available-qty', 'getItemAvailableQuantity')->name('store.get-item-available-qty');
+
+    });
+    Route::controller(RequisitionController::class)->group(function () {
+        //Requisition
+        Route::get('/listing-requisition/{id?}/{type?}', 'listing_requisition')->name('store.listing-requisition');
+        Route::get('/listing-requisition-verify/{id?}', 'listing_requisition_verify')->name('store.listing-requisition-verify');
+        Route::get('/listing-requisition-approved', 'listing_requisition_approved')->name('store.listing-requisition-approved');
+
+        Route::get('/add-requisition', 'add_requisition')->name('store.add-requisition');
+        Route::get('/edit-requisition/{id?}/{type?}', 'edit_requisition')->name('store.edit-requisition');
+        Route::post('/update-requisition/{id?}/{type?}', 'update_requisition')->name('store.update-requisition');
+        Route::get('/requisition-info/{id?}/{type?}/{is_approved?}', 'requisition_details')->name('store.requisition-details');
+        Route::get('/delete-requisition/{id?}/{type?}', 'delete_requisition')->name('store.delete-requisition');
+        Route::get('/print-requisition/{id?}', 'print_requisition')->name('store.print-requisition');
+    });
+    Route::controller(POController::class)->group(function () {
+        //PO
+        Route::get('/listing-purchase-order/{id?}', 'listing_purchase_order')->name('store.listing-purchase-order');
+        Route::get('/listing-purchase-order-verify/{id?}', 'listing_purchase_order_verify')->name('store.listing-purchase-order-verify');
+        Route::get('/listing-purchase-order-approved', 'listing_purchase_order_approved')->name('store.listing-purchase-order-approved');
+        Route::get('/add-purchase-order', 'add_purchase_order')->name('store.add-purchase-order');
+        Route::get('/edit-purchase-order/{id?}/{type?}', 'edit_purchase_order')->name('store.edit-purchase-order');
+        Route::post('/update-purchase-order/{id?}/{type?}', 'update_purchase_order')->name('store.update-purchase-order');
+        Route::get('/purchase-order-info/{id?}/{type?}/{is_approved?}', 'purchase_order_details')->name('store.purchase-order-details');
+        Route::get('/delete-purchase-order/{id?}/{type?}', 'delete_purchase_order')->name('store.delete-purchase-order');
+        Route::post('/get-po-details', 'get_po_details')->name('store.get-po-details');
+        Route::get('/print-purchase-order/{id?}', 'print_purchase_order')->name('store.print-purchase-order');
+        Route::get('/purchase-order-items-price/{id?}', 'purchase_order_items_price')->name('store.purchase-order-items-price');
+        Route::get('/purchase-order-approved/{id}/{vendor_id}', 'purchase_order_approved')->name('store.purchase-order-approved');
+        Route::post('/get-low-level-items', 'getLowLevelItems')->name('store.get-low-level-items');
+        Route::post('/get-req-items', 'getRequisitionItems')->name('store.get-req-items');
+
+    });
+    Route::controller(PurchaseController::class)->group(function () {
+        //Purchase
+        Route::get('/listing-purchase', 'listing_purchase')->name('store.listing-purchase');
+        Route::get('/add-purchase', 'add_purchase')->name('store.add-purchase');
+        Route::get('/edit-purchase/{id?}', 'edit_purchase')->name('store.edit-purchase');
+        Route::post('/update-purchase/{id?}', 'update_purchase')->name('store.update-purchase');
+        Route::get('/purchase-info/{id?}', 'purchase_details')->name('store.purchase-details');
+        Route::get('/delete-purchase/{id?}', 'delete_purchase')->name('store.delete-purchase');
+        Route::get('/print-purchase/{id?}', 'print_purchase')->name('store.print-purchase');
+
+        Route::post('/st-purchases/{id}/make-payment', 'makePayment')->name('st.purchases.make-payment');
+    });
+    Route::controller(IssueController::class)->group(function () {
+        //Item Issue
+        Route::get('/listing-item-issue', 'listing_item_issue')->name('store.listing-item-issue');
+        Route::get('/add-item-issue', 'add_item_issue')->name('store.add-item-issue');
+        Route::get('/edit-item-issue/{id?}', 'edit_item_issue')->name('store.edit-item-issue');
+        Route::post('/update-item-issue/{id?}', 'update_item_issue')->name('store.update-item-issue');
+        Route::get('/issue-info/{id?}', 'issue_details')->name('store.issue-details');
+        Route::get('/delete-item-issue/{id?}', 'delete_item_issue')->name('store.delete-item-issue');
+        Route::post('/get-req-details', 'get_req_details')->name('store.get-req-details');
+        Route::get('/issue-print/{id?}', 'issue_print')->name('store.issue-print');
+
+        // Return
+        Route::get('/return-items', 'return_list')->name('store.return-list');
+        Route::get('/repair-items', 'repair_list')->name('store.repair-list');
+        Route::get('/add-return/{type}', 'add_return')->name('store.add-return');
+        Route::get('/edit-return/{id?}', 'edit_return')->name('store.edit-return');
+        Route::post('/update-return/{id?}', 'update_return')->name('store.update-return');
+        Route::get('/return-info/{id?}', 'return_details')->name('store.return-details');
+        Route::get('/delete-return/{id?}', 'delete_return')->name('store.delete-return');
+        Route::post('/repair-items-return', 'repair_items_return')->name('store.repair-items-return');
+
+        // expenses item
+        Route::get('/expense-list', 'expense_list')->name('store.expense-list');
+        Route::get('/expense-add', 'expense_add')->name('store.expense-add');
+        Route::post('/get-issue-items', 'get_issue_items')->name('store.get-issue-items');
+        Route::post('/update-expense/{id?}', 'update_expense')->name('store.update-expense');
+
+        Route::get('/expense-info/{id?}', 'expense_details')->name('store.expense-details');
+        Route::get('/edit-expense/{id?}', 'edit_expense')->name('store.edit-expense');
+        Route::get('/delete-item-expense/{id?}', 'delete_item_expense')->name('store.delete-item-expense');
+        Route::get('/expense-print/{id?}', 'expense_print')->name('store.expense-print');
+    });
+    Route::controller(StoreReportController::class)->group(function () {
+        //Report Section
+        Route::any('/general-stock-report', 'present_stock_report')->name('store.present-stock-reports');
+        Route::any('/department-stock-report', 'department_stock_report')->name('store.department-stock-reports');
+        Route::get('/issue-report', 'issue_report')->name('store.issue-reports');
+        Route::get('/stock-report', 'stock_report')->name('store.stock-reports');
+        Route::get('/purchase-report', 'purchase_report')->name('store.purchase-reports');
+        Route::get('/po-report', 'po_report')->name('store.po-reports');
+        Route::get('/requisition-report', 'requisition_report')->name('store.requisition-reports');
+    });
+
+});
+
+Route::controller(StoreController::class)->group(function () {
+
+    Route::get('/vendor-dashboard', [POController::class, 'vendorDashboard'])->name('vendor-dashboard');
+    Route::get('/vendor-purchased-order-items/{po_id}', [POController::class, 'vendorPurchasedOrderItems'])->name('vendor-purchased-order-items');
+    Route::post('/vendor-purchased-order-items-save/{id?}', [POController::class, 'vendorPurchasedOrderItemsSave'])->name('vendor-purchased-order-items-save');
+    Route::get('/vendor-purchased-order-items-edit/{vp_id}', [POController::class, 'vendorPurchasedOrderItemsEdit'])->name('vendor-purchased-order-items-edit');
+
+});

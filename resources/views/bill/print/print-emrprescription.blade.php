@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Prescription</title>
+    <link href="{{ asset('public/assets/plugins/datatable/css/buttons.bootstrap4.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/plugins/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('public/assets/css/icons.css') }}" rel="stylesheet" />
+</head>
+
+<body>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 40px 40px 40px 27px;
+
+            border: 1px solid #000000db;
+            padding: 10px 0px 0px 0px;
+        }
+
+        @media print {
+
+            html,
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                font-family: 'verdana';
+            }
+
+            #printButton {
+                display: none;
+            }
+
+            table,
+            tr,
+            td,
+            th {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            div,
+            section {
+                page-break-inside: auto;
+                break-inside: auto;
+            }
+
+            .page-break {
+                page-break-before: always;
+                break-before: page;
+            }
+
+        }
+
+
+        body {
+            font-family: sans-serif;
+            background: #ffffff;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        table,
+        th,
+        td {
+            border-collapse: collapse;
+        }
+
+        tr {
+            width: 100%;
+            height: auto;
+        }
+    </style>
+    <div style="padding: 0px 7px 0px 7px; ">
+        <div style="margin: 10px 0px 0px 503px" id="printButton">
+            <button class="btn btn-primary btn-sm" onclick="printpage()"><i class="fa fa-print"></i> Print</button>
+            <a class="btn btn-danger btn-sm" onclick="window.close()"><i class="fa fa-times"></i> Close</a>
+        </div>
+        <!-- ==========================================code here================================== -->
+        <table style="width: 100%;border-collapse: collapse">
+            @if (@$header_image->logo)
+                <table>
+                    <tr style="text-align: center;">
+                        <td>
+                            <img src="{{ asset('public/assets/images/header') }}/{{ @$header_image->logo }}"
+                                alt="logo" style="width: 80%;">
+                        </td>
+                    </tr>
+                </table>
+            @else
+                <br><br><br><br><br><br><br><br><br>
+            @endif
+            <table style="width: 100%; background-color:#fff;">
+                <tr>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:800;">
+                        <b>Date :
+                            {{ @$bill->bill_date ? dateFor($bill->bill_date, true) : '' }}</b>
+                    </td>
+                    {{-- <td
+                        style="text-align: left;font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:320px;font-weight:800;">
+                        <b>UHID No :
+                            {{ @$patient_details->uhid ?? @$patient_details->id }}
+                        </b>
+                    </td> --}}
+                    <td rowspan="2" style="text-align: center;border: 1px solid #899499;width: 160px;height: 45px;">
+                        @php
+                            $generatorPNG = new Picqer\Barcode\BarcodeGeneratorPNG();
+                        @endphp
+                        <img src="data:image/png;base64,{{ base64_encode($generatorPNG->getBarcode((string) (@$patient_details->uhid ?? @$patient_details->id), $generatorPNG::TYPE_CODE_128)) }}"
+                            style="width: 150px;height: 40px;">
+                    </td>
+                    <td
+                        style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:550px;font-weight:800;">
+                        <b>{{ strtoupper($section) }} No : {{ @$bill->section_id }} </b>
+                    </td>
+                    @if ($section == 'opd')
+                        <td
+                            style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:550px;font-weight:800;">
+                            <b>Token No : {{ @$token_no }} </b>
+                        </td>
+                    @endif
+                </tr>
+            </table>
+            <table
+                style="width: 100%; ;margin: 10px 0px 0px 0px;border: 1px solid #899499;border-collapse: collapse;background-color:#fff;">
+                <tr>
+                    <td style="border:2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                        <span style="padding:20px 0px 0px 5px;">PATIENT NAME : <b style="font-weight:800;">
+                                {{ @$patient_details->name }}</b></span><br>
+                        <span style="padding:20px 10px 10px 5px;line-height: 20px;">GENDER : <b
+                                style="font-weight:800;">{{ @$patient_details->gender }}</b> || AGE : <b
+                                style="font-weight:800;">
+                                {{ @$patient_details->dob_year == null ? '' : @$patient_details->dob_year . 'Y' }}
+                                {{ @$patient_details->dob_month == null ? '' : @$patient_details->dob_month . 'M' }}
+                                {{ @$patient_details->dob_day == null ? '' : @$patient_details->dob_day . 'D' }}</b></span><br>
+                        <span style="padding:20px 0px 0px 5px;">MOB NO : <b style="font-weight:800;">
+                                {{ @$patient_details->phone }}</b></span><br>
+                        <span style="padding:20px 10px 10px 5px;line-height: 20px;">Address :
+                            {{ @$patient_details->address }},{{ @$patient_details->district_name }},{{ @$patient_details->state_name }}{{ @$patient_details->pin_code }}</span><br>
+                    </td>
+                    <td style="border: 2px solid #000; font-size: 13px;padding: 5px 5px 5px 5px;font-weight:800;">
+                        <span style="padding:0px 10px 10px 15px;font-weight:800; "><b
+                                style="font-weight:800;">CONSULTANT
+                                DOCTOR : </b></span><br>
+                        <span style="padding:0px 10px 10px 15px;font-weight:800;"><b style="font-weight:800;">
+                                {{ @$doctor_info->salutation }} {{ @$doctor_info->name }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">{{ @$doctor_info->specialization }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">{{ @$doctor_info->qualification }}</b></span><br>
+                        <span style="padding:0px 10px 10px 15px;line-height: 20px;font-weight:800;"><b
+                                style="font-weight:800;">REG NO - {{ @$doctor_info->empId }}</b></span><br>
+                    </td>
+                </tr>
+            </table>
+            <table
+                style="width: 100%; ;margin: 10px 0px 0px 0px;border-collapse: collapse;background-color:#fff; border: 1px solid #ccc;">
+                {{--  @php
+                    $vitals = json_decode($emr_details->vitals ?? '[]');
+                @endphp
+                @if (!empty($vitals))
+                    @foreach ($vitals as $i => $vital)
+                        <tr>
+                            <td
+                                style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                                <b>Height : {{ $vital->height }}</b>
+                            </td>
+                            <td
+                                style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                                <b>Weight : {{ $vital->weight ?? 0 }}</b>
+                            </td>
+                            <td
+                                style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                                <b>BP : {{ $vital->bp_systolic ?? 0 }}/{{ $vital->bp_diastolic ?? 0 }}</b>
+                            </td>
+                            <td
+                                style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                                <b>Temp : {{ $vital->temperature ?? 0 }}</b>
+                            </td>
+                            <td
+                                style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                                <b>Pulse : {{ $vital->pulse ?? 0 }}</b>
+                            </td>
+                            <td
+                                style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                                <b>RR : {{ $vital->respiratory ?? 0 }}</b>
+                            </td>
+                            <td
+                                style="text-align: left; font-size: 13px; padding: 5px 10px 5px 10px;border: 1px solid #000;width:306px;font-weight:500;">
+                                <b>SpO2 : {{ $vital->SpO2 ?? 0 }}</b>
+                            </td>
+                        </tr>
+                    @endforeach
+                @endif  --}}
+                <thead>
+                    <tr>
+                        <th
+                            style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px; border: 1px solid #ccc;font-weight:600;">
+                            <b>Height</b>
+                        </th>
+                        <th
+                            style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px; border: 1px solid #ccc;font-weight:600;">
+                            <b>Weight</b>
+                        </th>
+                        <th
+                            style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px; border: 1px solid #ccc;font-weight:600;">
+                            <b>BP</b>
+                        </th>
+                        <th
+                            style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px; border: 1px solid #ccc;font-weight:600;">
+                            <b>Temp</b>
+                        </th>
+
+                        <th
+                            style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px; border: 1px solid #ccc;font-weight:600;">
+                            <b>Pulse</b>
+                        </th>
+                        <th
+                            style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px; border: 1px solid #ccc;font-weight:600;">
+                            <b>RR</b>
+
+                        </th>
+                        <th
+                            style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px; border: 1px solid #ccc;font-weight:600;">
+                            <b>SpO2</b>
+
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    @php
+                        $vitals = json_decode($emr_details->vitals ?? '[]');
+                    @endphp
+                    @if (!empty($vitals))
+                        @foreach ($vitals as $i => $vital)
+                            <tr>
+                                <td
+                                    style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px;border-bottom: 1px solid #eee;width:306px;font-weight:500;">
+                                    {{ $vital->height }}
+                                </td>
+                                <td
+                                    style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px;border-bottom: 1px solid #eee;width:306px;font-weight:500;">
+                                    {{ $vital->weight ?? 0 }}
+                                </td>
+                                <td
+                                    style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px;border-bottom: 1px solid #eee;width:306px;font-weight:500;">
+                                    {{ $vital->bp_systolic ?? 0 }}/{{ $vital->bp_diastolic ?? 0 }}
+                                </td>
+                                <td
+                                    style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px;border-bottom: 1px solid #eee;width:306px;font-weight:500;">
+                                    {{ $vital->temperature ?? 0 }}
+                                </td>
+                                <td
+                                    style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px;border-bottom: 1px solid #eee;width:306px;font-weight:500;">
+                                    {{ $vital->pulse ?? 0 }}
+                                </td>
+                                <td
+                                    style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px;border-bottom: 1px solid #eee;width:306px;font-weight:500;">
+                                    {{ $vital->respiratory ?? 0 }}
+                                </td>
+                                <td
+                                    style="text-align: center; font-size: 13px; padding: 5px 10px 5px 10px;border-bottom: 1px solid #eee;width:306px;font-weight:500;">
+                                    {{ $vital->SpO2 ?? 0 }}
+                                </td>
+                            </tr>
+                        @endforeach
+                    @endif
+
+
+                </tbody>
+            </table>
+
+
+            <div class="page-section"
+                style="position: relative; margin-top: 0px; padding: 10px 20px; border-radius: 8px; font-family: 'Segoe UI', sans-serif; background-color: #fff;">
+
+                <!-- Vertical Divider Line -->
+                <h5 style="position: relative;
+            left: 295px;
+            top: 41px;">Rx</h5>
+
+                <div
+                    style="
+            position:absolute;
+            top:80px;
+            bottom: 20px;
+            left: 30%;
+
+            border-left: 1px solid #0000003d;
+
+            ">
+
+
+                </div>
+                {{--  <h5
+                style="position: relative;
+                   left: 290px;
+                top: 3px;">
+            RX</h5>  --}}
+                <div style="display: flex; gap: 20px; position: relative; z-index: 1;">
+                    <!-- LEFT COLUMN -->
+                    <div style="width: 30%; padding-right: 10px;">
+                        <div class="heightadd" style="height: 200px;"></div>
+
+                        <!-- Diagnosis Table -->
+                        <div class="diagnosis-area" style="margin-bottom: 30px;">
+                            <h2 style="font-weight: 700; font-size: 19px; margin-bottom: 10px;">Diagnosis :</h2>
+                            <table
+                                style="width: 100%; border-collapse: collapse; font-size: 14px; border-radius: 6px; overflow: hidden;">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align: left; padding: 10px;">Date</th>
+                                        <th style="text-align: left; padding: 10px;">Diagnosis</th>
+                                        <th style="text-align: left; padding: 10px;">Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @php
+                                        $diagnoses = json_decode($emr_details->diagnosis ?? '[]');
+                                    @endphp
+                                    @if (!empty($diagnoses))
+                                        @foreach ($diagnoses as $d => $diag)
+                                            <tr>
+                                                <td style="padding: 10px;">
+                                                    {{ isset($diag->diagnosis_date) ? \Carbon\Carbon::parse($diag->diagnosis_date)->format('d-m-Y') : '' }}
+                                                </td>
+                                                <td style="padding: 10px;">{{ $diag->diagnosis }}</td>
+                                                <td style="padding: 10px;">{{ $diag->diagnosis_duration }}</td>
+                                            </tr>
+                                        @endforeach
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Tests List -->
+                        <div class="test-area" style="margin-top: 70px;">
+                            <h2 style="font-weight: 700; font-size: 19px; margin-bottom: 10px;">Tests :</h2>
+                            <ul style="padding-left: 18px; font-size: 14px; color: #333;">
+                                @php
+                                    $tests = json_decode($emr_details->test_name ?? '[]');
+                                @endphp
+                                @foreach ($tests as $test)
+                                    <li>{{ $test }}</li>
+                                @endforeach
+                                {{-- <li>Fasting Blood Sugar (FBS)</li>
+                            <li>ECG (Electrocardiogram)</li>
+                            <li>Lipid Profile</li>
+                            <li>Complete Blood Count (CBC)</li>
+                            <li>Fasting Blood Sugar (FBS)</li>
+                            <li>ECG (Electrocardiogram)</li>
+                            <li>Lipid Profile</li> --}}
+
+
+                            </ul>
+
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN -->
+                    <div style="width: 70%; padding-left: 10px;">
+                        <!-- Complaints Table -->
+                        <div class="complaints-area" style="margin-bottom: 30px; margin-top:30px;">
+                            <h2 style="font-weight: 700; font-size: 19px; margin-bottom: 10px;">Complaints :</h2>
+                            <table
+                                style="width: 100%; border-collapse: collapse; font-size: 14px; border-radius: 6px; overflow: hidden;">
+                                <thead>
+
+                                    <tr>
+                                        <th style="text-align: left; padding: 10px;">Date</th>
+                                        <th style="text-align: left; padding: 10px;">Complaints</th>
+                                        <th style="text-align: left; padding: 10px;">Frequency</th>
+                                        <th style="text-align: left; padding: 10px;">Severity</th>
+                                        <th style="text-align: left; padding: 10px;">Duration</th>
+
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @php
+                                        $complaints = json_decode($emr_details->complaints ?? '[]');
+                                    @endphp
+                                    @if (!empty($complaints))
+                                        @foreach ($complaints as $c => $complaint)
+                                            <tr>
+                                                <td style="padding: 10px;">
+                                                    {{ isset($complaint->complaints_date) ? \Carbon\Carbon::parse($complaint->complaints_date)->format('d-m-Y') : '' }}
+                                                </td>
+                                                <td style="padding: 10px;">{{ $complaint->complaints }}</td>
+                                                <td style="padding: 10px;">{{ $complaint->frequency }}</td>
+                                                <td style="padding: 10px;">{{ $complaint->severity }}</td>
+                                                <td style="padding: 10px;">{{ $complaint->duration }}</td>
+
+
+                                            </tr>
+                                        @endforeach
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Medicines Table -->
+                        <div class="medicines-area"
+                            style="margin-bottom: 30px; border: 1px solid #00000038; padding: 7px;">
+                            <h2 style="font-weight: 700; font-size: 19px; margin-bottom: 10px;">Medicines :</h2>
+                            <table
+                                style="width: 100%; border-collapse: collapse; font-size: 14px; background: #fafafa; border-radius: 6px; overflow: hidden;">
+                                <thead>
+                                    <tr style="background-color: #e3eaf3;">
+                                        <th style="text-align: left; padding: 10px; border-bottom: 1px solid #ccc;">
+                                            Composition</th>
+                                        <th style="text-align: left; padding: 10px; border-bottom: 1px solid #ccc;">
+                                            Medicine
+                                        </th>
+                                        <th style="text-align: left; padding: 10px; border-bottom: 1px solid #ccc;">
+                                            Dose</th>
+                                        <th style="text-align: left; padding: 10px; border-bottom: 1px solid #ccc;">
+                                            Timings</th>
+                                        <th style="text-align: left; padding: 10px; border-bottom: 1px solid #ccc;">
+                                            Frequency</th>
+                                        <th style="text-align: left; padding: 10px; border-bottom: 1px solid #ccc;">
+                                            Duration</th>
+                                        <th style="text-align: left; padding: 10px; border-bottom: 1px solid #ccc;">
+                                            Notes/Instructions</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @php
+                                        $medicines = json_decode($emr_details->medicines ?? '[]');
+                                    @endphp
+
+                                    @if (!empty($medicines))
+                                        @foreach ($medicines as $m => $medicine)
+                                            <tr>
+                                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                                    {{ $medicine->composition }}
+                                                </td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                                    {{ $medicine->medicine }}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                                    {{ $medicine->dose }}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                                    {{ $medicine->when }}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                                    {{ $medicine->frequency }}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                                    {{ $medicine->medicine_duration }}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                                    {{ $medicine->notes_instructions }}</td>
+
+                                            </tr>
+                                        @endforeach
+                                    @endif
+
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Advice -->
+                        <div class="advice-area">
+                            <h2 style="font-weight: 700; font-size: 19px; margin-bottom: 10px;">Advice :</h2>
+                            <ul style="padding-left: 18px; font-size: 14px; color: #333;">
+                                <li>{!! @$emr_details->advice !!}</li>
+                                {{-- <li>Monitor blood sugar levels daily</li>
+                            <li>30 minutes of brisk walking every day</li>
+                            <li>Regular follow-up after 1 week</li>
+                            <li>Follow diabetic diet</li>
+                            <li>Monitor blood sugar levels daily</li>
+                            <li>30 minutes of brisk walking every day</li>
+                            <li>Regular follow-up after 1 week</li>
+                            <li>Follow diabetic diet</li>
+                            <li>Monitor blood sugar levels daily</li>
+                            <li>30 minutes of brisk walking every day</li>
+                            <li>Regular follow-up after 1 week</li> --}}
+                            </ul>
+
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================================================================== -->
+    </div>
+</body>
+<script>
+    // Disable the browser's back button
+    history.pushState(null, null, location.href);
+    window.addEventListener('popstate', function(event) {
+        history.pushState(null, null, location.href);
+    });
+    window.addEventListener('keydown', function(event) {
+        if (event.keyCode === 116 || (event.ctrlKey && event.keyCode === 82)) {
+            event.preventDefault();
+        }
+    });
+
+    function printpage() {
+        window.print();
+    }
+</script>
+
+</html>

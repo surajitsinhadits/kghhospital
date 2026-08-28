@@ -1,0 +1,301 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Baby Registration</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="col-lg-12 col-xl-12 col-md-12 col-sm-12">
+        <div class="card">
+            <div class="card-header card_hearder_mimi justify-content-between">
+                <h4 class="card-title card_hearder_mimi_text">
+                    Baby Registration
+                </h4>
+            </div>
+            <div class="card-body p-0" style="margin-bottom: 32px;">
+                <div class="card-body">
+                    <form class="form-horizontal" action="{{route('hr.child-register-save')}}" enctype="multipart/form-data" method="POST" id="yourFormId" >
+                        @csrf
+                        <div class="col-md-12">
+                            <div class="row">
+                                <div class="card-body hospital_allcardbodydesign">
+                                    <h5 class="font-weight-bold"><i class="fas fa-baby"></i> Personal Information</h5>
+                                    <div class="main-profile-bio mb-0">
+                                        <div class="row">
+                                            @if(@$childcare_details->id)
+                                            <input type="hidden" name="id" value="{{ @$childcare_details->id }}">
+                                            @endif
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="name">Name of the Patient <span
+                                                    class="text-danger">*</span></label>
+                                                <input type="text" name="name" value="{{ old('name', @$childcare_details->name) }}" id="name">
+                                                @error('name')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-2 useradddtwo ">
+                                                <label for="gurdian_name"> Guardian's Name</label>
+                                                <input type="text" name="guardian_name" value="{{ old('name', @$childcare_details->guardian_name) }}"
+                                                    id="gurdian_name">
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label>Gender <span class="text-danger">*</span></label>
+                                                <select name="gender" class="form-control" id="gender">
+                                                    <option value="">Select Gender</option>
+                                                    <option value="Male" {{ old('gender', @$childcare_details->gender) == 'Male' ? 'selected' : '' }}>Male</option>
+                                                    <option value="Female" {{ old('gender', @$childcare_details->gender) == 'Female' ? 'selected' : '' }}>Female</option>
+                                                    <option value="Others" {{ old('gender', @$childcare_details->gender) == 'Others' ? 'selected' : '' }}>Others</option>
+                                                </select>
+                                                @error('gender')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="form-group col-md-1 newuserchange">
+                                                <label for="blood_group">Blood Group</label>
+                                                <select name="blood_group" class="form-control" id="blood_group">
+                                                    <option value="">Select Blood Group</option>
+                                                    <option value="A+" {{ old('blood_group', @$childcare_details->blood_group) == 'A+' ? 'selected' : '' }}>A+</option>
+                                                    <option value="A-" {{ old('blood_group', @$childcare_details->blood_group) == 'A-' ? 'selected' : '' }}>A-</option>
+                                                    <option value="B+" {{ old('blood_group', @$childcare_details->blood_group) == 'B+' ? 'selected' : '' }}>B+</option>
+                                                    <option value="B-" {{ old('blood_group', @$childcare_details->blood_group) == 'B-' ? 'selected' : '' }}>B-</option>
+                                                    <option value="AB+" {{ old('blood_group', @$childcare_details->blood_group) == 'AB+' ? 'selected' : '' }}>AB+</option>
+                                                    <option value="AB-" {{ old('blood_group', @$childcare_details->blood_group) == 'AB-' ? 'selected' : '' }}>AB-</option>
+                                                    <option value="O+" {{ old('blood_group', @$childcare_details->blood_group) == 'O+' ? 'selected' : '' }}>O+</option>
+                                                    <option value="O-" {{ old('blood_group', @$childcare_details->blood_group) == 'O-' ? 'selected' : '' }}>O-</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label>Date & Time of Birth of Baby</label>
+                                                <input type="text" name="date_of_birth" id="date_of_birth" class="dateTimePickr" placeholder="Choose Date"
+                                                    value="{{ old('date_of_birth', dateFor(@$childcare_details->date_of_birth,true) ) }}"
+                                                    onchange="getagefromdate(this.value)">
+                                            </div>
+
+                                            <div class="col-md-1 useradddtwo">
+                                                <label for="date_of_birth_year">Year</label>
+                                                <input type="text" id="date_of_birth_year" name="date_of_birth_year"
+                                                    value="{{ old('date_of_birth_year', @$childcare_details->dob_year) }}">
+                                            </div>
+
+                                            <div class="col-md-1 useradddtwo">
+                                                <label for="date_of_birth_month">Month</label>
+                                                <input type="text" id="date_of_birth_month" name="date_of_birth_month"
+                                                    value="{{ old('date_of_birth_month', @$childcare_details->dob_month) }}">
+                                            </div>
+
+                                            <div class="col-md-1 useradddtwo">
+                                                <label for="date_of_birth_day">Day</label>
+                                                <input type="text" id="date_of_birth_day" name="date_of_birth_day"
+                                                    value="{{ old('date_of_birth_day', @$childcare_details->dob_day) }}">
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body hospital_allcardbodydesign">
+                                    <h5 class="font-weight-bold"><i class="fas fa-map-marker-alt"></i> Address</h5>
+                                    <div class="main-profile-bio mb-0">
+                                        <div class="row">
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="address">Address <span class="text-danger">*</span></label>
+                                                <input type="text" name="address" id="address"
+                                                    value="{{ old('address', @$childcare_details->address) }}">
+                                                @error('address')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="state">State <span class="text-danger">*</span></label>
+                                                <select name="state" class="form-control select2-show-search" onchange="getDistrict(this.value)" id="state">
+                                                    <option value="">Select State</option>
+                                                    @foreach ($states as $s)
+                                                    <option value="{{$s->id}}" {{  @$childcare_details->state == $s->id ? 'selected' : ''}}>{{$s->name}}</option>
+                                                    @endforeach
+                                                </select>
+                                                <small class="text-danger">{{ $errors->first('state') }}</small>
+                                            </div>
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="district">District <span class="text-danger">*</span></label>
+                                                <select name="district" class="form-control select2-show-search" id="district">
+                                                    <option value="">Select District</option>
+                                                </select>
+                                                <small class="text-danger">{{ $errors->first('district') }}</small>
+                                            </div>
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="pin_code">Pin No.</label>
+                                                <input type="text" id="pin_code" name="pin_code"
+                                                    value="{{ old('pin_no', @$childcare_details->pin_code) }}" tabindex="12">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body hospital_allcardbodydesign">
+                                    <h5 class="font-weight-bold"><i class="fa fa-cube "></i> Details</h5>
+                                    <div class="main-profile-bio mb-0">
+                                        <div class="row">
+                                            <div class="col-md-3 newuserchange">
+                                                <label>Under Doctor <span class="text-danger">*</span></label>
+                                                <select name="doctor_id" class="form-control select2-show-search" id="cons_doctor">
+                                                    <option value="">Select Doctor</option>
+                                                    @if (@$childcare_details->doctor_id)
+                                                        @foreach ($doctor as $doc)
+                                                        <option value="{{$doc->id}}" {{ (@$childcare_details->doctor_id == $doc->id) ? 'selected' : 'disabled' }}>{{$doc->salutaion.' '.$doc->name}}</option>
+                                                        @endforeach
+                                                    @else
+                                                        @foreach ($doctor as $doc)
+                                                        <option value="{{$doc->id}}" {{ (old('doctor_id') == $doc->id) ? 'selected' : '' }}>{{$doc->salutaion.' '.$doc->name}}</option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                                @error('doctor_id')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="diagnosis">Diagnosis</label>
+                                                <input type="text" name="diagnosis" id="diagnosis"
+                                                    value="{{ old('diagnosis', @$childcare_details->diagnosis) }}">
+                                            </div>
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="operation">Operation</label>
+                                                <input type="text" name="operation" id="operation"
+                                                    value="{{ old('operation', @$childcare_details->operation) }}">
+                                            </div>
+                                            <div class="col-md-3 newuserchange">
+                                                <label for="weight">Weight of Baby</label>
+                                                <input type="text" name="weight" id="weight"
+                                                    value="{{ old('weight', @$childcare_details->weight) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body hospital_allcardbodydesign">
+                                    <h5 class="font-weight-bold"><i class="fas fa-tasks"></i>Others Details</h5>
+                                    <div class="main-profile-bio mb-0">
+                                        <div class="row">
+                                            <div class="col-md-4 newuserchange ">
+                                                <label for="baby_status">Satus Of Baby <span class="text-danger">*</span></label>
+                                                <select name="baby_status" class="form-control" id="baby_status">
+                                                    @if (@$childcare_details->baby_status)
+                                                        <option value="Alive" {{ @$childcare_details->baby_status == 'Alive' ? 'selected' : 'disabled' }}>ALIVE</option>
+                                                        <option value="Still Born" {{ @$childcare_details->baby_status == 'Still Born' ? 'selected' : 'disabled' }}>STILL BORN</option>
+                                                    @else
+                                                        <option value="">Select</option>
+                                                        <option value="Alive" {{ old('baby_status') == 'Alive' ? 'selected' : '' }}>ALIVE</option>
+                                                        <option value="Still Born" {{ old('baby_status') == 'Still Born' ? 'selected' : '' }}>STILL BORN</option>
+                                                    @endif
+                                                </select>
+                                                @error('baby_status')
+                                                    <small class="text-danger">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                            <div class="col-md-4 newuserchange">
+                                                <label for="delivery_mode">Mode of Delivery</label>
+                                                <select name="delivery_mode" class="form-control" id="delivery_mode">
+                                                    <option value="">Select</option>
+                                                    <option value="LUCS" {{ old('delivery_mode', @$childcare_details->delivery_mode) == 'LUCS' ? 'selected' : '' }}>LUCS</option>
+                                                    <option value="NORMAL" {{ old('delivery_mode', @$childcare_details->delivery_mode) == 'NORMAL' ? 'selected' : '' }}>NORMAL</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="admission_date">Admission Date</label>
+                                                <input type="text" class="dateTimePickr" name="admission_date" id="admission_date" placeholder="choose Date"
+                                                    value="{{ old('admission_date', @$childcare_details->admission_date ? dateFor($childcare_details->admission_date, true) : '') }}">
+                                            </div>
+                                            <div class="col-md-2 newuserchange">
+                                                <label for="discharge_date">Discharge Date</label>
+                                                <input type="text" class="dateTimePickr" name="discharge_date" id="discharge_date" placeholder="choose Date"
+                                                    value="{{ old('discharge_date', @$childcare_details->discharge_date ? dateFor($childcare_details->discharge_date, true) : '') }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="card-body hospital_allcardbodydesign">
+                                    @if(@$showButton)
+                                    <button type="submit" class="btn btn-primary"><i class="fa fa-paper-plane"></i> SUBMIT</button>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+@push('js')
+<script>
+    const stat = @json(@$childcare_details->state ?? old('state'));
+    const dist = @json(@$childcare_details->district ?? old('district'));
+    if(dist){
+        getDistrict(stat, dist);
+    }
+   function getagefromdate(dob_date) {
+    if (!dob_date) return;
+
+    const dob = new Date(dob_date);
+    const now = new Date();
+
+    if (dob > now) {
+        alert('Enter a valid date');
+        $('#baby_age').val('');
+        return;
+    }
+
+    let years = now.getFullYear() - dob.getFullYear();
+    let months = now.getMonth() - dob.getMonth();
+    let days = now.getDate() - dob.getDate();
+
+    if (days < 0) {
+        months--;
+        days += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); // days in previous month
+    }
+
+    if (months < 0) {
+        years--;
+        months += 12;
+    }
+
+    $('#baby_age').val(`${years} Year(s), ${months} Month(s), ${days} Day(s)`);
+}
+
+    function getDistrict(state_id, old_district_id = null) {
+        if (state_id) {
+            $('#district').html('<option value="">Select District</option>'); // Fixed "value" typo
+            $.ajax({
+                url: "{{ Route('get-district') }}",
+                type: "POST",
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    state_id: state_id,
+                },
+                success: function(response) {
+                    if (response.success && response.districts.length > 0) {
+                        $.each(response.districts, function(key, value) {
+                            let selected = (old_district_id && old_district_id == value.id) ? 'selected' : '';
+                            $('#district').append(`<option value="${value.id}" ${selected}>${value.name}</option>`);
+                        });
+                    }
+                },
+                error: function(error) {
+                    console.log("Error fetching districts:", error);
+                }
+            });
+        }
+    }
+
+    // Auto-load districts when editing a patient
+    $(document).ready(function() {
+        let selectedState = $('#state').val();
+        let selectedDistrict = "{{ old('district', @$childcare_details->district) }}"; // Correct field reference
+
+        if (selectedState) {
+            getDistrict(selectedState, selectedDistrict);
+        }
+    });
+</script>
+@endpush

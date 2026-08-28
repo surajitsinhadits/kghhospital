@@ -1,0 +1,87 @@
+<?php
+
+/**
+ * Created by Reliese Model.
+ */
+
+namespace App\Models;
+
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Class MedPatient
+ * 
+ * @property int $id
+ * @property string|null $name
+ * @property string|null $guardian_name
+ * @property string|null $guardian_contact_no
+ * @property string|null $guardian_realation
+ * @property string|null $marital_status
+ * @property string|null $blood_group
+ * @property string|null $gender
+ * @property Carbon|null $date_of_birth
+ * @property int|null $dob_year
+ * @property int|null $dob_month
+ * @property int|null $dob_day
+ * @property string|null $phone
+ * @property string|null $alternative_no
+ * @property string|null $email
+ * @property string|null $address
+ * @property string|null $district
+ * @property string|null $state
+ * @property string|null $country
+ * @property string|null $pin_code
+ * @property string|null $identification_name
+ * @property string|null $identification_number
+ * @property string|null $remarks
+ * @property bool|null $is_active
+ * @property bool|null $is_delete
+ * @property int|null $created_by
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ *
+ * @package App\Models
+ */
+class MedPatient extends Model
+{
+	protected $table = 'med_patients';
+
+	protected $casts = [
+		'date_of_birth' => 'datetime',
+		'dob_year' => 'int',
+		'dob_month' => 'int',
+		'dob_day' => 'int',
+		'is_active' => 'bool',
+		'is_delete' => 'bool',
+		'created_by' => 'int'
+	];
+
+	protected $fillable = [
+		'name',
+		'guardian_name',
+		'guardian_contact_no',
+		'guardian_realation',
+		'marital_status',
+		'blood_group',
+		'gender',
+		'date_of_birth',
+		'dob_year',
+		'dob_month',
+		'dob_day',
+		'phone',
+		'alternative_no',
+		'email',
+		'address',
+		'district',
+		'state',
+		'country',
+		'pin_code',
+		'identification_name',
+		'identification_number',
+		'remarks',
+		'is_active',
+		'is_delete',
+		'created_by'
+	];
+}

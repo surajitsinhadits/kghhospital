@@ -1,0 +1,432 @@
+<?php
+
+namespace App\Http\Controllers\Store;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Yajra\Datatables\DataTables;
+use App\Models\StRequisition;
+use App\Models\StRequisitionItem;
+use App\Models\StDepartment;
+use App\Models\StItem;
+use App\Models\Header;
+use Barryvdh\DomPDF\Facade\Pdf;
+// use App\Models\StProductIssue;
+use Illuminate\Http\Request;
+use Exception;
+use Illuminate\Support\Facades\DB;
+use App\Models\StStore;
+
+class RequisitionController extends Controller
+{
+    public function listing_requisition(Request $request, $id = 0, $type = '')
+    {
+        if( !empty($id) && $type == 'issue' ){
+            $id = ed($id, false);
+            StRequisition::where('id', $id)->update([
+                'is_given' => 5,
+                'receive_by' => Auth::user()->id,
+                'receive_at' => date('Y-m-d h:i:s')
+            ]);
+            return view('store.requisition-list');
+        }
+
+        if( !empty($id) && $type == 'expense' ){
+            $id = ed($id, false);
+            StRequisition::where('id', $id)->update([
+                'is_given' => 6,
+                'receive_by' => Auth::user()->id,
+                'receive_at' => date('Y-m-d h:i:s')
+            ]);
+            return view('store.requisition-list');
+        }
+
+        if ($request->ajax()) {
+
+            $data = StRequisition::select(
+                    'st_requisitions.*',
+                    'd.department_name as department',
+                    'u.name as generated_by',
+                    'ex.id as expense_id'
+                )
+                ->join('st_departments as d', 'd.id', '=', 'st_requisitions.department_id')
+                ->leftJoin('st_expenses as ex', 'ex.requisition_id', '=', 'st_requisitions.id')
+                ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
+                ->where('st_requisitions.is_delete', 0)
+                ->orderBy('st_requisitions.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('status', function($row){
+                    $status = '';
+                    if($row->is_given == 1 && $row->created_by){
+                        $status = '<span class="badge badge-warning">Pending</span>';
+                    }elseif($row->is_given == 0 && $row->approved_by){
+                        $status = '<span class="badge badge-info">Approved</span>';
+                    }elseif($row->is_given == 2 && $row->verified_by){
+                        $status = '<span class="badge badge-primary">Verified</span>';
+                    }elseif($row->is_given == 3 && $row->edit_by){
+                        $status = '<span class="badge badge-danger">Rejected</span>';
+                    }elseif($row->is_given == 4){
+                        $status = '<span class="badge badge-success">Issued</span>';
+                    }elseif($row->is_given == 5){
+                        $status = '<span class="badge badge-light">Issue Received</span>';
+                    }elseif($row->is_given == 6){
+                        $status = '<span class="badge badge-light">Expense Received</span>';
+                    }
+                    return $status;
+                })
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="' . route('store.requisition-details', [ed($row->id, true), 'default']) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    if($row->is_given == 1){
+                        $actionBtn .= '<a href="'.route('store.edit-requisition', [ed($row->id, true), 'default']).'" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('store.delete-requisition', [ed($row->id, true), 'default']) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    }
+                    if( $row->is_given == 4 ){
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to receive issue item record?\');" href="' . route('store.listing-requisition', ['id' => ed($row->id, true), 'type' => 'issue']) . '" class="btn btn-sm btn-outline-success mx-1" title="Isssue Item Received"><i class="bx bxs-check-circle"></i></a>';
+                    }
+                    if( in_array($row->is_given, [0,4,5]) ){
+                        $actionBtn .= '<a target="_blank" href="' . route('store.print-requisition', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-print"></i></a>';
+                    }
+                    if( $row->expense_id && $row->is_given == 5 ){
+                        $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to receive expense item record?\');" href="' . route('store.listing-requisition', ['id' => ed($row->id, true), 'type' => 'expense']) . '" class="btn btn-sm btn-outline-success mx-1" title="Expense Item Received"><i class="bx bxs-dollar-circle"></i></a>';
+                    }
+
+                    return $actionBtn;
+                })
+                ->rawColumns(['action', 'status'])
+                ->make(true);
+            }
+       return view('store.requisition-list');
+    }
+
+    public function listing_requisition_verify(Request $request, $id = 0)
+    {
+        if( !empty($id) ){
+            $id = ed($id, false);
+            StRequisition::where('id', $id)->update(['is_given' => 0]);
+        }
+        if ($request->ajax()) {
+            $data = StRequisition::select(
+                'st_requisitions.*',
+                'd.department_name as department',
+                'u.name as generated_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_requisitions.department_id')
+            ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->where('st_requisitions.is_delete', 0)
+            ->orderBy('st_requisitions.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function($row){
+                    $actionBtn = '<a href="' . route('store.requisition-details', [ed($row->id, true), 'verify']) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    if( $row->is_given == 1 ){
+                        $actionBtn .= '<a href="'.route('store.edit-requisition', [ed($row->id, true), 'verify']).'" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        // $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('store.delete-requisition', [ed($row->id, true), 'verify']) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    }
+                    if( in_array($row->is_given, [0,4,5]) ){
+                        $actionBtn .= '<a target="_blank" href="' . route('store.print-requisition', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-print"></i></a>';
+                    }
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+            }
+       return view('store.requisition-verify-list');
+    }
+
+    public function listing_requisition_approved(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = StRequisition::select(
+                'st_requisitions.*',
+                'd.department_name as department',
+                'u.name as generated_by'
+            )
+            ->join('st_departments  as d', 'd.id', '=', 'st_requisitions.department_id')
+            ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->where('st_requisitions.is_delete', 0)
+            ->whereIN('st_requisitions.is_given', [0,2,3,4,5])
+            ->orderBy('st_requisitions.id', 'DESC');
+
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function($row){
+
+                    $actionBtn = '<a href="' . route('store.requisition-details', [ed($row->id, true), 'approve']) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
+                    if($row->is_given == 2){
+                        $actionBtn .= '<a href="'.route('store.edit-requisition', [ed($row->id, true), 'approve']).'" class="btn btn-sm btn-outline-warning mx-1" title="Edit"><i class="bx bxs-edit"></i></a>';
+                        // $actionBtn .= '<a onclick="return confirm(\'Are you sure you want to delete this record?\');" href="' . route('store.delete-requisition', [ed($row->id, true), 'verify']) . '" class="btn btn-sm btn-outline-danger mx-1" title="Delete"><i class="bx bxs-trash"></i></a>';
+                    }
+                    if( in_array($row->is_given, [0,4,5]) ){
+                        $actionBtn .= '<a target="_blank" href="' . route('store.print-requisition', ed($row->id, true)) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="fa fa-print"></i></a>';
+                    }
+                    return $actionBtn;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+            }
+       return view('store.requisition-approved-list');
+    }
+    public function add_requisition()
+    {
+        $title ="Add";
+        $department = StDepartment::where('status','0')->orderBy('id', 'desc')->get();
+        $item_list = StItem::where('is_active','1')->where('is_delete','0')->orderBy('id', 'desc')->get();
+        $store = StStore::where('status','0')->orderBy('id', 'desc')->get();
+        $data = compact('item_list','department','title', 'store');
+        return view('store.add-requisition')->with($data);
+    }
+    public function edit_requisition($id, $type = '')
+    {
+        $id = ed($id, false);
+        $title ="Add";
+        $department = StDepartment::where('status','0')->orderBy('id', 'desc')->get();
+        $item_list = StItem::where('is_active','1')->where('is_delete','0')->orderBy('id', 'desc')->get();
+        $response = StRequisition::where('id',$id)->first();
+        $store = StStore::where('status','0')->orderBy('id', 'desc')->get();
+        $item_details = StRequisitionItem::select('st_requisition_items.*','st_items.sub_unit_no')
+            ->join('st_items','st_items.id','=','st_requisition_items.item_id')
+            ->where('st_requisition_items.requisition_id',$id)
+            ->where('st_requisition_items.is_delete',0)
+            ->get();
+        $data = compact('response','department','item_list','item_details','title', 'type', 'store');
+        return view('store.add-requisition')->with($data);
+    }
+    public function requisition_details($id, $type = '', $is_approve = 0)
+    {
+        $id = ed($id, false);
+        if( !empty($id) && !empty($type) && $type == 'approve' && $is_approve ){
+            StRequisition::where('id', $id)->update(['is_given' => 0]);
+        }
+        $data = StRequisition::select(
+                'st_requisitions.*',
+                'd.department_name as department',
+                'u.name as generated_by',
+                'u2.name as verified_by_name',
+                'u3.name as approved_by_name',
+                'u4.name as reject_by_name'
+            )
+            ->join('st_departments as d', 'd.id', '=', 'st_requisitions.department_id')
+            ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->leftJoin('users as u2', 'u2.id', '=', 'st_requisitions.verified_by')
+            ->leftJoin('users as u3', 'u3.id', '=', 'st_requisitions.approved_by')
+            ->leftJoin('users as u4', 'u4.id', '=', 'st_requisitions.reject_by')
+            ->where('st_requisitions.id', $id)
+            ->first();
+        $item_list = StRequisitionItem::select(
+                'st_requisition_items.*',
+                'st_items.item_name',
+                'st_items.sub_unit_no'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_requisition_items.item_id')
+            ->where('st_requisition_items.requisition_id', $id)
+            ->where('st_requisition_items.is_delete',0)
+            ->get();
+        $data = compact('data','item_list', 'type');
+        // dd($data);
+        return view('store.requisition-info')->with($data);
+    }
+    public function update_requisition(Request $request, $id = 0, $type = '')
+    {
+
+        // dd($request->all());
+
+        $request->validate([
+            'requisition_date' => 'required',
+            'department_id' => 'required',
+            'reject_note' => 'required_if:save_action,3',
+        ]);
+
+        try {
+
+            DB::beginTransaction();
+
+            $requisition = $id ? StRequisition::find($id) : new StRequisition();
+            $requisition->requisition_date = date('Y-m-d H:i:s', strtotime($request->requisition_date));
+            $requisition->department_id = $request->department_id;
+            $requisition->store_id = $request->store_id;
+            $requisition->note = $request->note;
+            $requisition->is_given = $request->save_action;
+
+            if($id){
+                $requisition->edit_by = Auth::user()->id;
+                $requisition->edit_at = date('Y-m-d h:i:s');
+                if($request->save_action == 0){
+                    $requisition->approved_by = Auth::user()->id ?? 596;
+                    $requisition->approved_at = date('Y-m-d h:i:s');
+                }elseif($request->save_action == 2) {
+                    $requisition->verified_by = Auth::user()->id;
+                    $requisition->verified_at = date('Y-m-d h:i:s');
+                }elseif($request->save_action == 3) {
+                    $requisition->reject_by = Auth::user()->id;
+                    $requisition->reject_at = date('Y-m-d h:i:s');
+                    $requisition->reject_note = $request->reject_note;
+                }
+            }else{
+                $requisition->created_by = Auth::user()->id;
+            }
+
+            if( ! $id ){
+                $maxVid = StRequisition::where('department_id', $request->department_id)->max('vid') ?? 0;
+                $requisition->vid = $maxVid + 1;
+            }
+
+            $requisition->save();
+
+            $requisition_id = $requisition->id;
+
+            $existingItemIds = StRequisitionItem::where('requisition_id', $requisition_id)->pluck('id')->toArray();
+            $submittedItemIds = $request->item_detail_id ?? [];
+            $toDelete = array_diff($existingItemIds, $submittedItemIds);
+
+            if (!empty($toDelete)) {
+                StRequisitionItem::whereIn('id', $toDelete)->update(['is_delete' => 1]);
+            }
+            foreach ($request->item_id as $key => $item_id) {
+
+                if($request->unit_qty[$key] == 0 && $request->sub_unit_qty[$key] == 0){
+
+                    DB::rollback();
+                    return back()->with('error', 'Unit & Subunit both are not zero');
+
+                }
+                $item_detail_id = $request->item_detail_id[$key] ?? '';
+
+                $item = $item_detail_id ? StRequisitionItem::find($item_detail_id) : new StRequisitionItem();
+
+                $item->requisition_id  = $requisition_id;
+                $item->item_id         = $item_id;
+                $item->unit_qty        = $request->unit_qty[$key];
+                $item->unit_id         = $request->unit_id[$key];
+                $item->unit_name       = $request->unit_name[$key];
+                $item->sub_unit_qty    = $request->sub_unit_qty[$key];
+                $item->sub_unit_id     = $request->sub_unit_id[$key];
+                $item->sub_unit_name   = $request->sub_unit_name[$key];
+                $item->item_unit_price = $request->item_price[$key];
+                $item->total_price     = $request->total_price[$key];
+                $item->save();
+            }
+
+            DB::commit();
+
+            $route_name = 'store.listing-requisition';
+            if( !empty($type) && $type == 'verify' ){
+                $route_name = 'store.listing-requisition-verify';
+            }elseif( !empty($type) && $type == 'approve' ){
+                $route_name = 'store.listing-requisition-approved';
+            }
+
+            return redirect()->route($route_name)->with('success', 'Requisition Saved Successfully!');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->with('error', 'Something went wrong. Try again!');
+        }
+    }
+    public function delete_requisition($id, $type = '')
+    {
+        $id = ed($id, false);
+        $data = StRequisition::where('id',$id)->first();
+        if ($data) {
+            $data->update([
+                'is_delete' => 1
+            ]);
+
+            $route_name = 'store.listing-requisition';
+            if( !empty($type) && $type == 'verify' ){
+                $route_name = 'store.listing-requisition-verify';
+            }
+
+            return redirect()->route($route_name)->with('success', 'The Item Deleted Successfully');
+        } else {
+            return back()->with('error', "Something Went Wrong");
+        }
+    }
+
+    public function print_requisition($id)
+    {
+        $id = ed($id, false);
+        $data = StRequisition::select(
+                'st_requisitions.*',
+                'd.department_name as department',
+                'u.name as generated_by'
+            )
+            ->join('st_departments as d', 'd.id', '=', 'st_requisitions.department_id')
+            ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->where('st_requisitions.id', $id)
+            ->first();
+        $item_list = StRequisitionItem::select(
+                'st_requisition_items.*',
+                'st_items.item_name',
+                'st_items.sub_unit_no'
+            )
+            ->join('st_items', 'st_items.id', '=', 'st_requisition_items.item_id')
+            ->where('st_requisition_items.requisition_id', $id)
+            ->where('st_requisition_items.is_delete',0)
+            ->get();
+
+        $header_image = Header::where('header_name', 'opd_prescription')->first();
+        $back = route('store.listing-requisition');
+
+        $data = compact('data','item_list', 'header_image', 'back');
+        // dd($data);
+        return view('store.print.print-requisition-info')->with($data);
+    }
+
+    public function download_requisition_list_pdf(Request $request, $filter = 'others')
+    {
+        $availableFilters = ['pending', 'others', 'verified', 'approved'];
+        if (!in_array($filter, $availableFilters)) {
+            $filter = 'others';
+        }
+
+        $filterLabels = [
+            'pending' => 'Created (Pending) requisitions',
+            'others' => 'Requisitions except pending, verified and approved',
+            'verified' => 'Verified requisitions',
+            'approved' => 'Approved requisitions',
+        ];
+
+        $query = StRequisition::select(
+            'st_requisitions.*',
+            'd.department_name as department',
+            'd.department_code as department_code',
+            'u.name as generated_by'
+        )
+            ->join('st_departments as d', 'd.id', '=', 'st_requisitions.department_id')
+            ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->where('st_requisitions.is_delete', 0);
+
+        if ($filter === 'pending') {
+            $query->where('st_requisitions.is_given', 1);
+        } elseif ($filter === 'verified') {
+            $query->where('st_requisitions.is_given', 2);
+        } elseif ($filter === 'approved') {
+            $query->where('st_requisitions.is_given', 0);
+        } else {
+            $query->whereNotIn('st_requisitions.is_given', [0, 1, 2]);
+        }
+
+        $requisitions = $query->orderBy('st_requisitions.id', 'DESC')->get();
+
+        $header_image = Header::where('header_name', 'opd_prescription')->first();
+        $header_image_path = '';
+        if ($header_image && $header_image->logo) {
+            $header_image_path = str_replace('\\', '/', public_path('assets/images/header/' . $header_image->logo));
+        }
+
+        $pdf = Pdf::loadView('store.print.bulk-requisition-list', [
+            'requisitions' => $requisitions,
+            'filterLabel' => $filterLabels[$filter],
+            'filterKey' => $filter,
+            'header_image' => $header_image,
+            'header_image_path' => $header_image_path,
+        ]);
+        $pdf->setPaper('A4', 'landscape');
+
+        $fileName = 'requisition-list-' . $filter . '.pdf';
+        return $pdf->download($fileName);
+    }
+
+}

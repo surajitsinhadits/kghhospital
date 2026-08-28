@@ -1,0 +1,119 @@
+@extends('layouts.structure')
+@push('title')
+    <title>ADD NEW VENDOR</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="card">
+        <div class="card-header d-block card_hearder_mimi">
+            <div class="row">
+                <div class="col-md-6 card-title card_hearder_mimi_text">
+                    ADD VENDOR
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form action="{{ route('optical.update-vendor', ['id' => @$response->id]) }}" method="POST" id="yourFormId">
+                @csrf
+                <div class="">
+                    <div class="form-group">
+                        <label for="vendor_name" class="medicinelabel">Vendor Name<span class="text-danger">*</span></label>
+                        <input type="text" value="{{ old('vendor_name', @$response->vendor_name) }}" id="vendor_name" name="vendor_name">
+                        @error('vendor_name')
+                        <small class="text-danger">{{ $message }}</small>
+                        @enderror
+                    </div>
+                    <div class="row row-sm">
+                        <div class="col-lg addvendoredit">
+                            <label for="email">Vendor Email</label>
+                            <input type="text" class="mb-4" id="email" name="email" value="{{ old('email', @$response->email) }}">
+                            @error('email')
+                            <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
+                        <div class="col-lg addvendoredit">
+                            <label for="phone">Enter Vendor Phone no.</label>
+                            <input type="text" class="mb-4" id="phone" name="phone" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '');" value="{{ old('phone', @$response->phone) }}">
+                            @error('phone')
+                            <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
+                        <div class="col-lg addvendoredit">
+                            <label for="pin_code">Pincode</label>
+                            <input type="text" class="mb-4" id="pin_code" name="pin_code" value="{{ old('pin_code', @$response->pin_code) }}">
+                        </div>
+                    </div>
+                    <div class="row row-sm">
+                        <div class="col-lg addvendoredit">
+                            <label for="gstin">GSTIN</label>
+                            <input type="text" class="mb-4" id="gstin" name="gstin" value="{{ old('gstin', @$response->gstin) }}">
+                        </div>
+                        <div class="col-lg addvendoredit">
+                            <label for="contact_person_name">Contact Person name</label>
+                            <input type="text" class="mb-4" id="contact_person_name" name="contact_person_name" value="{{ old('contact_person_name', @$response->contact_person_name) }}">
+                        </div>
+                    </div>
+                    <div class="row row-sm">
+                        <div class="col-lg addvendoredit">
+                            <label for="address">Vendor Address</label>
+                            <input type="text" class="" id="address" name="address" value="{{ old('address', @$response->address) }}">
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-4 mb-0 submitBtn">Add Vendor</button>
+            </form>
+        </div> 
+    </div>
+</div>
+@endsection
+@push('js')
+<script>
+    $(document).ready(function() {
+        const form = $('#yourFormId');
+        const requiredFields = ["vendor_name"];
+        let isSubmitting = false;
+        let lastClickedSubmit = null;
+
+        form.find('.submitBtn').on('click', function () {
+            lastClickedSubmit = this;
+        });
+
+        form.on('submit', function(e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return;
+            }
+
+            let isValid = true;
+
+            requiredFields.forEach(field => {
+                let inputField = form.find(`[name="${field}"]`);
+                if (!inputField.length) {
+                    return;
+                }
+                let fieldValue = (inputField.val() || '').toString().trim();
+                if (fieldValue) {
+                    inputField.removeClass('border border-danger');
+                } else {
+                    inputField.addClass('border border-danger');
+                    isValid = false;
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                alert('Please fill all required fields.');
+                return;
+            }
+
+            isSubmitting = true;
+            form.find('.submitBtn').prop('disabled', true);
+            if (lastClickedSubmit) {
+                $(lastClickedSubmit).html('<i class="fa fa-spinner fa-spin me-1"></i> Processing...');
+            }
+        });
+    });
+    </script>
+@endpush

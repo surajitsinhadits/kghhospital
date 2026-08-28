@@ -1,0 +1,126 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Discharge Form</title>
+@endpush
+@push('css')
+<style>
+    details {
+        margin: 0px auto;
+    }
+    .form-lebel{
+        font-size:14px;
+        padding: 1rem;
+    }
+</style>
+@endpush
+@section('main-content')
+    <div class="row">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 leftside_fixarea">
+                        <x-billbar section="{{ $section }}" id="{{ $section_id }}" type="sec" />
+                    </div>
+                    <div class="col-md-9 rightside_fixarea" style="border:2px solid black">
+                        <form action="{{ route('ipd.insert-discharge', $section) }}" method="POST" enctype="multipart/form-data">
+                            @csrf
+                            <input type="hidden" name="upid" value="{{ @$discharge->id }}">
+                            <input type="hidden" name="section_id" value="{{ $section_id }}">
+                            <div class="row my-4">
+                                <div class="form-group col-md-3">
+                                    <label for="discharge_date" class="form-label">Discharge Date <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control dateTimePickr" id="discharge_date" name="discharge_date" value="{{ @$discharge->discharge_date ? dateFor($discharge->discharge_date,true) : '' }}" required>
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label for="discharge_status" class="form-label">Discharge Type <span class="text-danger">*</span></label>
+                                    <select name="discharge_status" class="form-control" id="discharge_status" onchange="hide(this.value)" required>
+                                        <option value="">Select</option>
+                                        <option value="Death" {{ @$discharge->discharge_type == 'Death' ? 'selected' : '' }}> Death</option>
+                                        <option value="Refferal" {{ @$discharge->discharge_type == 'Refferal' ? 'selected' : '' }}> Referral</option>
+                                        <option value="Normal" {{ @$discharge->discharge_type == 'Normal' ? 'selected' : '' }}> Normal</option>
+                                        <option value="LAMA" {{ @$discharge->discharge_type == 'LAMA' ? 'selected' : '' }}> LAMA</option>
+                                        <option value="DORB" {{ @$discharge->discharge_type == 'DORB' ? 'selected' : '' }}> DORB</option>
+                                        <option value="DMA" {{ @$discharge->discharge_type == 'DMA' ? 'selected' : '' }}> DMA</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-3" style="display:none" id="referral_hospital">
+                                    <label for="refferal_hospital_name" class="form-label">Referral Hospital Name</label>
+                                    <input type="text" class="form-control" id="refferal_hospital_name" name="refferal_hospital_name" value="">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label for="next_appointment_date" class="form-label">Next Appointment Date </label>
+                                    <input type="text" class="form-control dateTimePickr" id="next_appointment_date" name="next_appointment_date" value="{{ @$discharge->next_appointment_date ? dateFor($discharge->next_appointment_date,true) : '' }}">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <label for="attach_document" class="form-label">Attach Document {!! @$discharge->attach_document ? '(<a href="'.url('public/assets/attachments/discharge_patient/'.$discharge->attach_document).'" download>Download</a>)' : '' !!}</label>
+                                    <input type="file" id="attach_document" name="attach_document" class="form-control">
+                                    <input type="hidden" name="old_attach_document" value="{{ @$discharge->attach_document }}" class="form-control">
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <details>
+                                        <summary class="form-lebel">Final Diagnosis at the time of Discharge</summary>
+                                        <textarea class="text" name="icd_code">{{ old('icd_code',@$discharge->icd_code) }}</textarea>
+                                    </details>
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <details>
+                                        <summary class="form-lebel">Presenting Complaints with Duration and Reason for Admission</summary>
+                                        <textarea class="text" name="complaiints_duraiton">{{ old('complaiints_duraiton',@$discharge->complaiints_duraiton) }}</textarea>
+                                    </details>
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <details>
+                                        <summary class="form-lebel">Summary of Presenting Illness</summary>
+                                        <textarea class="text" name="presenting_illness">{{ old('complaiints_duraiton',@$discharge->presenting_illness) }}</textarea>
+                                    </details>
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <details>
+                                        <summary class="form-lebel">Key findings, on physical examination at the time of admission</summary>
+                                        <textarea class="text" name="physical_examinaiton_at_admission">{{ old('complaiints_duraiton',@$discharge->physical_examinaiton_at_admission) }}</textarea>
+                                    </details>
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <details>
+                                        <summary class="form-lebel">Summary of key invesigations during Hospitalization</summary>
+                                        <textarea class="text" name="summary_inves_during_hos">{{ old('summary_inves_during_hos',@$discharge->summary_inves_during_hos) }}</textarea>
+                                    </details>
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <details>
+                                        <summary class="form-lebel">Course in the Hospital including complicaiotns if any</summary>
+                                        <textarea class="text" name="course_complications">{{ old('course_complications',@$discharge->course_complications) }}</textarea>
+                                    </details>
+                                </div>
+                                <div class="form-group col-md-12">
+                                    <details>
+                                        <summary class="form-lebel">Advice on Discharge</summary>
+                                        <textarea class="text" name="dischage_advice">{{ old('dischage_advice',@$discharge->dischage_advice) }}</textarea>
+                                    </details>
+                                </div>
+                            </div>
+                            <div class="text-center m-auto">
+                                <div class="mb-4">
+                                    <button type="submit" name="save_type" value="1" class="btn btn-primary">Save In Draft</button>
+                                    <button type="submit" name="save_type" value="2" class="btn btn-success">Save & Discharge</button>
+                                </div>
+                            </div>
+                            <div class="text-blue text-right">Prepared By : {{ Auth::user()->name }}</div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+@push('js')
+<script>
+    function hide(val) {
+        if (val == 'Refferal') {
+            $('#referral_hospital').removeAttr('style', true);
+        } else {
+            $('#referral_hospital').attr('style', 'display:none !important', true);
+        }
+    }
+</script>
+@endpush

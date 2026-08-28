@@ -1,0 +1,75 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Asign Permission</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card my-2">
+            <div class="card-header">
+                <div class="card-title">Asign Permission To : {{ $role->role }} </div>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                   @foreach ($permission as $item)
+                   <li class="list-group-item">
+                       {{ $item->permissions }}
+                       <div class="custom-control custom-switch pull-right ">
+                           {{-- <input type="checkbox" class="permission custom-control-input form-control-lg" id="customSwitch1_{{$item->id}}" name="perm" data-id="{{ $item->id }}" data-role="{{ $role->id }}" @if($PermissionOfRole->contains($item->id)) checked @endif  type="checkbox" value="" id="flexCheckDefault_{{$item->id}}">
+                           <label class="custom-control-label" for="customSwitch1_{{$item->id}}"></label> --}}
+                           <label class="switch">
+                                <input
+                                    class="permission"
+                                    type="checkbox"
+                                    name="perm"
+                                    data-id="{{ $item->id }}"
+                                    data-role="{{ $role->id }}"
+                                    id="customSwitch1_{{ $item->id }}"
+                                    @if ($PermissionOfRole->contains($item->id)) checked @endif
+                                >
+                                <span class="slider round"></span>
+                            </label>
+                       </div>
+                   </li>
+                   @endforeach
+               </ul>
+           </div>
+        </div>
+    </div>
+</div>
+@endsection
+@push('js')
+<script>
+    $(document).ready(function () {
+        $(".permission").click(function (e) {
+            let role = $(this).data('role');
+            let permission = $(this).data('id');
+
+            if (role && permission) {
+                $.ajax({
+                    type: "POST",
+                    url: "{{ route('hr.asign-permissionn') }}",
+                    data: {
+                        "_token":"{{ csrf_token() }}",
+                        'role': role,
+                        'permission': permission,
+                    },
+                    success: function (response) {
+                        if(response === "1"){
+                            toastr.success("Permission Asigned");
+                            // window.location.reload(2000);
+                        }else{
+                            toastr.success("Permission Revoked");
+                            // window.location.reload(2000);
+                        }
+                    }
+                });
+            }else{
+                toastr.error("Something Went Wrong");
+            }
+        });
+    });
+</script>
+@endpush

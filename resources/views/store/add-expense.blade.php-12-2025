@@ -1,0 +1,385 @@
+@extends('layouts.structure')
+@push('title')
+    <title>Expense</title>
+@endpush
+@push('css')
+@endpush
+@section('main-content')
+<div class="row">
+    <div class="card">
+        <div class="card-header d-block card_hearder_mimi">
+            <div class="row">
+                <div class="col-md-6 card-title card_hearder_mimi_text">
+                    Expense Entry
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{route('store.update-expense', @$response->id ?? 0)}}" id="yourFormId">
+                @csrf
+                <div class="card-body" style="margin:-6px;">
+                    <div class="col-md-12">
+                        <div class="row">
+                            <div class="col-md-2 mt-3">
+                                <label class="date-format">Date <span class="text-danger">*</span></label>
+                                <input type="text" class="dateTimePickr" name="expense_date" id="expense_date"
+                                    value="{{ old('expense_date', @($response->expense_date) ? \Carbon\Carbon::parse($response->expense_date)->format('d-m-Y h:i A') : date('d-m-Y h:i A')) }}" required />
+                                @error('expense_date')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
+                            </div>
+                            <div class="col-md-5 mt-3">
+                                <label class="form-label ">Department <span class="text-danger">*</span></label>
+                                <select name="department_id"  class="form-control select2-show-search" required>
+                                        <option value="">Select One.....</option>
+                                        @foreach ($department as $value)
+                                            <option value="{{ @$value->department_id }}" {{ @$response->dept_id == $value->department_id ? 'selected' : '' }}>{{ @$value->department_name }}</option>
+                                        @endforeach
+                                </select>
+                                @error('department_id')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-5 mt-3">
+                                <label class="form-label ">Issue <span class="text-danger">*</span></label>
+                                <select name="issue_id"  class="form-control select2-show-search" required onchange="getItemDetails(this.value);">
+                                        <option value="">Select One.....</option>
+                                        @foreach ($productIssues as $i_value)
+                                            <option value="{{ @$i_value->id.'#'.@$i_value->requisition_id }}" {{ @$response->issue_id == $i_value->id ? 'selected' : '' }}>Issue#{{ @$i_value->id }}</option>
+                                        @endforeach
+                                </select>
+                                @error('issue_id')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-5 mt-3">
+                                <label class="form-label">User Type <span class="text-danger">*</span></label>
+                                <select name="user_type" id="expense_type" class="form-control select2-show-search" required>
+                                        <option value="">Select One.....</option>
+                                        <option value="doctor">Doctor</option>
+                                        <option value="patient">Patient</option>
+                                        <option value="staff">Staff</option>
+                                </select>
+                                @error('department_id')
+                                <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-5 mt-3 hide-all" id="doctor_id" style="display: none;">
+                                <label class="form-label">Doctor <span class="text-danger">*</span></label>
+                                <select name="doctor_id" class="form-control select2-show-search">
+                                        <option value="">Select One.....</option>
+                                        @foreach ($doctors as $d_value)
+                                            <option value="{{ @$d_value->id }}" {{ @$response->doctor_id == $d_value->id ? 'selected' : '' }}>{{ @$d_value->salutation }} {{ @$d_value->name }}</option>
+                                        @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-5 mt-3 hide-all" id="patient_id" style="display: none;">
+                                <label class="form-label">Patient <span class="text-danger">*</span></label>
+                                <select name="patient_id" class="form-control select2-show-search">
+                                        <option value="">Select One.....</option>
+                                        @foreach ($patients as $p_value)
+                                            <option value="{{ @$p_value->id }}" {{ @$response->patient_id == $p_value->id ? 'selected' : '' }}>{{ @$p_value->name }}</option>
+                                        @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-5 mt-3 hide-all" id="staff_id" style="display: none;">
+                                <label class="form-label">Staff <span class="text-danger">*</span></label>
+                                <select name="staff_id" class="form-control select2-show-search">
+                                        <option value="">Select One.....</option>
+                                        @foreach ($staffs as $s_value)
+                                            <option value="{{ @$s_value->id }}" {{ @$response->staff_id == $s_value->id ? 'selected' : '' }}>{{ @$s_value->salutation }} {{ @$s_value->name }}</option>
+                                        @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="table-responsive">
+                            <table class="table card-table table-vcenter text-nowrap border" id="data-table">
+                                <thead class="bg-primary text-white">
+                                    <tr>
+                                        <th class="text-white" style="width: 30%">Item Name <span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Unit<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Sub Unit<span class="text-danger">*</span></th>
+                                        <th class="text-white" style="width: 10%">Avi QTY<span class="text-danger">*</span></th>
+                                        <th  class="text-white" style="width: 2%"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="chargeTable">
+                                    @foreach(@$item_details ?? [] as $key => $item)
+                                        <tr>
+                                            <td>
+                                                <select class="form-control item_id" name="item_id[]">
+                                                    <option value="">Select One.....</option>
+                                                    @foreach ($item_list as $value)
+                                                        <option data-avi-qty="{{ $value->total_present_qty }}" value="{{ $value->item_id }}" {{ @$item->item_id == $value->item_id ? 'selected' : 'disabled' }}>
+                                                            {{ @$value->item_name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select class="form-control select2-show-search" name="expense_type">
+                                                    <option value="">Select One.....</option>
+                                                    <option value="1" {{ old('expense_type') == 1 ? 'selected' : '' }}>Doctor</option>
+                                                    <option value="2" {{ old('expense_type') == 2 ? 'selected' : '' }}>Patient</option>
+                                                    <option value="3" {{ old('expense_type') == 3 ? 'selected' : '' }}>Self Department</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <div class="input-group mt-1">
+                                                    <input style="padding-left: 0.50rem;" class="form-control col-7" type="number" name="unit_qty[]" value="{{ @$item->unit_qty }}" placeholder="Qty" />
+                                                    <input class="form-control col-5" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="{{ @$item->unit_name }}" placeholder="Unit" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="input-group mt-1" style="width: 100%;">
+                                                    <input class="form-control col-7" type="number" style="padding-left: 0.50rem;" name="sub_unit_qty[]" value="{{ @$item->sub_unit_qty }}" placeholder="Sub Qty" />
+                                                    <input class="form-control col-5" readonly type="text" name="sub_unit_name[]" value="{{ @$item->sub_unit_name }}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <input type="text" name="avi_qty[]" class="form-control" readonly value="{{ @$item->item_unit_price }}">
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-danger btn-sm" type="button" onclick="removeRow(this)">X</button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="save_action" id="saveAction">
+                <div class="text-center mb-4 sub-btn" style="display: none;">
+                    <button type="submit" onclick="setAction(1)" class="btn btn-primary px-5">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+@push('js')
+<script type="text/javascript">
+
+    function getItemDetails(issue_id){
+        $('#chargeTable').html('');
+        $('.sub-btn').hide();
+
+        if (issue_id) {
+            $.ajax({
+                url: "{{ route('store.get-issue-items') }}",
+                type: "post",
+                data: {
+                    issue_id: issue_id,
+                    _token: '{{ csrf_token() }}',
+                },
+                dataType: 'json',
+                success: function(res) {
+                    if (res.status) {
+
+                        let newRow = null;
+                        let table = document.getElementById("chargeTable");
+                        let rowCount = table.rows.length;
+                        // $('#department').val(res.data.department_id).trigger('change');
+                        // $('#chargeTable tr:first').hide();
+                        res.data.forEach(item => {
+                            // Extract values from each item
+                            let itemValue = item.item_id;
+                            let itemText = item.item_name || '';
+                            let unit_id = item.unit_id || '';
+                            let unit = item.unit_name || '';
+                            let sub_unit_id = item.sub_unit_id || '';
+                            let sub_unit = item.sub_unit_name || '';
+                            let sub_unit_no = item.sub_unit_no || 1;
+                            let avi = item.avail_qty;
+
+                            // Create new row
+                            newRow = table.insertRow(table.rows.length);
+
+                            newRow.insertCell(0).innerHTML =
+                                `<select class="form-control" name="item_name[]">
+                                    <option value="${itemValue}">${itemText}</option>
+                                </select>
+                                <input class="form-control" type="hidden" name="unit_id[]" value="${unit_id}" />
+                                <input class="form-control" type="hidden" name="sub_unit_id[]" value="${sub_unit_id}" />`;
+
+                            newRow.insertCell(1).innerHTML =
+                                `
+                                <div class="input-group">
+                                    <input required style="padding-left: 0.50rem;" class="form-control col-7 unit_qty" type="number" min="0" max="${avi}" id="unit_qty" name="unit_qty[]" value="" step="0.1" placeholder="Qty" />
+                                    <input class="form-control col-5 unit" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="${unit}" placeholder="Unit" />
+                                </div>`;
+
+                            newRow.insertCell(2).innerHTML =
+                                `
+                                <div class="input-group" style="width: 100%;">
+                                    <input class="form-control col-7 sub_unit_qty" max="${sub_unit_no-1}" type="number" min="0" style="padding-left: 0.50rem;" name="sub_unit_qty[]" value="0" step="0.1" placeholder="Sub Qty" />
+                                    <input class="form-control col-5 sub_unit" readonly type="text" name="sub_unit_name[]" value="${sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                                </div>`;
+
+                            newRow.insertCell(3).innerHTML =
+                                `<input class="form-control avi_qty" id="avi_qty" readonly type="text" name="avi_qty" value="${avi}" />`;
+
+                            newRow.insertCell(4).innerHTML =
+                                `<button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>`;
+
+                            rowCount++;
+                        });
+                        $('.sub-btn').show();
+                    } else {
+                        alert('Requisition not found');
+                    }
+                }
+            });
+        }else{
+            $('#chargeTable tr:first').show();
+        }
+    }
+
+    function setAction(value) {
+        document.getElementById('saveAction').value = value;
+    }
+
+    $('#item_id').on('change', function () {
+
+        const $opt = $(this).find('option:selected');
+        const aviQty = $opt.data('avi-qty');
+        $('#avi_qty').val(aviQty ?? 0);
+        $('#unit_qty').attr('max', aviQty ?? 0);
+
+        const subUnitNo = $opt.data('sub-unit-no');
+        $('.sub_unit_qty').attr('max', (subUnitNo - 1) ?? 0);
+
+    });
+
+    $('#expense_type').on('change', function () {
+
+        $('.hide-all').hide();
+
+        const $opt = $(this).find('option:selected');
+        const expenseType = $opt.val();
+        if( expenseType == 'doctor' ){
+            $('#doctor_id').show();
+        } else if( expenseType == 'patient' ){
+            $('#patient_id').show();
+        } else if( expenseType == 'staff' ){
+            $('#staff_id').show();
+        }
+
+    });
+
+    function validation(input) {
+
+        var row = $('#chargeTable').find('tr:first');
+        var itemSelect = row.find('.item_id').val();
+        var itemSelect = row.find('.expense_type').val();
+        var unitQtyInput = row.find('.unit_qty');
+        var subUnitQtyInput = row.find('.sub_unit_qty');
+        var unitQty = parseFloat(unitQtyInput.val());
+        var subUnitQty = parseFloat(subUnitQtyInput.val());
+        var maxSubUnitQty = parseFloat(subUnitQtyInput.attr('max'));
+
+        if (itemSelect === '') {
+            alert('Please Select an Item & Unit!');
+        } else if (unitQty <= 0 && subUnitQty <= 0) {
+            alert('Please Select Unit or Subunit!');
+        } else if (!isNaN(maxSubUnitQty) && subUnitQty > maxSubUnitQty) {
+            alert('Sub Unit Qty cannot exceed the maximum allowed value (' + maxSubUnitQty + ')!');
+        } else {
+            addNewrow(input);
+        }
+
+    }
+
+    function addNewrow(input) {
+
+        let firstRow        = $('#chargeTable').find('tr:first');
+        let item_id         = firstRow.find('.item_id').val();
+        let item_text       = firstRow.find('.item_id option:selected').text();
+
+        let expense_id      = firstRow.find('.expense_type').val();
+        let expense_text    = firstRow.find('.expense_type option:selected').text();
+
+        let aviQty = firstRow.find('.item_id option:selected').attr('data-avi-qty') || 0;
+        let subUnitNo = firstRow.find('.item_id option:selected').attr('data-sub-unit-no') || 0;
+
+        let unit_id = firstRow.find('.item_id option:selected').attr('data-unit-id') || 0;
+        let sub_unit_id = firstRow.find('.item_id option:selected').attr('data-sub-unit-id') || 0;
+
+        let unit_qty        = firstRow.find('.unit_qty').val();
+        let unit            = firstRow.find('.unit').text();
+        let sub_unit_qty    = firstRow.find('.sub_unit_qty').val();
+        let sub_unit        = firstRow.find('.sub_unit').text();
+
+        let newRow = `
+            <tr>
+                <td>
+                    <select class="form-control" name="item_id[]">
+                        <option value="${item_id}" selected>${item_text}</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="form-control" name="expense_type[]">
+                        <option value="${expense_id}" selected>${expense_text}</option>
+                    </select>
+                </td>
+                <td>
+                    <div class="input-group mt-1">
+                        <input style="padding-left: 0.50rem;" class="form-control col-7" type="text" max="${aviQty}" name="unit_qty[]" value="${unit_qty}" placeholder="Qty" />
+                        <input class="form-control col-5" style="padding-left: 0.50rem;" readonly type="text" name="unit_name[]" value="${unit}" placeholder="Unit" />
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group mt-1" style="width: 100%;">
+                        <input class="form-control col-7" type="text" style="padding-left: 0.50rem;" name="sub_unit_qty[]" value="${sub_unit_qty}" placeholder="Sub Qty" />
+                        <input class="form-control col-5" readonly type="text" max="${subUnitNo-1}" name="sub_unit_name[]" value="${sub_unit}" style="padding-left: 0.50rem;" placeholder="Sub Unit" />
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">X</button>
+                </td>
+                    <input type="hidden" name="unit_id[]" value="${unit_id}">
+                    <input type="hidden" name="sub_unit_id[]" value="${sub_unit_id}">
+            </tr>
+        `;
+        $('#chargeTable').append(newRow);
+
+        // Reset first row
+        firstRow.find('.item_id').val('').trigger('change');
+        firstRow.find('.unit_qty').val('0');
+        firstRow.find('.unit').val('');
+        firstRow.find('.sub_unit_qty').val('0');
+        firstRow.find('.sub_unit').val('');
+        firstRow.find('.expense_type').val('').trigger('change');
+    }
+
+    function removeRow(button) {
+        let row = button.closest('tr');
+        row.remove();
+    }
+
+    @php if( (!empty($type) && $type == 'default') || empty($type) ): @endphp
+    $(document).ready(function () {
+        $('#yourFormId').submit(function (e) {
+            e.preventDefault();
+            if ($('#chargeTable').find('tr').length <= 1) {
+                alert('Please add at least one item.');
+                return false;
+            }
+            this.submit();
+        });
+    });
+    @php endif @endphp
+
+    function removeRow(button) {
+        const row = button.closest('tr');
+        row.remove();
+    }
+</script>
+
+
+@endpush
+
