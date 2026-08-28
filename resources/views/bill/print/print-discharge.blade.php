@@ -17,6 +17,19 @@
             font-weight: normal;
         }
 
+        .pmjay-repeat-header td {
+            border: 0 !important;
+            outline: 0 !important;
+        }
+
+        .annexure-table tbody td {
+            border: 1px solid #000;
+        }
+
+        .annexure-table .annexure-title {
+            border: 0 !important;
+        }
+
         @media print {
 
             /* hide buttons on print */
@@ -89,6 +102,26 @@
             .annexure-title {
                 text-align: center !important;
             }
+
+            .pmjay-repeat-header {
+                display: table-header-group;
+            }
+
+            .pmjay-repeat-header,
+            .pmjay-repeat-header tr,
+            .pmjay-repeat-header td {
+                border: 0 !important;
+                outline: 0 !important;
+                box-shadow: none !important;
+            }
+
+            .pmjay-repeat-header td {
+                padding: 25px 0 12px 0 !important;
+            }
+
+            .pmjay-blank-header {
+                height: 200px;
+            }
         }
     </style>
 </head>
@@ -108,19 +141,20 @@
             : @$ipd_details->package_type;
     @endphp
     @if ($showPmjayDischarge)
-        @if (@$header_image->logo)
-            <table style="width:100%; margin-bottom:12px;">
+        <table class="annexure-table" style="width:100%; table-layout:fixed; border-collapse:collapse; font-size:14px; text-align:left;" cellspacing="0" cellpadding="6">
+            <thead class="pmjay-repeat-header">
                 <tr>
-                    <td>
-                        <img src="{{ asset('public/assets/images/header') }}/{{ $header_image->logo }}"
-                            alt="logo" style="width: 100%;">
+                    <td colspan="2" style="border:0 !important;">
+                        @if (@$header_image->logo)
+                            <img src="{{ asset('public/assets/images/header') }}/{{ $header_image->logo }}"
+                                alt="logo" style="width: 100%;">
+                        @else
+                            <div class="pmjay-blank-header"></div>
+                        @endif
                     </td>
                 </tr>
-            </table>
-        @else
-            <div style="height:200px;"></div>
-        @endif
-        <table class="annexure-table" style="width:100%; table-layout:fixed; border-collapse:collapse; font-size:14px; text-align:left;" border="1" cellspacing="0" cellpadding="6">
+            </thead>
+            <tbody>
             <tr>
                 <td colspan="2" class="annexure-title" style="border:0; text-align:center; padding:0 0 12px;">
                     <div style="width:100%; text-align:center;"> <strong style="font-size:20px;">Discharge Summary</strong></div>
@@ -163,6 +197,7 @@
             <tr><td colspan="2" style="height:55px;">Name &amp; Signature of treating Consultant / Authorized Team Doctor*:</td></tr>
             <tr><td colspan="2" style="height:55px;">Name &amp; Signature of treating PMAM*:</td></tr>
             <tr><td colspan="2" style="height:55px;">Name &amp; Signature/thumb impression of Patient / Attendant*</td></tr>
+            </tbody>
         </table>
     @else
     <table style="width:100%;">

@@ -72,6 +72,11 @@
                     },
                 },
                 {
+                    data: 'status',
+                    name: 'status',
+                    title: 'Status',
+                },
+                {
                     data: 'action',
                     name: 'action',
                     title: 'Action',

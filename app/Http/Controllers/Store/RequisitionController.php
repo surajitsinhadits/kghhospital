@@ -19,6 +19,27 @@ use App\Models\StStore;
 
 class RequisitionController extends Controller
 {
+    private function requisitionStatusBadge($row)
+    {
+        $status = '';
+        if($row->is_given == 1 && $row->created_by){
+            $status = '<span class="badge badge-warning">Pending</span>';
+        }elseif($row->is_given == 0 && $row->approved_by){
+            $status = '<span class="badge badge-info">Approved</span>';
+        }elseif($row->is_given == 2 && $row->verified_by){
+            $status = '<span class="badge badge-primary">Verified</span>';
+        }elseif($row->is_given == 3 && $row->edit_by){
+            $status = '<span class="badge badge-danger">Rejected</span>';
+        }elseif($row->is_given == 4){
+            $status = '<span class="badge badge-success">Issued</span>';
+        }elseif($row->is_given == 5){
+            $status = '<span class="badge badge-light">Issue Received</span>';
+        }elseif($row->is_given == 6){
+            $status = '<span class="badge badge-light">Expense Received</span>';
+        }
+        return $status;
+    }
+
     public function listing_requisition(Request $request, $id = 0, $type = '')
     {
         if( !empty($id) && $type == 'issue' ){
@@ -58,23 +79,7 @@ class RequisitionController extends Controller
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->addColumn('status', function($row){
-                    $status = '';
-                    if($row->is_given == 1 && $row->created_by){
-                        $status = '<span class="badge badge-warning">Pending</span>';
-                    }elseif($row->is_given == 0 && $row->approved_by){
-                        $status = '<span class="badge badge-info">Approved</span>';
-                    }elseif($row->is_given == 2 && $row->verified_by){
-                        $status = '<span class="badge badge-primary">Verified</span>';
-                    }elseif($row->is_given == 3 && $row->edit_by){
-                        $status = '<span class="badge badge-danger">Rejected</span>';
-                    }elseif($row->is_given == 4){
-                        $status = '<span class="badge badge-success">Issued</span>';
-                    }elseif($row->is_given == 5){
-                        $status = '<span class="badge badge-light">Issue Received</span>';
-                    }elseif($row->is_given == 6){
-                        $status = '<span class="badge badge-light">Expense Received</span>';
-                    }
-                    return $status;
+                    return $this->requisitionStatusBadge($row);
                 })
                 ->addColumn('action', function($row){
                     $actionBtn = '<a href="' . route('store.requisition-details', [ed($row->id, true), 'default']) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
@@ -115,10 +120,14 @@ class RequisitionController extends Controller
             ->join('st_departments  as d', 'd.id', '=', 'st_requisitions.department_id')
             ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
             ->where('st_requisitions.is_delete', 0)
+            ->whereIn('st_requisitions.is_given', [1, 2])
             ->orderBy('st_requisitions.id', 'DESC');
 
             return Datatables::of($data)
                 ->addIndexColumn()
+                ->addColumn('status', function($row){
+                    return $this->requisitionStatusBadge($row);
+                })
                 ->addColumn('action', function($row){
                     $actionBtn = '<a href="' . route('store.requisition-details', [ed($row->id, true), 'verify']) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
                     if( $row->is_given == 1 ){
@@ -130,7 +139,7 @@ class RequisitionController extends Controller
                     }
                     return $actionBtn;
                 })
-                ->rawColumns(['action'])
+                ->rawColumns(['action', 'status'])
                 ->make(true);
             }
        return view('store.requisition-verify-list');
@@ -152,6 +161,9 @@ class RequisitionController extends Controller
 
             return Datatables::of($data)
                 ->addIndexColumn()
+                ->addColumn('status', function($row){
+                    return $this->requisitionStatusBadge($row);
+                })
                 ->addColumn('action', function($row){
 
                     $actionBtn = '<a href="' . route('store.requisition-details', [ed($row->id, true), 'approve']) . '" class="btn btn-sm btn-outline-info mx-1" title="View"><i class="bx bxs-info-circle"></i></a>';
@@ -164,7 +176,7 @@ class RequisitionController extends Controller
                     }
                     return $actionBtn;
                 })
-                ->rawColumns(['action'])
+                ->rawColumns(['action', 'status'])
                 ->make(true);
             }
        return view('store.requisition-approved-list');
@@ -350,10 +362,14 @@ class RequisitionController extends Controller
         $data = StRequisition::select(
                 'st_requisitions.*',
                 'd.department_name as department',
-                'u.name as generated_by'
+                'u.name as generated_by',
+                'u2.name as verified_by_name',
+                'u3.name as approved_by_name'
             )
             ->join('st_departments as d', 'd.id', '=', 'st_requisitions.department_id')
             ->leftJoin('users as u', 'u.id', '=', 'st_requisitions.created_by')
+            ->leftJoin('users as u2', 'u2.id', '=', 'st_requisitions.verified_by')
+            ->leftJoin('users as u3', 'u3.id', '=', 'st_requisitions.approved_by')
             ->where('st_requisitions.id', $id)
             ->first();
         $item_list = StRequisitionItem::select(
