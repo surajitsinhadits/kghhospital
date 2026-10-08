@@ -12,6 +12,7 @@ class LogApiCalls
 {
     /**
      * Handle an incoming request.
+     * nice comment
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
